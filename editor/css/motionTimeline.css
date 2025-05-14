@@ -1,0 +1,951 @@
+.motion-timeline {
+  background: #232323;
+  color: #ccc;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 300px;
+}
+
+.timeline-header {
+  height: 25px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #1a1a1a;
+  position: relative;
+}
+
+.timeline-main-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.timeline-sidebar {
+  width: 200px;
+  background: #2b2b2b;
+  border-right: 1px solid #1a1a1a;
+}
+
+.timeline-area {
+  flex: 1;
+  position: relative;
+  overflow-x: auto;
+  background: #1a1a1a;
+}
+
+.track-controls {
+  height: 30px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #1a1a1a;
+  background: #000;
+}
+
+.keyframe-area {
+  position: relative;
+  height: 100%;
+}
+
+.keyframe-marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #ffd700;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  cursor: pointer;
+  top: calc(50% - 5px);
+}
+
+.keyframe-marker:hover {
+  background: #fff;
+  transform: rotate(45deg) scale(1.2);
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: #f00;
+  pointer-events: none;
+}
+
+.playback-controls {
+  height: 40px;
+  background: #2b2b2b;
+  border-top: 1px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.playback-controls button {
+  background: #3a3a3a;
+  border: none;
+  color: #ccc;
+  margin: 0 5px;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.playback-controls button:hover {
+  background: #4a4a4a;
+}
+
+.time-display {
+  margin-left: auto;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+/* editor/css/timeline.css */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  background: #232323;
+  color: #ccc;
+  /* height: 200px; */
+  width: 100%;
+}
+
+.timeline-header {
+  height: 25px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.timeline-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.timeline-sidebar {
+  width: 200px;
+  background: #2b2b2b;
+  border-right: 1px solid #1a1a1a;
+}
+
+.timeline-tracks {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.timeline-track {
+}
+
+.track-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px;
+  background: #3a3a3a;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.track-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.toggle-properties {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+.properties-container {
+  padding-left: 20px;
+  background: #2a2a2a;
+}
+
+.property-track {
+  display: flex;
+  background: #333;
+  cursor: pointer;
+}
+
+.property-header {
+  width: 100px;
+  padding: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+  font-size: 12px;
+  background: #444;
+}
+
+.property-keyframes {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  background: #2a2a2a;
+  cursor: pointer;
+}
+
+.property-menu {
+  background: #444;
+  border: 1px solid #1a1a1a;
+  border-radius: 3px;
+  padding: 5px 0;
+}
+
+.menu-item {
+  padding: 3px 10px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: #555;
+}
+
+.track-keyframes {
+  flex: 1;
+  position: relative;
+  background: #1a1a1a;
+}
+
+/* editor/css/timeline.css */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  background: #232323;
+  color: #ccc;
+  /* height: 200px; */
+}
+
+.timeline-header {
+  height: 25px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.timeline-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.timeline-sidebar {
+  width: 200px;
+  background: #2b2b2b;
+  border-right: 1px solid #1a1a1a;
+}
+
+.timeline-tracks {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.timeline-track {
+}
+
+.track-header {
+  width: 200px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2b2b2b;
+}
+
+.track-keyframes {
+  flex: 1;
+  position: relative;
+  background: #1a1a1a;
+}
+
+.track-controls-wrapper {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: #2b2b2b;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.fbx-select,
+.track-type-select {
+  padding: 5px;
+  background: #3a3a3a;
+  border: 1px solid #4a4a4a;
+  color: #fff;
+  border-radius: 3px;
+}
+
+.add-track-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 5px 15px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.add-track-btn:hover {
+  background: #45a049;
+}
+
+.timeline-container {
+  background: #2b2b2b;
+  border: 1px solid #1a1a1a;
+  /* height: 200px; */
+  /* overflow-y: auto; */
+}
+
+.timeline-track {
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.motion-tracks,
+.property-track {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  box-sizing: border-box;
+}
+.motion-tracks {
+  /* padding-bottom: 15px; */
+}
+.track-header {
+  background: #3a3a3a;
+  padding: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-right: 1px solid #1a1a1a;
+  box-sizing: border-box;
+}
+
+.track-keyframes {
+  flex: 1;
+  position: relative;
+  background: #2b2b2b;
+}
+
+.frame-marker {
+  /* position: absolute; */
+  width: 10px;
+  height: 100%;
+  background: #4a4a4a;
+}
+
+.track-controls button {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.track-name {
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.property-selector {
+  margin-left: 10px;
+}
+
+.add-property-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.property-menu {
+  position: absolute;
+  background: #3a3a3a;
+  border: 1px solid #1a1a1a;
+  border-radius: 3px;
+  z-index: 100;
+}
+
+.property-item {
+  padding: 5px 10px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.property-item:hover {
+  background: #4a4a4a;
+}
+
+.property-track {
+  /* height: 24px; */
+  background: #333;
+}
+
+.property-header {
+  width: 100px;
+  min-width: 100px;
+  padding: 4px 8px;
+  background: #444;
+  color: #fff;
+  font-size: 12px;
+}
+
+.property-keyframes-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #2a2a2a;
+  cursor: pointer;
+}
+
+.property-keyframes {
+  position: relative;
+  height: 24px;
+  /* margin-left: 10px; */
+  /* width: 1800px; */
+  /* 180 frames * 10px */
+}
+
+.frame-markers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+}
+
+.frame-marker {
+  width: 10px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.frame-marker:nth-child(30n) {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.keyframe-layer {
+  /* position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none; */
+
+  position: absolute;
+  width: 100%;
+  height: 5px;
+  bottom: -10px !important;
+  left: 0px;
+  pointer-events: auto;
+  background: transparent;
+  z-index: 1;
+  height: 3px !important;
+  top: auto !important;
+}
+
+/* 스크롤바 스타일링 */
+.property-keyframes-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.property-keyframes-scroll::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.property-keyframes-scroll::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.property-keyframes-scroll::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+.property-edit-panel {
+  /* position: absolute;
+  right: 10px;
+  top: 10px; */
+  background: #2b2b2b;
+  /* border: 1px solid #1a1a1a; */
+  padding: 10px;
+  border-radius: 0px;
+  /* min-width: 200px; */
+}
+
+.keyframe.selected {
+  background: #ff4081;
+  box-shadow: 0 0 5px rgba(255, 64, 129, 0.5);
+}
+
+.property-edit-panel input {
+  width: 60px;
+  margin: 0 5px;
+  background: #000 !important;
+  border: 1px solid #1a1a1a;
+  color: #fff;
+  padding: 2px 5px;
+}
+
+.property-edit-panel .ui-text {
+  min-width: 70px;
+  color: #fff;
+}
+
+.property-edit-panel .ui-row {
+  margin: 5px 0;
+  display: flex;
+  align-items: center;
+}
+
+.animation-sprite {
+  position: absolute;
+  height: 28px;
+  background: #4caf50;
+  /* border-radius: 3px; */
+  cursor: move;
+  user-select: none;
+  top: 3px;
+  overflow: visible;
+  /* top: 50%;
+  transform: translateY(-50%); */
+}
+
+.animation-sprite.selected {
+  box-shadow: 0 0 0 3px #ff9800;
+}
+
+.sprite-handle {
+  position: absolute;
+  width: 3px;
+  height: 100%;
+  background: rgb(41 255 83);
+  cursor: ew-resize;
+}
+
+.sprite-handle.left {
+  left: 0;
+}
+
+.sprite-handle.right {
+  right: 0;
+  top: 0;
+}
+
+.sprite-content {
+  padding: 0 8px;
+  line-height: 30px;
+  color: white;
+  font-size: 12px;
+}
+
+.property-tracks {
+}
+
+.property-track {
+  /* height: 24px; */
+}
+
+.property-header {
+  background: #444;
+  color: white;
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.keyframe-area {
+  flex: 1;
+  background: #2a2a2a;
+  position: relative;
+}
+
+/* .keyframe {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: transparent;
+  border: solid 1px #dcdcdc;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  cursor: pointer;
+} */
+.keyframe {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: #fff;
+  /* border-radius: 50%; */
+  cursor: pointer;
+  transform: translate(-50%, -50%) rotate(45deg);
+  top: 50%;
+}
+.keyframe.selected {
+  background: #ff9800;
+  box-shadow: 0 0 5px rgba(230, 115, 8, 0.479);
+  border-color: #ff9800;
+}
+
+.track-content {
+  position: relative;
+  padding-bottom: 15px;
+  height: auto;
+  box-sizing: content-box;
+  display: block;
+  height: 35px;
+}
+
+/* --- edit_5: 타임라인 상단 눈금 스타일 --- */
+.time-ruler {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.time-tick {
+  position: absolute;
+  top: 0;
+  width: 0;
+}
+
+.time-tick.major {
+  height: 100%;
+  border-left: 1px solid #888;
+}
+
+.time-tick.minor {
+  height: 50%;
+  border-left: 1px solid #666;
+}
+
+.time-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #ccc;
+  white-space: nowrap;
+}
+
+/* --- edit_a: 타임라인 상단 눈금 & 플레이헤드 스타일 --- */
+.time-ruler-container {
+  position: relative;
+  height: 20px;
+  background: #333;
+  user-select: none;
+}
+
+.time-ruler-container .time-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  background: #555;
+}
+
+.time-ruler-container .time-tick.major {
+  height: 50%;
+  background: #888;
+}
+
+.time-ruler-container .time-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #ccc;
+  white-space: nowrap;
+}
+
+/* --- end edit_a --- */
+
+/* --- edit_A: 전체 레이아웃 --- */
+.main-timeline-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 상단 헤더(컨트롤+눈금) 고정 */
+.timeline-header {
+  position: sticky;
+  top: 0;
+  background: #232323;
+  z-index: 10;
+}
+
+/* 좌측 컨트롤 버튼 영역 */
+.controls-container {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-right: 1px solid #1a1a1a;
+}
+
+/* 눈금 영역 */
+.time-ruler-container {
+  flex: 1;
+  position: relative;
+  height: 20px;
+  /* overflow: hidden; */
+}
+
+/* 메인 바디: 트랙 사이드바 + 타임라인 뷰 */
+.timeline-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 좌측 트랙 이름 리스트 */
+.track-sidebar {
+  flex: 0 0 200px;
+  background: #2b2b2b;
+  overflow-y: auto;
+  border-right: 1px solid #1a1a1a;
+}
+
+.track-label {
+  height: 30px;
+  line-height: 30px;
+  padding: 0 10px;
+  border-bottom: 1px solid #1a1a1a;
+  white-space: nowrap;
+}
+
+/* 우측 타임라인 뷰포트(스크롤 가능) */
+.timeline-viewport {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+}
+
+.track-wrapper {
+  height: 30px;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+/* 눈금 표시 */
+.time-ruler-container .time-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  background: #888;
+}
+
+.time-ruler-container .time-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #ccc;
+  white-space: nowrap;
+}
+
+/* 플레이헤드 */
+.time-ruler-container .playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #f00;
+  cursor: ew-resize;
+  pointer-events: auto;
+  z-index: 1000;
+  /* transform: translateX(-1px); */
+}
+
+/* 타임라인 전체에서 보이는 플레이헤드 */
+.timeline-viewport .playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #f00;
+  pointer-events: none;
+  z-index: 1000;
+  /* transform: translateX(-4px); */
+}
+
+.time-ruler-container .playhead::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  background: #f00;
+  border-radius: 5px 5px 2px 2px;
+}
+
+/* 타임라인 뷰포트 */
+.timeline-viewport {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+}
+
+/* 타임라인 그룹 */
+.timeline-group {
+  display: none;
+  flex: 1;
+  position: relative;
+}
+
+.timeline-group.active {
+  display: flex;
+  min-height: 100%;
+}
+
+/* 그룹별 보여주기/숨기기 */
+.timeline-group {
+  display: none;
+  /* 기본 숨김 */
+  flex: 1;
+}
+
+.timeline-group.active {
+  display: flex;
+  /* active인 그룹만 flex 레이아웃 */
+  min-height: 100%;
+}
+
+/* body 전체 레이아웃 */
+.main-timeline-container .timeline-body {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  /* min-height: 500px; */
+}
+
+/* 뷰포트 */
+.timeline-viewport {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.track-wrapper {
+  height: 30px;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+/* … 기존 헤더/눈금/플레이헤드 스타일 그대로 … */
+
+/* 1) 전체 레이아웃 */
+.main-timeline-container .timeline-view {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  /* 왼쪽 레이블 200px, 오른쪽 트랙 전체 */
+  overflow: hidden;
+  position: relative;
+  height: calc(100% - /* 헤더 높이 */ 30px);
+}
+
+/* 2) 레이블 컬럼 */
+.labels-column {
+  background: #2b2b2b;
+  overflow-y: auto;
+  border-right: 1px solid #1a1a1a;
+}
+
+.labels-column .group-label,
+.labels-column .track-header,
+.labels-column .property-header {
+  padding: 4px 8px;
+  border-bottom: 1px solid #1a1a1a;
+  color: #ccc;
+  background: #3a3a3a;
+}
+
+/* group-label 은 좀 더 두꺼운 배경 */
+.labels-column .group-label {
+  font-weight: bold;
+  background: #444;
+}
+
+/* property-header 는 indent */
+.labels-column .property-header {
+  padding-left: 20px;
+  background: #2a2a2a;
+}
+
+/* 3) 트랙 컬럼 */
+.tracks-column {
+  overflow: auto;
+  position: relative;
+}
+
+.tracks-column .track-keyframes,
+.tracks-column .property-keyframes-scroll {
+  position: relative;
+  height: 30px;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+/* 속성 키프레임 높이 줄이기 (optional) */
+.tracks-column .property-keyframes-scroll {
+  height: 24px;
+}
+
+/* 4) 헤더 상단 고정 */
+.main-timeline-container .timeline-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  box-sizing: border-box;
+}
+
+.track-toggle {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 4px;
+}
+
+.property-header {
+  padding-left: 20px;
+  /* indent */
+}
+
+.tab-button.active {
+  background-color: #3a3a3a;
+}
+
+.track-header .track-controls {
+  height: auto;
+  padding: 0;
+}
+
+.add-keyframe-btn {
+  padding: 3px 5px !important;
+}
+
+/* #keyframe-property-panel {
+  padding: 5px;
+  color: #fff;
+} */
