@@ -74,7 +74,7 @@ function VideoEdit(editor) {
       if (timeline.timelines.motion) {
         // 이미 존재하는 트랙인지 확인
         const existingTrack = timeline.timelines.motion.tracks.get(
-          selectedObject.id
+          selectedObject.id,
         );
         if (existingTrack) {
           alert("This object already has a timeline");
