@@ -446,7 +446,10 @@
     // ServiceWorker
     if ("serviceWorker" in navigator) {
       try {
-        navigator.serviceWorker.register("/stageBuilder_v2/sw.js");
+        // 로컬 개발 환경과 프로덕션 환경 구분
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const swPath = isLocalhost ? '/sw.js' : '/stageBuilder_v2/sw.js';
+        navigator.serviceWorker.register(swPath);
       } catch (error) {
         console.error("Service Worker 등록 실패:", error);
       }

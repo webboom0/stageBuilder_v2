@@ -1340,6 +1340,48 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   createBackground() {
+    // 비디오 요소 생성
+    const video = document.createElement("video");
+    video.src = "/files/video2.mp4";
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.crossOrigin = "anonymous";
+    video.preload = "auto";
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.setAttribute("x5-playsinline", "");
+    video.setAttribute("x5-video-player-type", "h5");
+    video.setAttribute("x5-video-player-fullscreen", "true");
+
+    // 비디오 로드 에러 처리
+    video.onerror = (e) => {
+      console.error("비디오 로드 에러:", e);
+    };
+
+    // 비디오 텍스처 생성
+    const videoTexture = new THREE.VideoTexture(video);
+    videoTexture.minFilter = THREE.LinearFilter;
+    videoTexture.magFilter = THREE.LinearFilter;
+    videoTexture.format = THREE.RGBFormat;
+
+    // 배경 평면 생성
+    const geometry = new THREE.PlaneGeometry(200, 112.5);
+    const material = new THREE.MeshBasicMaterial({
+      map: videoTexture,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 1,
+    });
+    const background = new THREE.Mesh(geometry, material);
+    background.position.set(0, 0, -50);
+    background.name = "_VideoBackground";
+    background.userData.isBackground = true;
+    background.userData.notSelectable = true;
+    background.userData.notEditable = true;
+    background.userData.excludeFromTimeline = true;
+
     // Stage 그룹 생성 또는 찾기
     let stageGroup = this.editor.scene.children.find(
       (child) => child.name === "Stage",
@@ -1349,10 +1391,9 @@ export class MotionTimeline extends BaseTimeline {
       console.log("Stage 그룹 생성");
       stageGroup = new THREE.Group();
       stageGroup.name = "Stage";
-      this.editor.scene.add(stageGroup);
     }
 
-    // 기존 배경 제거
+    console.log("Stage 그룹 찾음");
     const existingBackground = stageGroup.children.find(
       (child) => child.name === "_VideoBackground",
     );
@@ -1360,56 +1401,24 @@ export class MotionTimeline extends BaseTimeline {
       console.log("기존 배경 제거");
       stageGroup.remove(existingBackground);
     }
+    console.log("새 배경 추가");
+    stageGroup.add(background);
 
-    // Stage 객체의 크기 계산
-    const stageSize = new THREE.Vector3(200, 112.5, 1); // 기본 Stage 크기
-    const stageGeometry = new THREE.PlaneGeometry(stageSize.x, stageSize.y);
+    // Stage 그룹이 씬에 없으면 추가
+    if (!this.editor.scene.children.includes(stageGroup)) {
+      this.editor.scene.add(stageGroup);
+    }
 
-    // Cloudinary 비디오 URL 설정
-    const cloudName = "djqiaktcg"; // 실제 Cloudinary cloud name으로 변경
-    const videoId = "omhwppxby9e7yw4tmydz"; // 업로드한 비디오의 public_id로 변경
-    const videoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${videoId}.mp4`;
-    // 비디오 요소 생성
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.loop = true;
-    video.muted = true;
-    video.autoplay = true;
-    video.playsInline = true;
-    video.setAttribute("playsinline", "");
-    video.setAttribute("webkit-playsinline", "");
-    video.setAttribute("x5-playsinline", "");
-    video.setAttribute("x5-video-player-type", "h5");
-    video.setAttribute("x5-video-player-fullscreen", "true");
+    // 씬 업데이트
+    if (this.editor.signals?.sceneGraphChanged) {
+      this.editor.signals.sceneGraphChanged.dispatch();
+    }
 
-    // Cloudinary 비디오 소스 설정
-    const source = document.createElement("source");
-    source.src = videoUrl;
-    source.type = "video/mp4";
-    video.appendChild(source);
-
-    // 비디오 텍스처 생성
-    const videoTexture = new THREE.VideoTexture(video);
-    videoTexture.minFilter = THREE.LinearFilter;
-    videoTexture.magFilter = THREE.LinearFilter;
-    videoTexture.format = THREE.RGBFormat;
-
-    // Stage 평면 생성
-    const stageMaterial = new THREE.MeshBasicMaterial({
-      map: videoTexture,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 1,
-    });
-    const stagePlane = new THREE.Mesh(stageGeometry, stageMaterial);
-    stagePlane.position.set(0, 0, -50);
-    stagePlane.name = "_VideoBackground";
-    stageGroup.add(stagePlane);
-
-    // 비디오 로드 및 재생 시도
+    // 비디오 로드 및 재생 시작
     const loadVideo = async () => {
       try {
         console.log("비디오 로드 시작");
+        // 비디오 로드
         await video.load();
         console.log("비디오 로드 완료");
 
@@ -1425,9 +1434,42 @@ export class MotionTimeline extends BaseTimeline {
           };
         });
 
+        // 사용자 상호작용 후 재생 시도
+        const playVideo = async () => {
+          try {
+            console.log("비디오 재생 시도");
+            video.muted = true; // 음소거 설정
+            video.playsInline = true; // 인라인 재생 설정
+            await video.play();
+            console.log("비디오 재생 성공");
+
+            // 비디오 재생 중 텍스처 업데이트
+            const updateTexture = () => {
+              if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                videoTexture.needsUpdate = true;
+                material.needsUpdate = true;
+                background.material.needsUpdate = true;
+              }
+              requestAnimationFrame(updateTexture);
+            };
+            updateTexture();
+          } catch (error) {
+            console.error("비디오 재생 실패:", error);
+          }
+        };
+
+        // Canvas에 이벤트 리스너 추가
+        const canvas = document.querySelector("canvas");
+        if (canvas) {
+          canvas.addEventListener("click", playVideo);
+          canvas.addEventListener("touchstart", playVideo);
+        }
+
         // 자동 재생 시도
         try {
           console.log("자동 재생 시도");
+          video.muted = true; // 음소거 설정
+          video.playsInline = true; // 인라인 재생 설정
           await video.play();
           console.log("자동 재생 성공");
 
@@ -1435,8 +1477,8 @@ export class MotionTimeline extends BaseTimeline {
           const updateTexture = () => {
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
               videoTexture.needsUpdate = true;
-              stageMaterial.needsUpdate = true;
-              stagePlane.material.needsUpdate = true;
+              material.needsUpdate = true;
+              background.material.needsUpdate = true;
             }
             requestAnimationFrame(updateTexture);
           };
@@ -1457,17 +1499,12 @@ export class MotionTimeline extends BaseTimeline {
           message.textContent = "Canvas를 클릭하여 비디오를 재생하세요";
           document.body.appendChild(message);
 
-          // 클릭 시 메시지 제거 및 재생 시도
-          const playVideo = async () => {
-            try {
-              await video.play();
-              message.remove();
-              document.removeEventListener("click", playVideo);
-            } catch (error) {
-              console.error("비디오 재생 실패:", error);
-            }
+          // 클릭 시 메시지 제거
+          const removeMessage = () => {
+            message.remove();
+            document.removeEventListener("click", removeMessage);
           };
-          document.addEventListener("click", playVideo);
+          document.addEventListener("click", removeMessage);
         }
       } catch (error) {
         console.error("비디오 로드 실패:", error);
@@ -1476,21 +1513,7 @@ export class MotionTimeline extends BaseTimeline {
 
     loadVideo();
 
-    // Stage 객체에 비디오 정보 저장
-    stageGroup.userData.video = {
-      type: "cloudinary",
-      videoId: videoId,
-      videoElement: video,
-      texture: videoTexture,
-      url: videoUrl,
-    };
-
-    // 씬 업데이트
-    if (this.editor.signals?.sceneGraphChanged) {
-      this.editor.signals.sceneGraphChanged.dispatch();
-    }
-
-    return stagePlane;
+    return background;
   }
 
   handleKeyDown(event) {
