@@ -1,0 +1,4 @@
+/*
+  Service-Worker-Allowed: /
+  Cache-Control: no-cache
+  Content-Type: application/javascript 
