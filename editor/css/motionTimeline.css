@@ -308,6 +308,7 @@
 }
 
 .motion-tracks,
+.audio-tracks,
 .property-track {
   display: grid;
   grid-template-columns: 200px 1fr;
@@ -697,7 +698,6 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  padding: 0 10px;
   border-right: 1px solid #1a1a1a;
 }
 
@@ -949,3 +949,8 @@
   padding: 5px;
   color: #fff;
 } */
+
+.keyframe.delete-preview {
+  opacity: 0.5;
+  background-color: #ff4444;
+}

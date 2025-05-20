@@ -30,7 +30,7 @@ function SidebarScene(editor) {
     option.value = object.id;
 
     // opener
-
+    /*
     if (nodeStates.has(object)) {
       const state = nodeStates.get(object);
 
@@ -48,7 +48,7 @@ function SidebarScene(editor) {
 
       option.insertBefore(opener, option.firstChild);
     }
-
+*/
     return option;
   }
 
@@ -88,7 +88,7 @@ function SidebarScene(editor) {
 
   function buildHTML(object) {
     let html = `<span class="type ${getObjectType(
-      object,
+      object
     )}"></span> ${escapeHTML(object.name)}`;
 
     if (object.isMesh) {
@@ -96,10 +96,10 @@ function SidebarScene(editor) {
       const material = object.material;
 
       html += ` <span class="type Geometry"></span> ${escapeHTML(
-        geometry.name,
+        geometry.name
       )}`;
       html += ` <span class="type Material"></span> ${escapeHTML(
-        getMaterialName(material),
+        getMaterialName(material)
       )}`;
     }
 
@@ -151,7 +151,7 @@ function SidebarScene(editor) {
   });
 
   backgroundRow.add(
-    new UIText(strings.getKey("sidebar/scene/background")).setClass("Label"),
+    new UIText(strings.getKey("sidebar/scene/background")).setClass("Label")
   );
   backgroundRow.add(backgroundType);
 
@@ -210,7 +210,7 @@ function SidebarScene(editor) {
       backgroundEquirectangularTexture.getValue(),
       backgroundBlurriness.getValue(),
       backgroundIntensity.getValue(),
-      backgroundRotation.getValue(),
+      backgroundRotation.getValue()
     );
   }
 
@@ -221,7 +221,7 @@ function SidebarScene(editor) {
     backgroundColor.setDisplay(type === "Color" ? "" : "none");
     backgroundTexture.setDisplay(type === "Texture" ? "" : "none");
     backgroundEquirectangularTexture.setDisplay(
-      type === "Equirectangular" ? "" : "none",
+      type === "Equirectangular" ? "" : "none"
     );
     backgroundEquirectRow.setDisplay(type === "Equirectangular" ? "" : "none");
   }
@@ -245,7 +245,7 @@ function SidebarScene(editor) {
   });
 
   environmentRow.add(
-    new UIText(strings.getKey("sidebar/scene/environment")).setClass("Label"),
+    new UIText(strings.getKey("sidebar/scene/environment")).setClass("Label")
   );
   environmentRow.add(environmentType);
 
@@ -260,7 +260,7 @@ function SidebarScene(editor) {
   function onEnvironmentChanged() {
     signals.sceneEnvironmentChanged.dispatch(
       environmentType.getValue(),
-      environmentEquirectangularTexture.getValue(),
+      environmentEquirectangularTexture.getValue()
     );
   }
 
@@ -269,7 +269,7 @@ function SidebarScene(editor) {
 
     environmentType.setWidth(type !== "Equirectangular" ? "150px" : "110px");
     environmentEquirectangularTexture.setDisplay(
-      type === "Equirectangular" ? "" : "none",
+      type === "Equirectangular" ? "" : "none"
     );
   }
 
@@ -281,7 +281,7 @@ function SidebarScene(editor) {
       fogColor.getHexValue(),
       fogNear.getValue(),
       fogFar.getValue(),
-      fogDensity.getValue(),
+      fogDensity.getValue()
     );
   }
 
@@ -291,7 +291,7 @@ function SidebarScene(editor) {
       fogColor.getHexValue(),
       fogNear.getValue(),
       fogFar.getValue(),
-      fogDensity.getValue(),
+      fogDensity.getValue()
     );
   }
 
@@ -309,7 +309,7 @@ function SidebarScene(editor) {
   });
 
   fogTypeRow.add(
-    new UIText(strings.getKey("sidebar/scene/fog")).setClass("Label"),
+    new UIText(strings.getKey("sidebar/scene/fog")).setClass("Label")
   );
   fogTypeRow.add(fogType);
 

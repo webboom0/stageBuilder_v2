@@ -5,6 +5,7 @@ import { MotionTimeline } from "./MotionTimeline.js";
 import { LightTimeline } from "./LightTimeline.js";
 import { AudioTimeline } from "./AudioTimeline.js";
 import { VideoTimeline } from "./VideoTimeline.js";
+import * as TWEEN from "../../../examples/jsm/libs/tween.module.js";
 
 class Timeline {
   constructor(editor) {
@@ -33,15 +34,14 @@ class Timeline {
     this.createTimeRuler();
     this.createPlayhead();
 
-    // 각 타임라인 인스턴스 생성
-    this.timelines = {
-      motion: new MotionTimeline(editor, this.timelineSettings),
-      light: new LightTimeline(editor, this.timelineSettings),
-      audio: new AudioTimeline(editor, this.timelineSettings),
-    };
-
-    // 비디오 타임라인 인스턴스 생성
-    // new VideoTimeline(editor, this.timelineSettings).createBackground();
+    // 각 타임라인 인스턴스 생성 (한 번만)
+    if (!this.timelines) {
+      this.timelines = {
+        motion: new MotionTimeline(editor, this.timelineSettings),
+        light: new LightTimeline(editor, this.timelineSettings),
+        audio: new AudioTimeline(editor, this.timelineSettings),
+      };
+    }
 
     this.activeTimeline = "motion";
     this.initializeUI();
@@ -55,8 +55,8 @@ class Timeline {
     c.innerHTML = `
       <div class="timeline-header">
         <div class="controls-container">
-          <button class="play-button">▶</button>
-          <button class="stop-button">■</button></div>
+          <button class="play-button"><i class="fa fa-play"></i></button>
+          <button class="stop-button"><i class="fa fa-stop"></i></button></div>
         <div class="time-ruler-container"></div>
       </div>
       <div class="tab-buttons">
@@ -84,16 +84,26 @@ class Timeline {
 
   initializeUI() {
     const viewport = this.container.querySelector(".timeline-viewport");
-    // 이미 그룹이 있으면 추가하지 않음
-    if (viewport.querySelector('.timeline-group[data-timeline="motion"]'))
+
+    // 이미 타임라인 그룹이 있는지 확인
+    const existingGroups = viewport.querySelectorAll(".timeline-group");
+    if (existingGroups.length > 0) {
+      console.log("타임라인 그룹이 이미 존재합니다.");
       return;
+    }
 
     Object.entries(this.timelines).forEach(([key, timeline]) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "timeline-group";
-      wrapper.dataset.timeline = key;
-      wrapper.appendChild(timeline.container);
-      viewport.appendChild(wrapper);
+      // 각 타임라인 타입별로 그룹이 이미 있는지 확인
+      const existingGroup = viewport.querySelector(
+        `.timeline-group[data-timeline="${key}"]`
+      );
+      if (!existingGroup) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "timeline-group";
+        wrapper.dataset.timeline = key;
+        wrapper.appendChild(timeline.container);
+        viewport.appendChild(wrapper);
+      }
     });
 
     // 장면이 있으면 키프레임 로드
@@ -108,7 +118,11 @@ class Timeline {
   // 타임라인 추가 버튼
   createAddTimelineButton = () => {
     const timeline = this;
-    const addTimelineBtn = new UIButton("+");
+    const addTimelineBtn = new UIButton();
+    addTimelineBtn.dom.innerHTML = `
+    <i class="fas fa-plus"></i>
+    <span></span>
+  `;
     addTimelineBtn.setClass("add-timeline-btn");
 
     addTimelineBtn.onClick(() => {
@@ -119,21 +133,42 @@ class Timeline {
         return;
       }
 
+      console.log("트랙 추가 시작 - 선택된 객체:", {
+        name: selectedObject.name,
+        uuid: selectedObject.uuid,
+        id: selectedObject.id,
+        type: selectedObject.type,
+      });
+
       // 선택된 FBX 객체의 모션 타임라인 추가
       if (timeline.timelines.motion) {
         // 이미 존재하는 트랙인지 확인
         const existingTrack = timeline.timelines.motion.tracks.get(
-          selectedObject.id,
+          selectedObject.uuid
         );
+
         if (existingTrack) {
           alert("This object already has a timeline");
           return;
         }
 
+        const objectUuid = selectedObject.uuid;
         // 새로운 모션 트랙 추가
-        timeline.timelines.motion.addTrack(selectedObject.id, {
-          name: selectedObject.name || `Motion Timeline ${selectedObject.id}`,
-          object: selectedObject,
+        const track = timeline.timelines.motion.addTrack(
+          objectUuid,
+          selectedObject.id,
+          {
+            name: selectedObject.name || `Motion Timeline ${selectedObject.id}`,
+            object: selectedObject,
+            uuid: objectUuid, // UUID 명시적 전달
+          }
+        );
+
+        console.log("생성된 트랙:", {
+          track: track,
+          uuid: track.uuid,
+          element: track.element,
+          dataset: track.element?.dataset,
         });
 
         // 씬의 타임라인 데이터 업데이트
@@ -142,6 +177,7 @@ class Timeline {
             totalSeconds: timeline.timelineSettings.totalSeconds,
             framesPerSecond: timeline.timelineSettings.framesPerSecond,
             currentFrame: 0,
+            currentSeconds: 0,
             isPlaying: false,
           };
         }
@@ -150,8 +186,8 @@ class Timeline {
         if (!editor.scene.userData.keyframes) {
           editor.scene.userData.keyframes = {};
         }
-        if (!editor.scene.userData.keyframes[selectedObject.id]) {
-          editor.scene.userData.keyframes[selectedObject.id] = [];
+        if (!editor.scene.userData.keyframes[objectUuid]) {
+          editor.scene.userData.keyframes[objectUuid] = [];
         }
 
         // 트랙 추가 후 UI 갱신
@@ -206,8 +242,31 @@ class Timeline {
 
     if (playButton) {
       playButton.addEventListener("click", () => {
-        const isPlaying = this.editor.scene.userData.timeline.isPlaying;
+        // scene이 없거나 timeline이 초기화되지 않은 경우 처리
+        if (!this.editor.scene) {
+          this.editor.scene = {
+            userData: {
+              timeline: {
+                isPlaying: false,
+                currentFrame: 0,
+              },
+            },
+          };
+        } else if (!this.editor.scene.userData) {
+          this.editor.scene.userData = {
+            timeline: {
+              isPlaying: false,
+              currentFrame: 0,
+            },
+          };
+        } else if (!this.editor.scene.userData.timeline) {
+          this.editor.scene.userData.timeline = {
+            isPlaying: false,
+            currentFrame: 0,
+          };
+        }
 
+        const isPlaying = this.editor.scene.userData.timeline.isPlaying;
         if (!isPlaying) {
           this.play();
         } else {
@@ -243,6 +302,7 @@ class Timeline {
 
       document.addEventListener("mousemove", (e) => {
         if (!dragging) return;
+        console.log("드래그 중");
         const rect = ruler.getBoundingClientRect();
         let x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
         const percent = x / rect.width;
@@ -250,10 +310,88 @@ class Timeline {
           this.timelineSettings.totalSeconds *
           this.timelineSettings.framesPerSecond;
         const frame = Math.round(percent * totalFrames);
+        const currentTime = frame / this.timelineSettings.framesPerSecond;
+
+        // 모든 모션 트랙 업데이트
+        if (this.timelines.motion) {
+          const motionTracks = Array.from(
+            this.container.querySelectorAll(".motion-tracks")
+          );
+
+          motionTracks.forEach((trackElement) => {
+            const uuid = trackElement.dataset.uuid;
+            let character = null;
+
+            // UUID로 객체 찾기
+            this.editor.scene.traverse((object) => {
+              if (object.uuid === uuid) {
+                character = object;
+              }
+            });
+
+            if (!character) return;
+
+            // 모든 클립 확인
+            const clips = trackElement.querySelectorAll(".animation-sprite");
+            clips.forEach((clip) => {
+              const clipStartTime = parseFloat(clip.dataset.startTime || "0");
+              const clipDuration = parseFloat(clip.dataset.duration || "0");
+              const clipEndTime = clipStartTime + clipDuration;
+
+              // 현재 시간이 클립 범위 안에 있는지 확인
+              if (currentTime >= clipStartTime && currentTime <= clipEndTime) {
+                character.visible = true;
+
+                // 클립 내의 키프레임들 가져오기
+                const keyframes = Array.from(clip.querySelectorAll(".keyframe"))
+                  .map((kf) => ({
+                    time: parseFloat(kf.dataset.time),
+                    position: JSON.parse(
+                      kf.dataset.position || '{"x":0,"y":0,"z":0}'
+                    ),
+                  }))
+                  .sort((a, b) => a.time - b.time);
+
+                // 현재 시간에 해당하는 키프레임 찾기
+                let prevKeyframe = null;
+                let nextKeyframe = null;
+
+                for (let i = 0; i < keyframes.length; i++) {
+                  if (keyframes[i].time > currentTime) {
+                    prevKeyframe = i > 0 ? keyframes[i - 1] : null;
+                    nextKeyframe = keyframes[i];
+                    break;
+                  }
+                }
+
+                // 키프레임 사이 보간
+                if (prevKeyframe && nextKeyframe) {
+                  const progress =
+                    (currentTime - prevKeyframe.time) /
+                    (nextKeyframe.time - prevKeyframe.time);
+
+                  // 위치 보간
+                  character.position.set(
+                    prevKeyframe.position.x +
+                      (nextKeyframe.position.x - prevKeyframe.position.x) *
+                        progress,
+                    prevKeyframe.position.y +
+                      (nextKeyframe.position.y - prevKeyframe.position.y) *
+                        progress,
+                    prevKeyframe.position.z +
+                      (nextKeyframe.position.z - prevKeyframe.position.z) *
+                        progress
+                  );
+                }
+              } else {
+                character.visible = false;
+              }
+            });
+          });
+        }
 
         // 현재 프레임 업데이트
         this.setCurrentFrame(frame);
-
         // 플레이헤드 위치 업데이트
         this.updatePlayheadPosition(percent * 100);
       });
@@ -367,7 +505,7 @@ class Timeline {
 
     // 선택된 타임라인만 표시
     const activeGroup = this.container.querySelector(
-      `.timeline-group[data-timeline="${type}"]`,
+      `.timeline-group[data-timeline="${type}"]`
     );
     if (activeGroup) {
       activeGroup.classList.add("active");
@@ -379,56 +517,205 @@ class Timeline {
   play() {
     if (!this.editor.scene) return;
 
-    // 재생 상태 설정
+    console.log("=== 타임라인 재생 시작 ===");
+    console.log("현재 씬:", this.editor.scene);
+    console.log("타임라인 설정:", this.timelineSettings);
+
     this.isPlaying = true;
     this.editor.scene.userData.timeline.isPlaying = true;
 
-    // 현재 프레임 가져오기
     let currentFrame = this.editor.scene.userData.timeline.currentFrame || 0;
     const totalFrames =
       this.timelineSettings.totalSeconds *
       this.timelineSettings.framesPerSecond;
+    // 재생 속도 조절 (1보다 작게 하면 더 느리게 재생)
+    const playbackSpeed = 0.6; // 0.5배 속도로 재생
+    // 오디오 재생 처리
+    if (this.timelines.audio) {
+      const audioTracks = Array.from(this.timelines.audio.tracks.values());
+      audioTracks.forEach((track) => {
+        const objectId =
+          typeof track.objectId === "string"
+            ? parseInt(track.objectId)
+            : track.objectId;
+        const audioObject = this.editor.scene.getObjectById(objectId);
 
-    // 애니메이션 프레임 업데이트 함수
+        if (
+          audioObject &&
+          audioObject.userData &&
+          audioObject.userData.audioElement
+        ) {
+          const audio = audioObject.userData.audioElement;
+          audio.currentTime =
+            currentFrame / this.timelineSettings.framesPerSecond;
+          audio.volume = audioObject.userData.volume || 1.0;
+          audio.playbackRate = audioObject.userData.playbackRate || 1.0;
+          audio.muted = audioObject.userData.mute || false;
+
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log("오디오 재생 시작됨");
+              })
+              .catch((error) => {
+                console.error("오디오 재생 실패:", error);
+              });
+          }
+        }
+      });
+    }
+
+    // 모션 타임라인의 트랙들 처리
+    if (this.timelines.motion) {
+      // motion-track 요소들 직접 찾기
+      const motionTracks = Array.from(
+        this.container.querySelectorAll(".motion-tracks")
+      );
+
+      motionTracks.forEach((trackElement) => {
+        // 트랙 요소에서 UUID 가져오기
+        const uuid = trackElement.dataset.uuid;
+
+        console.log("트랙 정보:", {
+          element: trackElement,
+          uuid: uuid,
+        });
+
+        // UUID로 객체 찾기
+        let character = null;
+        this.editor.scene.traverse((object) => {
+          if (object.uuid === uuid) {
+            character = object;
+          }
+        });
+
+        console.log("애니메이션 대상 객체:", {
+          name: character?.name,
+          uuid: uuid,
+          id: character?.id,
+          currentPosition: character?.position?.toArray(),
+        });
+
+        if (!character) {
+          console.warn("UUID에 해당하는 캐릭터를 찾을 수 없음:", uuid);
+          return;
+        }
+
+        // 클립 요소 찾기 (직접 트랙 요소에서)
+        const sprite = trackElement.querySelector(".animation-sprite");
+        if (!sprite) return;
+
+        const clipStartTime = parseFloat(sprite.dataset.startTime || "0");
+        const clipDuration = parseFloat(sprite.dataset.duration || "0");
+        const clipEndTime = clipStartTime + clipDuration;
+
+        // 키프레임 요소들 직접 가져오기
+        const keyframes = Array.from(trackElement.querySelectorAll(".keyframe"))
+          .map((kf) => ({
+            time: parseFloat(kf.dataset.time),
+            position: JSON.parse(kf.dataset.position),
+          }))
+          .sort((a, b) => a.time - b.time);
+
+        console.log("전체 키프레임:", keyframes);
+
+        // 현재 시간 계산
+        const currentTime =
+          currentFrame / this.timelineSettings.framesPerSecond;
+        console.log("현재 시간:", currentTime, "초");
+
+        // 클립 시작/종료 시 가시성 처리
+        if (currentTime >= clipStartTime && currentTime <= clipEndTime) {
+          character.visible = true;
+
+          // 현재 시간에 해당하는 키프레임들 찾기
+          let prevKeyframe = null;
+          let nextKeyframe = null;
+
+          // 현재 시간 이후의 첫 번째 키프레임을 찾음
+          for (let i = 0; i < keyframes.length; i++) {
+            const keyframeTime = clipStartTime + keyframes[i].time;
+
+            if (keyframeTime > currentTime) {
+              prevKeyframe = i > 0 ? keyframes[i - 1] : null;
+              nextKeyframe = keyframes[i];
+              break;
+            }
+          }
+
+          if (prevKeyframe && nextKeyframe) {
+            // 두 키프레임 사이의 보간 계산
+            const progress =
+              (currentTime - (clipStartTime + prevKeyframe.time)) /
+              (nextKeyframe.time - prevKeyframe.time);
+
+            // 선형 보간으로 현재 위치 계산
+            const x =
+              parseFloat(prevKeyframe.position[0]) +
+              (parseFloat(nextKeyframe.position[0]) -
+                parseFloat(prevKeyframe.position[0])) *
+                progress;
+            const y =
+              parseFloat(prevKeyframe.position[1]) +
+              (parseFloat(nextKeyframe.position[1]) -
+                parseFloat(prevKeyframe.position[1])) *
+                progress;
+            const z =
+              parseFloat(prevKeyframe.position[2]) +
+              (parseFloat(nextKeyframe.position[2]) -
+                parseFloat(prevKeyframe.position[2])) *
+                progress;
+
+            // 캐릭터 위치 즉시 업데이트
+            character.position.set(x, y, z);
+
+            console.log("캐릭터 위치 업데이트:", {
+              progress: progress,
+              position: [x, y, z],
+            });
+          } else if (keyframes.length > 0) {
+            // 키프레임이 하나라도 있으면 가장 가까운 키프레임의 위치로 설정
+            const nearestKeyframe = keyframes[0];
+            character.position.set(
+              parseFloat(nearestKeyframe.position[0]),
+              parseFloat(nearestKeyframe.position[1]),
+              parseFloat(nearestKeyframe.position[2])
+            );
+          }
+        } else {
+          character.visible = false;
+          console.log("객체 숨김 처리됨 (클립 범위 밖)");
+        }
+      });
+    }
+
+    // 애니메이션 프레임 업데이트
     const animate = () => {
       if (!this.isPlaying) return;
 
-      // 다음 프레임으로 이동
-      currentFrame++;
+      // 프레임 증가량을 playbackSpeed로 조절
+      currentFrame += playbackSpeed;
 
-      // 마지막 프레임에 도달하면 처음으로 돌아감
       if (currentFrame >= totalFrames) {
         currentFrame = 0;
       }
 
-      // 프레임 업데이트
       this.setCurrentFrame(currentFrame);
-
-      // playhead 위치 업데이트
       const percent = (currentFrame / totalFrames) * 100;
-      if (this.updatePlayheadPosition) {
-        this.updatePlayheadPosition(percent);
-      }
+      this.updatePlayheadPosition(percent);
 
-      // 시간 표시 업데이트
-      this.updateTimeDisplay(currentFrame);
-
-      // 다음 프레임 예약
-      setTimeout(() => {
-        this.animationFrameId = requestAnimationFrame(animate);
-      }, 1000 / this.timelineSettings.framesPerSecond);
+      this.animationFrameId = requestAnimationFrame(animate);
     };
 
-    // 애니메이션 시작
     this.animationFrameId = requestAnimationFrame(animate);
 
-    // 재생 버튼 상태 변경
+    // UI 업데이트
     const playButton = this.container.querySelector(".play-button");
     if (playButton) {
-      playButton.textContent = "⏸";
+      playButton.innerHTML = '<i class="fa fa-pause"></i>';
     }
 
-    // 각 타임라인의 play 메서드 호출
     Object.values(this.timelines).forEach((timeline) => timeline.play());
 
     if (this.editor.signals?.timelineChanged) {
@@ -447,22 +734,43 @@ class Timeline {
   }
 
   stop() {
-    // 재생 상태 해제
     this.isPlaying = false;
     if (this.editor.scene) {
       this.editor.scene.userData.timeline.isPlaying = false;
     }
 
-    // 애니메이션 프레임 취소
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
 
+    // 오디오 정지
+    if (this.timelines.audio) {
+      const audioTracks = Array.from(this.timelines.audio.tracks.values());
+      audioTracks.forEach((track) => {
+        const objectId =
+          typeof track.objectId === "string"
+            ? parseInt(track.objectId)
+            : track.objectId;
+        const audioObject = this.editor.scene.getObjectById(objectId);
+
+        if (
+          audioObject &&
+          audioObject.userData &&
+          audioObject.userData.audioElement
+        ) {
+          const audio = audioObject.userData.audioElement;
+          audio.pause();
+          audio.currentTime = 0;
+          console.log("오디오 정지됨");
+        }
+      });
+    }
+
     // 재생 버튼 상태 복원
     const playButton = this.container.querySelector(".play-button");
     if (playButton) {
-      playButton.textContent = "▶";
+      playButton.innerHTML = '<i class="fa fa-play"></i>';
     }
 
     // 각 타임라인의 stop 메서드 호출
@@ -481,7 +789,122 @@ class Timeline {
       this.timelineSettings.framesPerSecond;
     frame = Math.max(0, Math.min(frame, totalFrames - 1));
 
+    const currentTime = frame / this.timelineSettings.framesPerSecond;
+    console.log("=== setCurrentFrame ===");
+    console.log("현재 시간(초):", currentTime);
+    console.log("현재 프레임:", frame);
+
+    // 모션 트랙들의 위치 업데이트
+    if (this.timelines.motion) {
+      const tracks = this.container.querySelectorAll(".motion-tracks");
+
+      tracks.forEach((track) => {
+        const uuid = track.dataset.uuid;
+        let character = null;
+        this.editor.scene.traverse((object) => {
+          if (object.uuid === uuid) {
+            character = object;
+          }
+        });
+
+        if (!character) return;
+
+        // 클립 범위 체크 추가
+        const clipElement = track.querySelector(".animation-sprite");
+        if (clipElement) {
+          const clipStartTime = parseFloat(
+            clipElement.dataset.startTime || "0"
+          );
+          const clipDuration = parseFloat(clipElement.dataset.duration || "0");
+          const clipEndTime = clipStartTime + clipDuration;
+          character.visible =
+            currentTime >= clipStartTime && currentTime <= clipEndTime;
+        } else {
+          character.visible = false;
+        }
+
+        // 키프레임 요소들을 찾아서 시간 순으로 정렬
+        const keyframes = Array.from(track.querySelectorAll(".keyframe"))
+          .map((kf) => {
+            const clip = kf.closest(".animation-sprite");
+            const clipStartTime =
+              (parseFloat(clip.style.left) / 100) *
+              this.timelineSettings.totalSeconds;
+            return {
+              time: clipStartTime + parseFloat(kf.dataset.time), // 클립 시작 시간 + 키프레임의 상대 시간
+              position: JSON.parse(kf.dataset.position),
+            };
+          })
+          .sort((a, b) => a.time - b.time);
+
+        if (keyframes.length === 0) return;
+
+        // 현재 시간에 해당하는 키프레임들 찾기
+        let prevKeyframe = null;
+        let nextKeyframe = null;
+
+        for (let i = 0; i < keyframes.length; i++) {
+          if (keyframes[i].time > currentTime) {
+            prevKeyframe = i > 0 ? keyframes[i - 1] : null;
+            nextKeyframe = keyframes[i];
+            break;
+          }
+        }
+
+        // 마지막 키프레임 이후의 시간인 경우
+        if (!nextKeyframe && keyframes.length > 0) {
+          prevKeyframe = keyframes[keyframes.length - 1];
+        }
+
+        console.log("찾은 키프레임:", {
+          이전: prevKeyframe?.time,
+          다음: nextKeyframe?.time,
+          현재시간: currentTime,
+        });
+
+        if (prevKeyframe && nextKeyframe) {
+          // 두 키프레임 사이의 보간 계산
+          const progress =
+            (currentTime - prevKeyframe.time) /
+            (nextKeyframe.time - prevKeyframe.time);
+
+          // 선형 보간으로 현재 위치 계산
+          const x =
+            parseFloat(prevKeyframe.position[0]) +
+            (parseFloat(nextKeyframe.position[0]) -
+              parseFloat(prevKeyframe.position[0])) *
+              progress;
+          const y =
+            parseFloat(prevKeyframe.position[1]) +
+            (parseFloat(nextKeyframe.position[1]) -
+              parseFloat(prevKeyframe.position[1])) *
+              progress;
+          const z =
+            parseFloat(prevKeyframe.position[2]) +
+            (parseFloat(nextKeyframe.position[2]) -
+              parseFloat(prevKeyframe.position[2])) *
+              progress;
+
+          character.position.set(x, y, z);
+
+          console.log("위치 업데이트:", {
+            캐릭터: character.name,
+            진행도: progress,
+            현재위치: [x, y, z],
+          });
+        } else if (prevKeyframe) {
+          // 마지막 키프레임의 위치로 설정
+          character.position.set(
+            parseFloat(prevKeyframe.position[0]),
+            parseFloat(prevKeyframe.position[1]),
+            parseFloat(prevKeyframe.position[2])
+          );
+        }
+      });
+    }
+
     this.editor.scene.userData.timeline.currentFrame = frame;
+    this.editor.scene.userData.timeline.currentSeconds = currentTime;
 
     // playhead 위치 업데이트
     const percent = (frame / totalFrames) * 100;
@@ -501,6 +924,11 @@ class Timeline {
 
     if (this.editor.signals?.frameChanged) {
       this.editor.signals.frameChanged.dispatch(frame);
+    }
+
+    // Three.js 렌더링 업데이트 요청
+    if (this.editor.signals?.rendererUpdated) {
+      this.editor.signals.rendererUpdated.dispatch();
     }
   }
 
