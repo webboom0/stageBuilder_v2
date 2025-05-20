@@ -1,11 +1,55 @@
 import { BaseTimeline } from "./BaseTimeline.js";
-import { UIPanel, UIRow, UINumber, UIText } from "../libs/ui.js";
+import { UIPanel, UIRow, UINumber, UIText, UIElement } from "../libs/ui.js";
 import * as THREE from "three";
 // editor/timeline/AudioTimeline.js
 const AUDIO_FILE = {
   path: "../files/music/DRAMA.mp3",
   name: "DRAMA",
 };
+
+// 볼륨 컨트롤을 위한 커스텀 UIElement 클래스
+class UIVolumeControl extends UIElement {
+  constructor() {
+    const dom = document.createElement("div");
+    super(dom);
+
+    this.dom.className = "volume-control";
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = "100";
+    slider.value = "100";
+    slider.className = "volume-slider";
+
+    const value = document.createElement("span");
+    value.className = "volume-value";
+    value.textContent = "100%";
+
+    this.dom.appendChild(slider);
+    this.dom.appendChild(value);
+
+    this.slider = slider;
+    this.value = value;
+  }
+
+  setValue(value) {
+    this.slider.value = value;
+    this.value.textContent = `${value}%`;
+  }
+
+  getValue() {
+    return parseInt(this.slider.value) / 100;
+  }
+
+  onChange(callback) {
+    this.slider.addEventListener("input", (e) => {
+      const value = e.target.value;
+      this.value.textContent = `${value}%`;
+      callback(parseInt(value) / 100);
+    });
+  }
+}
 
 export class AudioTimeline extends BaseTimeline {
   constructor(editor, options) {
@@ -66,7 +110,7 @@ export class AudioTimeline extends BaseTimeline {
           const MAX_DURATION = 180; // 3분
           const effectiveDuration = Math.min(
             MAX_DURATION,
-            Math.max(MIN_DURATION, audioElement.duration)
+            Math.max(MIN_DURATION, audioElement.duration),
           );
 
           // addTrack 호출 시 필요한 모든 정보를 전달
@@ -243,7 +287,7 @@ export class AudioTimeline extends BaseTimeline {
         if (!keyframes || keyframes.size === 0) return;
 
         const keyframeArray = Array.from(keyframes.entries()).sort(
-          ([a], [b]) => a - b
+          ([a], [b]) => a - b,
         );
         let prevKeyframe = null;
         let nextKeyframe = null;
@@ -267,7 +311,7 @@ export class AudioTimeline extends BaseTimeline {
             propertyType,
             prevData.value,
             nextData.value,
-            alpha
+            alpha,
           );
           hasChanges = true;
         } else if (prevKeyframe) {
@@ -346,61 +390,131 @@ export class AudioTimeline extends BaseTimeline {
     const panel = new UIPanel();
     panel.setClass("property-edit-panel");
 
-    // 볼륨 조절 UI
+    // 전체 볼륨 조절 UI
     const volumeRow = new UIRow();
-    volumeRow.add(new UIText("Volume"));
-    const volumeNumber = new UINumber(1).setRange(0, 1).setStep(0.1);
-    volumeNumber.onChange(() =>
-      this.updatePropertyValue("volume", volumeNumber.getValue())
-    );
-    volumeRow.add(volumeNumber);
+    volumeRow.add(new UIText("전체 볼륨"));
 
-    // 재생 속도 UI
-    const playbackRateRow = new UIRow();
-    playbackRateRow.add(new UIText("Playback Rate"));
-    const playbackRateNumber = new UINumber(1).setRange(0.1, 2).setStep(0.1);
-    playbackRateNumber.onChange(() =>
-      this.updatePropertyValue("playbackRate", playbackRateNumber.getValue())
-    );
-    playbackRateRow.add(playbackRateNumber);
+    const volumeControl = new UIVolumeControl();
+    volumeControl.onChange((value) => {
+      // 모든 오디오 트랙의 볼륨을 한 번에 업데이트
+      this.tracks.forEach((track) => {
+        const audioObject = this.editor.scene.getObjectById(
+          parseInt(track.objectId),
+        );
+        if (!audioObject || !audioObject.userData.audioElement) return;
 
+        const audio = audioObject.userData.audioElement;
+        audio.volume = value;
+        audioObject.userData.volume = value;
+
+        // THREE.js Audio 객체가 있는 경우에도 볼륨 업데이트
+        if (audioObject.userData.audio) {
+          audioObject.userData.audio.setVolume(value);
+        }
+      });
+
+      // 씬의 전체 볼륨 설정 업데이트
+      if (!this.editor.scene.userData.audio) {
+        this.editor.scene.userData.audio = {};
+      }
+      this.editor.scene.userData.audio.masterVolume = value;
+    });
+
+    // 초기 볼륨 값 설정
+    const masterVolume = this.editor.scene.userData.audio?.masterVolume || 1.0;
+    volumeControl.setValue(masterVolume * 100);
+
+    volumeRow.add(volumeControl);
     panel.add(volumeRow);
-    panel.add(playbackRateRow);
+
+    // 볼륨 컨트롤 스타일 추가
+    const style = document.createElement("style");
+    style.textContent = `
+      .volume-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 200px;
+      }
+      
+      .volume-slider {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        background: #ddd;
+        border-radius: 2px;
+        outline: none;
+      }
+      
+      .volume-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #4CAF50;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      
+      .volume-value {
+        min-width: 45px;
+        text-align: right;
+        color: #fff;
+      }
+    `;
+    document.head.appendChild(style);
 
     return panel;
   }
 
   updatePropertyValue(propertyType, value) {
-    if (!this.selectedKeyframe) return;
+    if (!this.selectedObject) return;
 
-    const { objectId, frame } = this.selectedKeyframe;
-    const track = this.tracks.get(objectId);
-    const keyframeData = track.keyframes[propertyType].get(frame);
-    const object = this.editor.scene.getObjectById(parseInt(objectId));
+    const object = this.editor.scene.getObjectById(
+      parseInt(this.selectedObject),
+    );
+    if (!object) return;
 
-    if (keyframeData && object) {
-      keyframeData.value = value;
-      this.setPropertyValue(object, propertyType, value);
+    // 현재 프레임에 키프레임이 없으면 생성
+    const currentFrame = Math.floor(this.currentFrame);
+    const track = this.tracks.get(this.selectedObject);
 
-      // 오디오 요소 업데이트
-      if (object.userData.audioElement) {
-        const audioElement = object.userData.audioElement;
-        switch (propertyType) {
-          case "volume":
-            audioElement.volume = value;
-            break;
-          case "mute":
-            audioElement.muted = value;
-            break;
-          case "playbackRate":
-            audioElement.playbackRate = value;
-            break;
-        }
+    if (!track.keyframes[propertyType]) {
+      track.keyframes[propertyType] = new Map();
+    }
+
+    // 키프레임 데이터 업데이트 또는 생성
+    const keyframeData = track.keyframes[propertyType].get(currentFrame) || {
+      value: value,
+      element: null,
+    };
+    keyframeData.value = value;
+    track.keyframes[propertyType].set(currentFrame, keyframeData);
+
+    // 오디오 요소 실시간 업데이트
+    if (object.userData.audioElement) {
+      const audioElement = object.userData.audioElement;
+      switch (propertyType) {
+        case "volume":
+          audioElement.volume = value;
+          // THREE.js Audio 객체가 있는 경우에도 볼륨 업데이트
+          if (object.userData.audio) {
+            object.userData.audio.setVolume(value);
+          }
+          break;
+        case "mute":
+          audioElement.muted = value;
+          break;
+        case "playbackRate":
+          audioElement.playbackRate = value;
+          break;
       }
+    }
 
-      if (this.editor.signals?.objectChanged) {
-        this.editor.signals.objectChanged.dispatch(object);
-      }
+    // 속성 값 업데이트
+    this.setPropertyValue(object, propertyType, value);
+
+    if (this.editor.signals?.objectChanged) {
+      this.editor.signals.objectChanged.dispatch(object);
     }
   }
 
@@ -552,7 +666,7 @@ export class AudioTimeline extends BaseTimeline {
         keyframeElement,
         objectId,
         propertyType,
-        currentFrame
+        currentFrame,
       );
     });
 
@@ -622,5 +736,244 @@ export class AudioTimeline extends BaseTimeline {
         URL.revokeObjectURL(audioObject.userData.audioUrl);
       }
     });
+  }
+
+  bindSpriteEvents(sprite, track) {
+    let isDragging = false;
+    let dragStartX = 0;
+    let startLeft = 0;
+    let startWidth = 0;
+    let dragHandle = null;
+    let isMovingSprite = false;
+    const MIN_WIDTH = 5; // 최소 5초
+    const MAX_WIDTH = 180; // 최대 3분
+
+    // 스프라이트 전체 드래그 이벤트
+    sprite.addEventListener("mousedown", (e) => {
+      // 핸들을 클릭한 경우는 무시
+      if (e.target.classList.contains("sprite-handle")) return;
+
+      e.stopPropagation();
+      isDragging = true;
+      isMovingSprite = true;
+      dragStartX = e.clientX;
+      startLeft = parseFloat(sprite.style.left) || 0;
+      startWidth = parseFloat(sprite.style.width) || 0;
+
+      // 드래그 중인 스프라이트 스타일 변경
+      sprite.style.opacity = "0.8";
+      sprite.style.cursor = "grabbing";
+    });
+
+    // 왼쪽/오른쪽 핸들 드래그 이벤트
+    const handles = sprite.querySelectorAll(".sprite-handle");
+    handles.forEach((handle) => {
+      handle.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+        isDragging = true;
+        isMovingSprite = false;
+        dragHandle = handle;
+        dragStartX = e.clientX;
+        startLeft = parseFloat(sprite.style.left) || 0;
+        startWidth = parseFloat(sprite.style.width) || 0;
+
+        // 드래그 중인 핸들 스타일 변경
+        handle.style.backgroundColor = "#4CAF50";
+      });
+    });
+
+    // 드래그 중 이벤트
+    document.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+
+      const container = sprite.closest(".timeline-viewport");
+      const containerRect = container.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+
+      // 드래그 거리 계산 (퍼센트로)
+      const dragDelta = ((e.clientX - dragStartX) / containerWidth) * 100;
+
+      if (isMovingSprite) {
+        // 스프라이트 전체 이동
+        const newLeft = Math.max(
+          0,
+          Math.min(startLeft + dragDelta, 100 - startWidth),
+        );
+        sprite.style.left = `${newLeft}%`;
+
+        // 시작 시간 업데이트
+        const startTime = (newLeft / 100) * this.options.totalSeconds;
+        sprite.dataset.startTime = startTime.toString();
+
+        // 오디오 객체 업데이트
+        if (track && track.audioObject) {
+          track.audioObject.userData.startTime = startTime;
+        }
+      } else if (dragHandle) {
+        if (dragHandle.classList.contains("left")) {
+          // 왼쪽 핸들 드래그: 시작 위치와 길이 변경
+          const newLeft = Math.max(
+            0,
+            Math.min(
+              startLeft + dragDelta,
+              startLeft +
+                startWidth -
+                (MIN_WIDTH / this.options.totalSeconds) * 100,
+            ),
+          );
+          const newWidth = startWidth - (newLeft - startLeft);
+
+          if (newWidth >= (MIN_WIDTH / this.options.totalSeconds) * 100) {
+            sprite.style.left = `${newLeft}%`;
+            sprite.style.width = `${newWidth}%`;
+
+            // 시작 시간 업데이트
+            const startTime = (newLeft / 100) * this.options.totalSeconds;
+            sprite.dataset.startTime = startTime.toString();
+
+            // 오디오 객체 업데이트
+            if (track && track.audioObject) {
+              track.audioObject.userData.startTime = startTime;
+            }
+          }
+        } else if (dragHandle.classList.contains("right")) {
+          // 오른쪽 핸들 드래그: 길이만 변경
+          const newWidth = Math.max(
+            (MIN_WIDTH / this.options.totalSeconds) * 100,
+            Math.min(
+              startWidth + dragDelta,
+              (MAX_WIDTH / this.options.totalSeconds) * 100,
+            ),
+          );
+
+          sprite.style.width = `${newWidth}%`;
+
+          // 지속 시간 업데이트
+          const duration = (newWidth / 100) * this.options.totalSeconds;
+          sprite.dataset.duration = duration.toString();
+
+          // 오디오 객체 업데이트
+          if (track && track.audioObject) {
+            track.audioObject.userData.duration = duration;
+          }
+        }
+      }
+
+      // 파형 다시 그리기
+      const canvas = sprite.querySelector(".waveform-canvas");
+      if (canvas) {
+        this.drawWaveform(canvas);
+      }
+    });
+
+    // 드래그 종료 이벤트
+    document.addEventListener("mouseup", () => {
+      if (!isDragging) return;
+
+      isDragging = false;
+      isMovingSprite = false;
+
+      // 스타일 복원
+      sprite.style.opacity = "";
+      sprite.style.cursor = "grab";
+
+      if (dragHandle) {
+        dragHandle.style.backgroundColor = "";
+        dragHandle = null;
+      }
+
+      // 변경사항 저장
+      if (track && track.audioObject) {
+        const audioObject = track.audioObject;
+        const startTime = parseFloat(sprite.dataset.startTime) || 0;
+        const duration = parseFloat(sprite.dataset.duration) || 0;
+
+        // 오디오 요소 업데이트
+        if (audioObject.userData.audioElement) {
+          const audio = audioObject.userData.audioElement;
+          audio.currentTime = startTime;
+        }
+
+        // 씬 데이터 업데이트
+        if (!this.editor.scene.userData.audio) {
+          this.editor.scene.userData.audio = {};
+        }
+        if (!this.editor.scene.userData.audio[audioObject.id]) {
+          this.editor.scene.userData.audio[audioObject.id] = {};
+        }
+
+        this.editor.scene.userData.audio[audioObject.id].startTime = startTime;
+        this.editor.scene.userData.audio[audioObject.id].duration = duration;
+      }
+
+      // 타임라인 업데이트 시그널 발생
+      if (this.editor.signals?.timelineChanged) {
+        this.editor.signals.timelineChanged.dispatch();
+      }
+    });
+
+    // 스프라이트 스타일 업데이트
+    const style = document.createElement("style");
+    style.textContent = `
+      .audio-sprite {
+        position: relative;
+        height: 30px;
+        background: rgba(76, 175, 80, 0.3);
+        border: 1px solid #4CAF50;
+        border-radius: 4px;
+        cursor: grab;
+        user-select: none;
+        transition: opacity 0.2s;
+      }
+
+      .audio-sprite:hover {
+        background: rgba(76, 175, 80, 0.4);
+      }
+
+      .sprite-handle {
+        position: absolute;
+        top: 0;
+        width: 8px;
+        height: 100%;
+        background: #4CAF50;
+        cursor: ew-resize;
+        opacity: 0.5;
+        transition: opacity 0.2s;
+        z-index: 1;
+      }
+
+      .sprite-handle:hover {
+        opacity: 1;
+      }
+
+      .sprite-handle.left {
+        left: 0;
+        border-radius: 4px 0 0 4px;
+      }
+
+      .sprite-handle.right {
+        right: 0;
+        border-radius: 0 4px 4px 0;
+      }
+
+      .sprite-content {
+        position: absolute;
+        top: 0;
+        left: 8px;
+        right: 8px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .waveform-canvas {
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(style);
   }
 }

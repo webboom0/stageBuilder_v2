@@ -95,7 +95,7 @@ class Timeline {
     Object.entries(this.timelines).forEach(([key, timeline]) => {
       // 각 타임라인 타입별로 그룹이 이미 있는지 확인
       const existingGroup = viewport.querySelector(
-        `.timeline-group[data-timeline="${key}"]`
+        `.timeline-group[data-timeline="${key}"]`,
       );
       if (!existingGroup) {
         const wrapper = document.createElement("div");
@@ -144,7 +144,7 @@ class Timeline {
       if (timeline.timelines.motion) {
         // 이미 존재하는 트랙인지 확인
         const existingTrack = timeline.timelines.motion.tracks.get(
-          selectedObject.uuid
+          selectedObject.uuid,
         );
 
         if (existingTrack) {
@@ -161,7 +161,7 @@ class Timeline {
             name: selectedObject.name || `Motion Timeline ${selectedObject.id}`,
             object: selectedObject,
             uuid: objectUuid, // UUID 명시적 전달
-          }
+          },
         );
 
         console.log("생성된 트랙:", {
@@ -315,7 +315,7 @@ class Timeline {
         // 모든 모션 트랙 업데이트
         if (this.timelines.motion) {
           const motionTracks = Array.from(
-            this.container.querySelectorAll(".motion-tracks")
+            this.container.querySelectorAll(".motion-tracks"),
           );
 
           motionTracks.forEach((trackElement) => {
@@ -347,7 +347,7 @@ class Timeline {
                   .map((kf) => ({
                     time: parseFloat(kf.dataset.time),
                     position: JSON.parse(
-                      kf.dataset.position || '{"x":0,"y":0,"z":0}'
+                      kf.dataset.position || '{"x":0,"y":0,"z":0}',
                     ),
                   }))
                   .sort((a, b) => a.time - b.time);
@@ -380,7 +380,7 @@ class Timeline {
                         progress,
                     prevKeyframe.position.z +
                       (nextKeyframe.position.z - prevKeyframe.position.z) *
-                        progress
+                        progress,
                   );
                 }
               } else {
@@ -505,7 +505,7 @@ class Timeline {
 
     // 선택된 타임라인만 표시
     const activeGroup = this.container.querySelector(
-      `.timeline-group[data-timeline="${type}"]`
+      `.timeline-group[data-timeline="${type}"]`,
     );
     if (activeGroup) {
       activeGroup.classList.add("active");
@@ -570,7 +570,7 @@ class Timeline {
     if (this.timelines.motion) {
       // motion-track 요소들 직접 찾기
       const motionTracks = Array.from(
-        this.container.querySelectorAll(".motion-tracks")
+        this.container.querySelectorAll(".motion-tracks"),
       );
 
       motionTracks.forEach((trackElement) => {
@@ -680,7 +680,7 @@ class Timeline {
             character.position.set(
               parseFloat(nearestKeyframe.position[0]),
               parseFloat(nearestKeyframe.position[1]),
-              parseFloat(nearestKeyframe.position[2])
+              parseFloat(nearestKeyframe.position[2]),
             );
           }
         } else {
@@ -813,7 +813,7 @@ class Timeline {
         const clipElement = track.querySelector(".animation-sprite");
         if (clipElement) {
           const clipStartTime = parseFloat(
-            clipElement.dataset.startTime || "0"
+            clipElement.dataset.startTime || "0",
           );
           const clipDuration = parseFloat(clipElement.dataset.duration || "0");
           const clipEndTime = clipStartTime + clipDuration;
@@ -897,7 +897,7 @@ class Timeline {
           character.position.set(
             parseFloat(prevKeyframe.position[0]),
             parseFloat(prevKeyframe.position[1]),
-            parseFloat(prevKeyframe.position[2])
+            parseFloat(prevKeyframe.position[2]),
           );
         }
       });
