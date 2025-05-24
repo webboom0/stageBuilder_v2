@@ -192,6 +192,30 @@ export class MotionTimeline extends BaseTimeline {
         this.addKeyframe(track.objectId, currentFrame);
       });
     }
+
+    // 이전/다음 키프레임 버튼 이벤트
+    const prevKeyframeBtn = track.element.querySelector(".prev-keyframe-btn");
+    const nextKeyframeBtn = track.element.querySelector(".next-keyframe-btn");
+
+    if (prevKeyframeBtn) {
+      prevKeyframeBtn.addEventListener("click", (e) => {
+        console.log("prev button clicked");
+        console.log(track.element);
+        e.stopPropagation();
+        // track.element를 직접 사용
+        this.moveToAdjacentKeyframe(track.element, "prev");
+      });
+    }
+
+    if (nextKeyframeBtn) {
+      nextKeyframeBtn.addEventListener("click", (e) => {
+        console.log("next button clicked");
+        console.log(track.element);
+        e.stopPropagation();
+        // track.element를 직접 사용
+        this.moveToAdjacentKeyframe(track.element, "next");
+      });
+    }
   }
 
   addPropertyTrack(trackElement, propertyType) {
@@ -895,7 +919,9 @@ export class MotionTimeline extends BaseTimeline {
         }</span>
       </div>
       <div class="track-controls">
+        <button class="prev-keyframe-btn" title="Previous Keyframe"><i class="fa fa-step-backward"></i></button>
         <button class="add-keyframe-btn" title="Add Keyframe">+</button>
+        <button class="next-keyframe-btn" title="Next Keyframe"><i class="fa fa-step-forward"></i></button>
       </div>
     `;
     trackTopArea.appendChild(trackHeader);
@@ -978,6 +1004,27 @@ export class MotionTimeline extends BaseTimeline {
           const currentFrame = this.currentFrame;
           this.addKeyframe(objectId, currentFrame);
           // this.addKeyframe(objectId, "rotation", currentFrame);
+        }
+      }
+      // 이전 키프레임 버튼
+      if (
+        e.target.classList.contains("prev-keyframe-btn") ||
+        e.target.closest(".prev-keyframe-btn")
+      ) {
+        const track = e.target.closest(".timeline-track");
+        if (track) {
+          this.moveToAdjacentKeyframe(track, "prev");
+        }
+      }
+
+      // 다음 키프레임 버튼
+      if (
+        e.target.classList.contains("next-keyframe-btn") ||
+        e.target.closest(".next-keyframe-btn")
+      ) {
+        const track = e.target.closest(".timeline-track");
+        if (track) {
+          this.moveToAdjacentKeyframe(track, "next");
         }
       }
     });
@@ -1751,6 +1798,46 @@ export class MotionTimeline extends BaseTimeline {
     const object = this.editor.scene.getObjectById(parseInt(track.objectId));
     if (object && this.editor.signals?.objectChanged) {
       this.editor.signals.objectChanged.dispatch(object);
+    }
+  }
+
+  // 인접한 키프레임으로 이동하는 함수 추가
+  moveToAdjacentKeyframe(trackElement, direction) {
+    // 현재 선택된 키프레임 찾기
+    const selectedKeyframe = trackElement.querySelector(".keyframe.selected");
+    if (!selectedKeyframe) {
+      console.log("No keyframe selected");
+      return;
+    }
+
+    // 현재 트랙의 모든 키프레임 요소들을 가져옴
+    const keyframeElements = Array.from(
+      trackElement.querySelectorAll(".keyframe")
+    );
+
+    // 프레임 번호를 기준으로 정렬
+    const sortedKeyframes = keyframeElements.sort((a, b) => {
+      return parseInt(a.dataset.frame) - parseInt(b.dataset.frame);
+    });
+
+    // 현재 선택된 키프레임의 인덱스 찾기
+    const currentIndex = sortedKeyframes.indexOf(selectedKeyframe);
+
+    if (direction === "prev" && currentIndex > 0) {
+      // 이전 키프레임 선택
+      const prevKeyframe = sortedKeyframes[currentIndex - 1];
+      selectedKeyframe.classList.remove("selected");
+      prevKeyframe.classList.add("selected");
+      this.selectedKeyframe = prevKeyframe;
+    } else if (
+      direction === "next" &&
+      currentIndex < sortedKeyframes.length - 1
+    ) {
+      // 다음 키프레임 선택
+      const nextKeyframe = sortedKeyframes[currentIndex + 1];
+      selectedKeyframe.classList.remove("selected");
+      nextKeyframe.classList.add("selected");
+      this.selectedKeyframe = nextKeyframe;
     }
   }
 }

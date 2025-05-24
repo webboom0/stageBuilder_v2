@@ -524,6 +524,8 @@
   overflow: visible;
   /* top: 50%;
   transform: translateY(-50%); */
+  display: flex;
+  box-sizing: border-box;
 }
 
 .animation-sprite.selected {
@@ -953,4 +955,25 @@
 .keyframe.delete-preview {
   opacity: 0.5;
   background-color: #ff4444;
+}
+
+.track-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.prev-keyframe-btn,
+.next-keyframe-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 12px;
+}
+
+.prev-keyframe-btn:hover,
+.next-keyframe-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
