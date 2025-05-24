@@ -110,7 +110,7 @@ export class AudioTimeline extends BaseTimeline {
           const MAX_DURATION = 180; // 3분
           const effectiveDuration = Math.min(
             MAX_DURATION,
-            Math.max(MIN_DURATION, audioElement.duration),
+            Math.max(MIN_DURATION, audioElement.duration)
           );
 
           // addTrack 호출 시 필요한 모든 정보를 전달
@@ -287,7 +287,7 @@ export class AudioTimeline extends BaseTimeline {
         if (!keyframes || keyframes.size === 0) return;
 
         const keyframeArray = Array.from(keyframes.entries()).sort(
-          ([a], [b]) => a - b,
+          ([a], [b]) => a - b
         );
         let prevKeyframe = null;
         let nextKeyframe = null;
@@ -311,7 +311,7 @@ export class AudioTimeline extends BaseTimeline {
             propertyType,
             prevData.value,
             nextData.value,
-            alpha,
+            alpha
           );
           hasChanges = true;
         } else if (prevKeyframe) {
@@ -399,7 +399,7 @@ export class AudioTimeline extends BaseTimeline {
       // 모든 오디오 트랙의 볼륨을 한 번에 업데이트
       this.tracks.forEach((track) => {
         const audioObject = this.editor.scene.getObjectById(
-          parseInt(track.objectId),
+          parseInt(track.objectId)
         );
         if (!audioObject || !audioObject.userData.audioElement) return;
 
@@ -470,7 +470,7 @@ export class AudioTimeline extends BaseTimeline {
     if (!this.selectedObject) return;
 
     const object = this.editor.scene.getObjectById(
-      parseInt(this.selectedObject),
+      parseInt(this.selectedObject)
     );
     if (!object) return;
 
@@ -666,7 +666,7 @@ export class AudioTimeline extends BaseTimeline {
         keyframeElement,
         objectId,
         propertyType,
-        currentFrame,
+        currentFrame
       );
     });
 
@@ -797,7 +797,7 @@ export class AudioTimeline extends BaseTimeline {
         // 스프라이트 전체 이동
         const newLeft = Math.max(
           0,
-          Math.min(startLeft + dragDelta, 100 - startWidth),
+          Math.min(startLeft + dragDelta, 100 - startWidth)
         );
         sprite.style.left = `${newLeft}%`;
 
@@ -818,8 +818,8 @@ export class AudioTimeline extends BaseTimeline {
               startLeft + dragDelta,
               startLeft +
                 startWidth -
-                (MIN_WIDTH / this.options.totalSeconds) * 100,
-            ),
+                (MIN_WIDTH / this.options.totalSeconds) * 100
+            )
           );
           const newWidth = startWidth - (newLeft - startLeft);
 
@@ -842,8 +842,8 @@ export class AudioTimeline extends BaseTimeline {
             (MIN_WIDTH / this.options.totalSeconds) * 100,
             Math.min(
               startWidth + dragDelta,
-              (MAX_WIDTH / this.options.totalSeconds) * 100,
-            ),
+              (MAX_WIDTH / this.options.totalSeconds) * 100
+            )
           );
 
           sprite.style.width = `${newWidth}%`;
@@ -913,67 +913,67 @@ export class AudioTimeline extends BaseTimeline {
     });
 
     // 스프라이트 스타일 업데이트
-    const style = document.createElement("style");
-    style.textContent = `
-      .audio-sprite {
-        position: relative;
-        height: 30px;
-        background: rgba(76, 175, 80, 0.3);
-        border: 1px solid #4CAF50;
-        border-radius: 4px;
-        cursor: grab;
-        user-select: none;
-        transition: opacity 0.2s;
-      }
+    // const style = document.createElement("style");
+    // style.textContent = `
+    //   .audio-sprite {
+    //     position: relative;
+    //     height: 30px;
+    //     background: rgba(76, 175, 80, 0.3);
+    //     border: 1px solid #4CAF50;
+    //     border-radius: 4px;
+    //     cursor: grab;
+    //     user-select: none;
+    //     transition: opacity 0.2s;
+    //   }
 
-      .audio-sprite:hover {
-        background: rgba(76, 175, 80, 0.4);
-      }
+    //   .audio-sprite:hover {
+    //     background: rgba(76, 175, 80, 0.4);
+    //   }
 
-      .sprite-handle {
-        position: absolute;
-        top: 0;
-        width: 8px;
-        height: 100%;
-        background: #4CAF50;
-        cursor: ew-resize;
-        opacity: 0.5;
-        transition: opacity 0.2s;
-        z-index: 1;
-      }
+    //   .sprite-handle {
+    //     position: absolute;
+    //     top: 0;
+    //     width: 8px;
+    //     height: 100%;
+    //     background: #4CAF50;
+    //     cursor: ew-resize;
+    //     opacity: 0.5;
+    //     transition: opacity 0.2s;
+    //     z-index: 1;
+    //   }
 
-      .sprite-handle:hover {
-        opacity: 1;
-      }
+    //   .sprite-handle:hover {
+    //     opacity: 1;
+    //   }
 
-      .sprite-handle.left {
-        left: 0;
-        border-radius: 4px 0 0 4px;
-      }
+    //   .sprite-handle.left {
+    //     left: 0;
+    //     border-radius: 4px 0 0 4px;
+    //   }
 
-      .sprite-handle.right {
-        right: 0;
-        border-radius: 0 4px 4px 0;
-      }
+    //   .sprite-handle.right {
+    //     right: 0;
+    //     border-radius: 0 4px 4px 0;
+    //   }
 
-      .sprite-content {
-        position: absolute;
-        top: 0;
-        left: 8px;
-        right: 8px;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-      }
+    //   .sprite-content {
+    //     position: absolute;
+    //     top: 0;
+    //     left: 8px;
+    //     right: 8px;
+    //     height: 100%;
+    //     display: flex;
+    //     align-items: center;
+    //     justify-content: center;
+    //     pointer-events: none;
+    //   }
 
-      .waveform-canvas {
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-      }
-    `;
-    document.head.appendChild(style);
+    //   .waveform-canvas {
+    //     width: 100%;
+    //     height: 100%;
+    //     pointer-events: none;
+    //   }
+    // `;
+    // document.head.appendChild(style);
   }
 }
