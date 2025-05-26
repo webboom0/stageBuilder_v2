@@ -188,8 +188,9 @@ export class MotionTimeline extends BaseTimeline {
     if (addBtn) {
       addBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const currentFrame = this.currentFrame;
-        this.addKeyframe(track.objectId, currentFrame);
+        const currentFrame = this.editor.scene.userData.timeline.currentFrame;
+        console.log("currentFrame", currentFrame);
+        this.addKeyframe(track.objectId, "position", currentFrame);
       });
     }
 
@@ -280,11 +281,13 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   addKeyframe(objectId, propertyType, frame) {
+    console.log("addKeyframe");
+    console.log(objectId);
+    console.log(propertyType);
+    console.log(frame);
+
     const track = this.tracks.get(objectId);
-    if (!track) {
-      console.warn("addKeyframe: track이 undefined입니다.");
-      return;
-    }
+    if (!track) return;
 
     const object = this.editor.scene.getObjectById(parseInt(objectId));
     if (!object) return;
@@ -356,6 +359,7 @@ export class MotionTimeline extends BaseTimeline {
     console.log(this.editor.scene.userData.timeline.currentSeconds);
     keyframeElement.dataset.time = timeInSeconds.toString();
     keyframeElement.dataset.pixelPosition = relativePlayheadPosition.toString();
+    keyframeElement.dataset.frame = frame;
 
     // 현재 객체의 position 정보 저장
     const position = [
@@ -364,6 +368,25 @@ export class MotionTimeline extends BaseTimeline {
       object.position.z.toFixed(3),
     ];
     keyframeElement.dataset.position = JSON.stringify(position);
+
+    // propertyType별로 Map이 있는지 확인
+    if (!track.keyframes[propertyType]) {
+      track.keyframes[propertyType] = new Map();
+    }
+
+    // 키프레임 데이터 생성
+    const keyframeData = {
+      time: timeInSeconds, // 또는 frame / fps
+      value: {
+        x: object.position.x,
+        y: object.position.y,
+        z: object.position.z,
+      },
+      // 필요하다면 추가 데이터
+    };
+
+    // Map에 저장
+    track.keyframes[propertyType].set(frame.toString(), keyframeData);
 
     // 위치 설정
     keyframeElement.style.left = `${keyframeElement.dataset.pixelPosition}px`;
@@ -472,7 +495,13 @@ export class MotionTimeline extends BaseTimeline {
     });
 
     document.addEventListener("mouseup", () => {
-      isDragging = false;
+      if (isDragging) {
+        isDragging = false;
+        if (track.objectId) {
+          this.updateKeyframesInClip(track, sprite);
+          this.updateAnimation(track.objectId);
+        }
+      }
     });
   }
 
@@ -632,6 +661,8 @@ export class MotionTimeline extends BaseTimeline {
 
   // 키프레임 선택 시 호출되는 메서드
   selectKeyframe(objectId, frame, keyframeElement) {
+    console.log("selectKeyframe");
+    console.log(frame);
     // 이전 선택 해제
     const previousSelected = document.querySelector(".keyframe.selected");
     if (previousSelected) {
@@ -646,6 +677,8 @@ export class MotionTimeline extends BaseTimeline {
       console.warn("Track or keyframes not found:", { objectId, track });
       return;
     }
+
+    console.log("track", track);
 
     // propertyType이 'position'인 경우의 키프레임 데이터 가져오기
     const keyframeData = track.keyframes["position"]?.get(frame.toString());
@@ -664,16 +697,21 @@ export class MotionTimeline extends BaseTimeline {
       element: keyframeElement,
       data: keyframeData,
     };
-
-    console.log("Keyframe selected:", {
-      frame,
-      data: keyframeData,
-      selectedKeyframe: this.selectedKeyframe,
-      trackKeyframes: track.keyframes,
-    });
-
+    console.log("this.selectedKeyframe", this.selectedKeyframe);
     // 속성 패널 업데이트
     this.updatePropertyPanel();
+
+    const sprite = keyframeElement.closest(".animation-sprite");
+    if (sprite) {
+      this.selectSprite(sprite, track);
+    }
+
+    // console.log("Keyframe selected:", {
+    //   frame,
+    //   data: keyframeData,
+    //   selectedKeyframe: this.selectedKeyframe,
+    //   trackKeyframes: track.keyframes,
+    // });
   }
 
   // 프레임 업데이트 시 호출되는 메서드
@@ -859,17 +897,49 @@ export class MotionTimeline extends BaseTimeline {
     }
   }
 
-  updatePropertyPanel() {
-    if (!this.selectedKeyframe?.data?.value || !this.propertyPanel) {
-      console.warn("No valid position data or property panel", {
-        selectedKeyframe: this.selectedKeyframe,
-        propertyPanel: this.propertyPanel,
-      });
-      return;
+  getSelectedKeyframePosition() {
+    const selectedKeyframeEl = document.querySelector(".keyframe.selected");
+    if (!selectedKeyframeEl) {
+      console.warn("선택된 키프레임이 없습니다.");
+      return null;
     }
+    // dataset.position이 문자열로 저장되어 있으므로 파싱
+    let positionArr;
+    try {
+      positionArr = JSON.parse(selectedKeyframeEl.dataset.position);
+    } catch (e) {
+      console.warn(
+        "position 데이터 파싱 실패:",
+        selectedKeyframeEl.dataset.position
+      );
+      return null;
+    }
+    // positionArr이 [x, y, z] 배열이면 객체로 변환
+    if (Array.isArray(positionArr) && positionArr.length === 3) {
+      return {
+        x: parseFloat(positionArr[0]),
+        y: parseFloat(positionArr[1]),
+        z: parseFloat(positionArr[2]),
+      };
+    } else {
+      console.warn("position 데이터 형식이 올바르지 않습니다:", positionArr);
+      return null;
+    }
+  }
 
-    const position = this.selectedKeyframe.data.value;
-    console.log("Updating property panel with position:", position);
+  updatePropertyPanel() {
+    console.log("updatePropertyPanel");
+    const position = this.getSelectedKeyframePosition();
+    console.log("positions", position);
+    // console.log(this.getPropertyValue("position"));
+    // const selectedKeyframe = trackElement.querySelector(".keyframe.selected");
+    // if (!this.selectedKeyframe?.data?.value || !this.propertyPanel) {
+    //   console.warn("No valid position data or property panel", {
+    //     selectedKeyframe: this.selectedKeyframe,
+    //     propertyPanel: this.propertyPanel,
+    //   });
+    //   return;
+    // }
 
     // DOM 요소 직접 접근
     const xInput = this.propertyPanel.dom.querySelector(
@@ -885,10 +955,12 @@ export class MotionTimeline extends BaseTimeline {
     if (xInput) xInput.value = position.x;
     if (yInput) yInput.value = position.y;
     if (zInput) zInput.value = position.z;
+
+    //  키프레임헤드 이동
+    // this.movePlayheadToSelectedKeyframe();
   }
 
   addTrack(objectUuid, objectId, objectName) {
-    console.log("addTrack", objectUuid, objectId, objectName);
     if (this.tracks.has(objectId)) return;
 
     // 1. 메인 트랙 컨테이너 생성
@@ -965,6 +1037,18 @@ export class MotionTimeline extends BaseTimeline {
       trackContent.appendChild(sprite);
       trackTopArea.appendChild(trackContent);
 
+      // 기존 선택된 클립 해제
+      const previousSelected = this.container.querySelector(
+        ".animation-sprite.selected"
+      );
+      if (previousSelected) {
+        previousSelected.classList.remove("selected");
+      }
+
+      // 현재 생성된 클립 선택
+      sprite.classList.add("selected");
+      this.selectedSprite = sprite;
+
       // 스프라이트 이벤트 바인딩 (키프레임 드래그 이벤트 포함)
       this.bindSpriteEvents(sprite, track);
 
@@ -989,14 +1073,27 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   selectSprite(sprite, track) {
-    if (this.selectedSprite) {
-      this.selectedSprite.classList.remove("selected");
+    // 이전 선택된 클립의 선택 해제
+    const previousSelected = this.container.querySelector(
+      ".animation-sprite.selected"
+    );
+    if (previousSelected) {
+      previousSelected.classList.remove("selected");
     }
+
+    // 현재 클립 선택
     sprite.classList.add("selected");
     this.selectedSprite = sprite;
 
-    // 속성 패널 표시
-    this.showPropertyPanel(track);
+    // 연결된 FBX 객체 선택
+    const trackElement = sprite.closest(".motion-tracks");
+    if (trackElement && trackElement.dataset.uuid) {
+      this.editor.scene.traverse((object) => {
+        if (object.uuid === trackElement.dataset.uuid) {
+          this.editor.select(object);
+        }
+      });
+    }
   }
 
   bindEvents() {
@@ -1005,8 +1102,10 @@ export class MotionTimeline extends BaseTimeline {
         const track = e.target.closest(".timeline-track");
         if (track) {
           const objectId = track.dataset.objectId;
-          const currentFrame = this.currentFrame;
-          this.addKeyframe(objectId, currentFrame);
+          // const currentFrame = this.currentFrame;
+          const currentFrame = this.editor.scene.userData.timeline.currentFrame;
+          console.log("currentFrame", currentFrame);
+          this.addKeyframe(objectId, "position", currentFrame);
           // this.addKeyframe(objectId, "rotation", currentFrame);
         }
       }
@@ -1350,6 +1449,7 @@ export class MotionTimeline extends BaseTimeline {
         isDragging = false;
         isResizing = false;
         if (track.objectId) {
+          this.updateKeyframesInClip(track, sprite);
           this.updateAnimation(track.objectId);
         }
       }
@@ -1358,28 +1458,28 @@ export class MotionTimeline extends BaseTimeline {
     // 클립 선택 이벤트만 추가
     sprite.addEventListener("click", (e) => {
       e.stopPropagation();
+      this.selectSprite(sprite, track);
+      // // 이전 선택된 클립의 선택 해제
+      // const previousSelected = this.container.querySelector(
+      //   ".animation-sprite.selected"
+      // );
+      // if (previousSelected) {
+      //   previousSelected.classList.remove("selected");
+      // }
 
-      // 이전 선택된 클립의 선택 해제
-      const previousSelected = this.container.querySelector(
-        ".animation-sprite.selected"
-      );
-      if (previousSelected) {
-        previousSelected.classList.remove("selected");
-      }
+      // // 현재 클립 선택
+      // sprite.classList.add("selected");
+      // this.selectedSprite = sprite;
 
-      // 현재 클립 선택
-      sprite.classList.add("selected");
-      this.selectedSprite = sprite;
-
-      // 연결된 FBX 객체 선택
-      const trackElement = sprite.closest(".motion-tracks");
-      if (trackElement && trackElement.dataset.uuid) {
-        this.editor.scene.traverse((object) => {
-          if (object.uuid === trackElement.dataset.uuid) {
-            this.editor.select(object);
-          }
-        });
-      }
+      // // 연결된 FBX 객체 선택
+      // const trackElement = sprite.closest(".motion-tracks");
+      // if (trackElement && trackElement.dataset.uuid) {
+      //   this.editor.scene.traverse((object) => {
+      //     if (object.uuid === trackElement.dataset.uuid) {
+      //       this.editor.select(object);
+      //     }
+      //   });
+      // }
     });
   }
 
@@ -1643,7 +1743,39 @@ export class MotionTimeline extends BaseTimeline {
       this.editor.signals.sceneGraphChanged.dispatch();
     }
   }
+  // playhead를 키프레임 위치로 이동
+  movePlayheadToSelectedKeyframe() {
+    console.log("movePlayheadToSelectedKeyframe");
+    const selectedKeyframe = document.querySelector(".keyframe.selected");
+    if (!selectedKeyframe) return;
 
+    const frame = parseInt(selectedKeyframe.dataset.frame);
+    if (isNaN(frame)) return;
+
+    const totalFrames =
+      this.options.totalSeconds * this.options.framesPerSecond;
+    const percent = (frame / totalFrames) * 100;
+
+    // 두 playhead 모두 이동
+    const ruler = document.querySelector(".time-ruler-container");
+    const viewport = document.querySelector(".timeline-viewport");
+    const playheads = document.querySelectorAll(".playhead");
+
+    if (!ruler || !viewport || playheads.length < 2) return;
+
+    // 룰러의 플레이헤드 위치
+    playheads[0].style.left = `${percent}%`;
+
+    // 뷰포트의 플레이헤드 위치 계산
+    const rulerRect = ruler.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+    const rulerLeft = rulerRect.left;
+    const viewportLeft = viewportRect.left;
+    const offset = rulerLeft - viewportLeft;
+    const viewportPercent =
+      (((rulerRect.width * percent) / 100 + offset) / viewportRect.width) * 100;
+    playheads[1].style.left = `${viewportPercent}%`;
+  }
   // BaseTimeline의 추상 메서드 구현
   getPropertyValue(object, propertyType) {
     switch (propertyType) {
@@ -1843,5 +1975,8 @@ export class MotionTimeline extends BaseTimeline {
       nextKeyframe.classList.add("selected");
       this.selectedKeyframe = nextKeyframe;
     }
+
+    // 속성 패널 갱신
+    this.updatePropertyPanel();
   }
 }

@@ -18,6 +18,24 @@ class Timeline {
       currentFrame: 0,
     };
 
+    // 타임라인 트랙 컨테이너 DOM 요소 찾기
+    const trackContainer = document.querySelector(".timelineWrapper");
+    console.log("trackContainer", trackContainer);
+    if (trackContainer) {
+      // 드래그 오버(드롭 허용)
+      trackContainer.addEventListener("dragover", (e) => {
+        e.preventDefault();
+      });
+
+      // 드롭 이벤트(타임라인 트랙 추가)
+      trackContainer.addEventListener("drop", (e) => {
+        e.preventDefault();
+        // const objectUuid = e.dataTransfer.getData("objectUuid");
+        // const objectId = e.dataTransfer.getData("objectId");
+        // const objectName = e.dataTransfer.getData("objectName");
+        this.addTimelineTrack();
+      });
+    }
     // Scene이 있으면 해당 설정을 사용, 없으면 기본 설정 사용
     this.timelineSettings =
       this.editor.scene?.userData?.timeline || this.defaultSettings;
@@ -95,7 +113,7 @@ class Timeline {
     Object.entries(this.timelines).forEach(([key, timeline]) => {
       // 각 타임라인 타입별로 그룹이 이미 있는지 확인
       const existingGroup = viewport.querySelector(
-        `.timeline-group[data-timeline="${key}"]`,
+        `.timeline-group[data-timeline="${key}"]`
       );
       if (!existingGroup) {
         const wrapper = document.createElement("div");
@@ -117,6 +135,7 @@ class Timeline {
 
   // 타임라인 추가 버튼
   createAddTimelineButton = () => {
+    console.log("createAddTimelineButton");
     const timeline = this;
     const addTimelineBtn = new UIButton();
     addTimelineBtn.dom.innerHTML = `
@@ -126,77 +145,73 @@ class Timeline {
     addTimelineBtn.setClass("add-timeline-btn");
 
     addTimelineBtn.onClick(() => {
-      const selectedObject = editor.selected;
-
-      if (!selectedObject) {
-        alert("Please select an FBX object in the scene first");
-        return;
-      }
-
-      console.log("트랙 추가 시작 - 선택된 객체:", {
-        name: selectedObject.name,
-        uuid: selectedObject.uuid,
-        id: selectedObject.id,
-        type: selectedObject.type,
-      });
-
-      // 선택된 FBX 객체의 모션 타임라인 추가
-      if (timeline.timelines.motion) {
-        // 이미 존재하는 트랙인지 확인
-        const existingTrack = timeline.timelines.motion.tracks.get(
-          selectedObject.uuid,
-        );
-
-        if (existingTrack) {
-          alert("This object already has a timeline");
-          return;
-        }
-
-        const objectUuid = selectedObject.uuid;
-        // 새로운 모션 트랙 추가
-        const track = timeline.timelines.motion.addTrack(
-          objectUuid,
-          selectedObject.id,
-          {
-            name: selectedObject.name || `Motion Timeline ${selectedObject.id}`,
-            object: selectedObject,
-            uuid: objectUuid, // UUID 명시적 전달
-          },
-        );
-
-        console.log("생성된 트랙:", {
-          track: track,
-          uuid: track.uuid,
-          element: track.element,
-          dataset: track.element?.dataset,
-        });
-
-        // 씬의 타임라인 데이터 업데이트
-        if (!editor.scene.userData.timeline) {
-          editor.scene.userData.timeline = {
-            totalSeconds: timeline.timelineSettings.totalSeconds,
-            framesPerSecond: timeline.timelineSettings.framesPerSecond,
-            currentFrame: 0,
-            currentSeconds: 0,
-            isPlaying: false,
-          };
-        }
-
-        // 씬의 키프레임 데이터 초기화
-        if (!editor.scene.userData.keyframes) {
-          editor.scene.userData.keyframes = {};
-        }
-        if (!editor.scene.userData.keyframes[objectUuid]) {
-          editor.scene.userData.keyframes[objectUuid] = [];
-        }
-
-        // 트랙 추가 후 UI 갱신
-        timeline.initializeUI();
-      }
+      this.addTimelineTrack();
     });
 
     return addTimelineBtn;
   };
+
+  addTimelineTrack() {
+    const selectedObject = editor.selected;
+
+    if (!selectedObject) {
+      alert("Please select an FBX object in the scene first");
+      return;
+    }
+
+    console.log("트랙 추가 시작 - 선택된 객체:", {
+      name: selectedObject.name,
+      uuid: selectedObject.uuid,
+      id: selectedObject.id,
+      type: selectedObject.type,
+    });
+
+    // 선택된 FBX 객체의 모션 타임라인 추가
+    if (this.timelines.motion) {
+      // 이미 존재하는 트랙인지 확인
+      const existingTrack = this.timelines.motion.tracks.get(
+        selectedObject.uuid
+      );
+
+      if (existingTrack) {
+        alert("This object already has a timeline");
+        return;
+      }
+
+      const objectUuid = selectedObject.uuid;
+      // 새로운 모션 트랙 추가
+      const track = this.timelines.motion.addTrack(
+        objectUuid,
+        selectedObject.id,
+        {
+          name: selectedObject.name || `Motion Timeline ${selectedObject.id}`,
+          object: selectedObject,
+          uuid: objectUuid, // UUID 명시적 전달
+        }
+      );
+
+      console.log("생성된 트랙:", {
+        track: track,
+        uuid: track.uuid,
+        element: track.element,
+        dataset: track.element?.dataset,
+      });
+
+      // 씬의 타임라인 데이터 업데이트
+      this.ensureTimelineData();
+
+      // 씬의 키프레임 데이터 초기화
+      if (!editor.scene.userData.keyframes) {
+        editor.scene.userData.keyframes = {};
+      }
+      if (!editor.scene.userData.keyframes[objectUuid]) {
+        editor.scene.userData.keyframes[objectUuid] = [];
+      }
+
+      // 트랙 추가 후 UI 갱신
+      this.initializeUI();
+    }
+  }
 
   loadKeyframesFromScene() {
     const scene = this.editor.scene;
@@ -315,7 +330,7 @@ class Timeline {
         // 모든 모션 트랙 업데이트
         if (this.timelines.motion) {
           const motionTracks = Array.from(
-            this.container.querySelectorAll(".motion-tracks"),
+            this.container.querySelectorAll(".motion-tracks")
           );
 
           motionTracks.forEach((trackElement) => {
@@ -347,7 +362,7 @@ class Timeline {
                   .map((kf) => ({
                     time: parseFloat(kf.dataset.time),
                     position: JSON.parse(
-                      kf.dataset.position || '{"x":0,"y":0,"z":0}',
+                      kf.dataset.position || '{"x":0,"y":0,"z":0}'
                     ),
                   }))
                   .sort((a, b) => a.time - b.time);
@@ -380,7 +395,7 @@ class Timeline {
                         progress,
                     prevKeyframe.position.z +
                       (nextKeyframe.position.z - prevKeyframe.position.z) *
-                        progress,
+                        progress
                   );
                 }
               } else {
@@ -409,9 +424,9 @@ class Timeline {
           this.timelineSettings.totalSeconds *
           this.timelineSettings.framesPerSecond;
         const frame = Math.round(percent * totalFrames);
-
+        console.log(frame);
         // 현재 프레임 업데이트
-        this.setCurrentFrame(frame);
+        // this.setCurrentFrame(frame);
 
         // 플레이헤드 위치 업데이트
         this.updatePlayheadPosition(percent * 100);
@@ -505,7 +520,7 @@ class Timeline {
 
     // 선택된 타임라인만 표시
     const activeGroup = this.container.querySelector(
-      `.timeline-group[data-timeline="${type}"]`,
+      `.timeline-group[data-timeline="${type}"]`
     );
     if (activeGroup) {
       activeGroup.classList.add("active");
@@ -570,7 +585,7 @@ class Timeline {
     if (this.timelines.motion) {
       // motion-track 요소들 직접 찾기
       const motionTracks = Array.from(
-        this.container.querySelectorAll(".motion-tracks"),
+        this.container.querySelectorAll(".motion-tracks")
       );
 
       motionTracks.forEach((trackElement) => {
@@ -680,7 +695,7 @@ class Timeline {
             character.position.set(
               parseFloat(nearestKeyframe.position[0]),
               parseFloat(nearestKeyframe.position[1]),
-              parseFloat(nearestKeyframe.position[2]),
+              parseFloat(nearestKeyframe.position[2])
             );
           }
         } else {
@@ -813,7 +828,7 @@ class Timeline {
         const clipElement = track.querySelector(".animation-sprite");
         if (clipElement) {
           const clipStartTime = parseFloat(
-            clipElement.dataset.startTime || "0",
+            clipElement.dataset.startTime || "0"
           );
           const clipDuration = parseFloat(clipElement.dataset.duration || "0");
           const clipEndTime = clipStartTime + clipDuration;
@@ -897,7 +912,7 @@ class Timeline {
           character.position.set(
             parseFloat(prevKeyframe.position[0]),
             parseFloat(prevKeyframe.position[1]),
-            parseFloat(prevKeyframe.position[2]),
+            parseFloat(prevKeyframe.position[2])
           );
         }
       });
@@ -1051,6 +1066,18 @@ class Timeline {
     return `${minutes.toString().padStart(2, "0")}:${secs
       .toString()
       .padStart(2, "0")}s`;
+  }
+
+  ensureTimelineData() {
+    if (!this.editor.scene.userData.timeline) {
+      this.editor.scene.userData.timeline = {
+        totalSeconds: this.timelineSettings.totalSeconds,
+        framesPerSecond: this.timelineSettings.framesPerSecond,
+        currentFrame: 0,
+        currentSeconds: 0,
+        isPlaying: false,
+      };
+    }
   }
 }
 
