@@ -281,10 +281,7 @@ export class MotionTimeline extends BaseTimeline {
 
   addKeyframe(objectId, propertyType, frame) {
     const track = this.tracks.get(objectId);
-    if (!track) {
-      console.warn("addKeyframe: track이 undefined입니다.");
-      return;
-    }
+    if (!track) return;
 
     const object = this.editor.scene.getObjectById(parseInt(objectId));
     if (!object) return;
@@ -888,7 +885,6 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   addTrack(objectUuid, objectId, objectName) {
-    console.log("addTrack", objectUuid, objectId, objectName);
     if (this.tracks.has(objectId)) return;
 
     // 1. 메인 트랙 컨테이너 생성

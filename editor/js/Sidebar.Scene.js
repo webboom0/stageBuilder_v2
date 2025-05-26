@@ -29,6 +29,17 @@ function SidebarScene(editor) {
     option.innerHTML = buildHTML(object);
     option.value = object.id;
 
+    // === 드래그 이벤트 추가 ===
+    if (draggable) {
+      option.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("objectUuid", object.uuid);
+        e.dataTransfer.setData("objectId", object.id);
+        e.dataTransfer.setData("objectName", object.name);
+        // 디버깅용
+        console.log("dragstart", object.uuid, object.id, object.name);
+      });
+    }
+
     // opener
     /*
     if (nodeStates.has(object)) {

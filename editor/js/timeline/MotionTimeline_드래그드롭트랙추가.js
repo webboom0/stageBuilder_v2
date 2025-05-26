@@ -27,6 +27,40 @@ export class MotionTimeline extends BaseTimeline {
 
     // 비디오 배경 생성
     this.createBackground();
+
+    // 타임라인 트랙 컨테이너 DOM 요소 찾기
+    const trackContainer = document.querySelector(".timelineWrapper");
+    console.log("trackContainer", trackContainer);
+    if (trackContainer) {
+      // 드래그 오버(드롭 허용)
+      trackContainer.addEventListener("dragover", (e) => {
+        e.preventDefault();
+      });
+
+      // 드롭 이벤트
+      trackContainer.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const objectUuid = e.dataTransfer.getData("objectUuid");
+        const objectId = e.dataTransfer.getData("objectId");
+        const objectName = e.dataTransfer.getData("objectName");
+        // 기존: this.addTrack(objectUuid, objectId, objectName);
+
+        // Timeline 인스턴스의 handleAddTimeline을 호출
+        if (
+          this.editor.timeline &&
+          typeof this.editor.timeline.handleAddTimeline === "function"
+        ) {
+          this.editor.timeline.handleAddTimeline(
+            objectUuid,
+            objectId,
+            objectName
+          );
+        } else {
+          // fallback
+          this.addTrack(objectUuid, objectId, objectName);
+        }
+      });
+    }
   }
 
   initMotionTracks() {
@@ -281,10 +315,7 @@ export class MotionTimeline extends BaseTimeline {
 
   addKeyframe(objectId, propertyType, frame) {
     const track = this.tracks.get(objectId);
-    if (!track) {
-      console.warn("addKeyframe: track이 undefined입니다.");
-      return;
-    }
+    if (!track) return;
 
     const object = this.editor.scene.getObjectById(parseInt(objectId));
     if (!object) return;

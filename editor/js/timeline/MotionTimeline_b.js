@@ -11,7 +11,7 @@ export class MotionTimeline extends BaseTimeline {
     this.isPlaying = false;
     this.currentTime = 0;
     this.selectedKeyframe = null;
-    this.selectedSprite = null;
+    this.selectedClip = null;
     this.initMotionTracks();
     this.bindEvents();
 
@@ -267,29 +267,28 @@ export class MotionTimeline extends BaseTimeline {
     }
 
     // 현재 선택된 클립 또는 첫 번째 클립 사용
-    const selectedSprite = track.element.querySelector(
-      ".animation-sprite.selected"
+    const selectedClip = track.element.querySelector(
+      ".animation-clip.selected"
     );
-    const sprite =
-      selectedSprite || track.element.querySelector(".animation-sprite");
+    const clip = selectedClip || track.element.querySelector(".animation-clip");
 
-    if (!sprite) {
+    if (!clip) {
       console.warn("클립을 찾을 수 없습니다.");
       return;
     }
 
     // 클립과 playhead의 위치를 픽셀 단위로 정확하게 계산
-    const spriteRect = sprite.getBoundingClientRect();
+    const clipRect = clip.getBoundingClientRect();
     const playheadElement = document.querySelector(".playhead");
     const playheadRect = playheadElement.getBoundingClientRect();
 
     // playhead의 상대적 위치 계산 (클립 기준)
-    const relativePlayheadPosition = playheadRect.left - spriteRect.left;
+    const relativePlayheadPosition = playheadRect.left - clipRect.left;
 
     // playhead가 클립 영역 내에 있는지 확인
     const isPlayheadInClip =
       relativePlayheadPosition >= 0 &&
-      relativePlayheadPosition <= spriteRect.width;
+      relativePlayheadPosition <= clipRect.width;
 
     if (!isPlayheadInClip) {
       console.warn("키프레임은 클립 범위 내에만 추가할 수 있습니다.");
@@ -308,10 +307,10 @@ export class MotionTimeline extends BaseTimeline {
     keyframeElement.dataset.pixelPosition = relativePlayheadPosition.toString();
 
     // 클립 기준 시간 계산 (픽셀 위치를 초로 변환)
-    const spriteWidth = sprite.getBoundingClientRect().width;
+    const clipWidth = clip.getBoundingClientRect().width;
     const timeInSeconds =
-      (relativePlayheadPosition / spriteWidth) *
-      parseFloat(sprite.dataset.duration);
+      (relativePlayheadPosition / clipWidth) *
+      parseFloat(clip.dataset.duration);
     keyframeElement.dataset.time = timeInSeconds.toFixed(2);
 
     // 현재 객체의 position 정보 저장
@@ -354,7 +353,7 @@ export class MotionTimeline extends BaseTimeline {
     });
 
     // 키프레임 레이어에 추가
-    let keyframeLayer = sprite.querySelector(".keyframe-layer");
+    let keyframeLayer = clip.querySelector(".keyframe-layer");
     if (!keyframeLayer) {
       keyframeLayer = document.createElement("div");
       keyframeLayer.className = "keyframe-layer";
@@ -363,7 +362,7 @@ export class MotionTimeline extends BaseTimeline {
       keyframeLayer.style.height = "100%";
       keyframeLayer.style.top = "0";
       keyframeLayer.style.left = "0";
-      sprite.appendChild(keyframeLayer);
+      clip.appendChild(keyframeLayer);
     }
 
     keyframeLayer.appendChild(keyframeElement);
@@ -400,14 +399,14 @@ export class MotionTimeline extends BaseTimeline {
   //   document.addEventListener("mousemove", (e) => {
   //     if (!isDragging) return;
 
-  //     const sprite = keyframeElement.closest(".animation-sprite");
-  //     if (!sprite) return;
+  //     const clip = keyframeElement.closest(".animation-clip");
+  //     if (!clip) return;
 
-  //     const spriteRect = sprite.getBoundingClientRect();
+  //     const clipRect = clip.getBoundingClientRect();
   //     const dx = e.clientX - startX;
   //     const newPixelPosition = Math.max(
   //       0,
-  //       Math.min(spriteRect.width, startPixelPosition + dx)
+  //       Math.min(clipRect.width, startPixelPosition + dx)
   //     );
 
   //     // 픽셀 단위로 위치 설정
@@ -416,7 +415,7 @@ export class MotionTimeline extends BaseTimeline {
 
   //     // 프레임 위치 업데이트
   //     const newFrame = Math.round(
-  //       (newPixelPosition / spriteRect.width) *
+  //       (newPixelPosition / clipRect.width) *
   //         this.options.totalSeconds *
   //         this.options.framesPerSecond
   //     );
@@ -865,35 +864,35 @@ export class MotionTimeline extends BaseTimeline {
       const trackContent = document.createElement("div");
       trackContent.className = "track-content";
 
-      const sprite = document.createElement("div");
-      sprite.className = "animation-sprite";
-      sprite.dataset.duration = animationDuration;
-      sprite.innerHTML = `
-        <div class="sprite-handle left"></div>
-        <div class="sprite-content">
-          <span class="sprite-name">${
+      const clip = document.createElement("div");
+      clip.className = "animation-clip";
+      clip.dataset.duration = animationDuration;
+      clip.innerHTML = `
+        <div class="clip-handle left"></div>
+        <div class="clip-content">
+          <span class="clip-name">${
             object.animations[0]?.name || "Animation"
           }</span>
         </div>
-        <div class="sprite-handle right"></div>
+        <div class="clip-handle right"></div>
       `;
 
       // 스프라이트 크기와 위치 설정
-      const spriteWidth =
+      const clipWidth =
         (totalFrames /
           (this.options.totalSeconds * this.options.framesPerSecond)) *
         100;
-      sprite.style.width = `${spriteWidth}%`;
-      sprite.style.left = "0%";
+      clip.style.width = `${clipWidth}%`;
+      clip.style.left = "0%";
 
-      trackContent.appendChild(sprite);
+      trackContent.appendChild(clip);
       trackTopArea.appendChild(trackContent);
 
       // 스프라이트 이벤트 바인딩 (키프레임 드래그 이벤트 포함)
-      this.bindSpriteEvents(sprite, track);
+      this.bindClipEvents(clip, track);
 
       // 기존 키프레임들에 대해 드래그 이벤트 재바인딩
-      const keyframes = sprite.querySelectorAll(".keyframe");
+      const keyframes = clip.querySelectorAll(".keyframe");
       keyframes.forEach((keyframe) => {
         const frame = parseInt(keyframe.dataset.frame);
         this.makeKeyframeDraggable(keyframe, track, frame, object);
@@ -912,12 +911,12 @@ export class MotionTimeline extends BaseTimeline {
     return track;
   }
 
-  selectSprite(sprite, track) {
-    if (this.selectedSprite) {
-      this.selectedSprite.classList.remove("selected");
+  selectClip(clip, track) {
+    if (this.selectedClip) {
+      this.selectedClip.classList.remove("selected");
     }
-    sprite.classList.add("selected");
-    this.selectedSprite = sprite;
+    clip.classList.add("selected");
+    this.selectedClip = clip;
 
     // 속성 패널 표시
     this.showPropertyPanel(track);
@@ -1099,7 +1098,7 @@ export class MotionTimeline extends BaseTimeline {
     }
   }
 
-  bindSpriteEvents(sprite, track) {
+  bindClipEvents(clip, track) {
     let isDragging = false;
     let isResizing = false;
     let startX;
@@ -1108,16 +1107,16 @@ export class MotionTimeline extends BaseTimeline {
     let resizeHandle;
 
     // 드래그 시작
-    sprite.addEventListener("mousedown", (e) => {
-      if (e.target.classList.contains("sprite-handle")) {
+    clip.addEventListener("mousedown", (e) => {
+      if (e.target.classList.contains("clip-handle")) {
         isResizing = true;
         resizeHandle = e.target;
       } else {
         isDragging = true;
       }
       startX = e.clientX;
-      startLeft = parseFloat(sprite.style.left) || 0;
-      startWidth = parseFloat(sprite.style.width) || 100;
+      startLeft = parseFloat(clip.style.left) || 0;
+      startWidth = parseFloat(clip.style.width) || 100;
       e.stopPropagation();
     });
 
@@ -1126,7 +1125,7 @@ export class MotionTimeline extends BaseTimeline {
       if (!isDragging && !isResizing) return;
 
       const dx = e.clientX - startX;
-      const parentWidth = sprite.parentElement.offsetWidth;
+      const parentWidth = clip.parentElement.offsetWidth;
       const deltaPercent = (dx / parentWidth) * 100;
 
       if (isResizing) {
@@ -1139,22 +1138,22 @@ export class MotionTimeline extends BaseTimeline {
 
           if (
             newWidth >= 10 &&
-            !this.checkClipCollision(sprite, newLeft, newWidth)
+            !this.checkClipCollision(clip, newLeft, newWidth)
           ) {
-            sprite.style.left = `${newLeft}%`;
-            sprite.style.width = `${newWidth}%`;
+            clip.style.left = `${newLeft}%`;
+            clip.style.width = `${newWidth}%`;
             // 크기 변경 후 키프레임 업데이트 및 범위 체크
-            this.updateKeyframesInClip(track, sprite);
+            this.updateKeyframesInClip(track, clip);
           }
         } else {
           const newWidth = Math.max(
             10,
             Math.min(startWidth + deltaPercent, 100 - startLeft)
           );
-          if (!this.checkClipCollision(sprite, startLeft, newWidth)) {
-            sprite.style.width = `${newWidth}%`;
+          if (!this.checkClipCollision(clip, startLeft, newWidth)) {
+            clip.style.width = `${newWidth}%`;
             // 크기 변경 후 키프레임 업데이트 및 범위 체크
-            this.updateKeyframesInClip(track, sprite);
+            this.updateKeyframesInClip(track, clip);
           }
         }
       } else {
@@ -1162,10 +1161,10 @@ export class MotionTimeline extends BaseTimeline {
           0,
           Math.min(100 - startWidth, startLeft + deltaPercent)
         );
-        if (!this.checkClipCollision(sprite, newLeft, startWidth)) {
-          sprite.style.left = `${newLeft}%`;
+        if (!this.checkClipCollision(clip, newLeft, startWidth)) {
+          clip.style.left = `${newLeft}%`;
           // 위치 변경 후 키프레임 업데이트
-          this.updateKeyframesInClip(track, sprite);
+          this.updateKeyframesInClip(track, clip);
         }
       }
     });
@@ -1180,19 +1179,19 @@ export class MotionTimeline extends BaseTimeline {
     });
 
     // 클립 선택
-    sprite.addEventListener("click", (e) => {
+    clip.addEventListener("click", (e) => {
       e.stopPropagation();
       const previousSelected = document.querySelector(
-        ".animation-sprite.selected"
+        ".animation-clip.selected"
       );
       if (previousSelected) {
         previousSelected.classList.remove("selected");
       }
-      sprite.classList.add("selected");
+      clip.classList.add("selected");
     });
 
     // 우클릭 메뉴 이벤트 추가
-    sprite.addEventListener("contextmenu", (e) => {
+    clip.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -1204,7 +1203,7 @@ export class MotionTimeline extends BaseTimeline {
 
       // 클립 개수 확인
       const clipCount =
-        track.element.querySelectorAll(".animation-sprite").length;
+        track.element.querySelectorAll(".animation-clip").length;
 
       // 컨텍스트 메뉴 생성
       const menu = document.createElement("div");
@@ -1228,7 +1227,7 @@ export class MotionTimeline extends BaseTimeline {
 
       // 복제 클릭 이벤트
       duplicateItem.addEventListener("click", () => {
-        this.duplicateSprite(sprite, track);
+        this.duplicateClip(clip, track);
         menu.remove();
       });
 
@@ -1261,7 +1260,7 @@ export class MotionTimeline extends BaseTimeline {
 
         // 삭제 클릭 이벤트
         deleteItem.addEventListener("click", () => {
-          this.deleteSprite(sprite, track);
+          this.deleteClip(clip, track);
           menu.remove();
         });
 
@@ -1282,15 +1281,15 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   // 클립 충돌 체크 메서드 추가
-  checkClipCollision(currentSprite, newLeft, newWidth) {
+  checkClipCollision(currentClip, newLeft, newWidth) {
     const clips = Array.from(
-      currentSprite.parentElement.querySelectorAll(".animation-sprite")
+      currentClip.parentElement.querySelectorAll(".animation-clip")
     );
     const currentRight = newLeft + newWidth;
 
     // 현재 클립을 제외한 다른 클립들과의 충돌 체크
     return clips.some((clip) => {
-      if (clip === currentSprite) return false;
+      if (clip === currentClip) return false;
 
       const clipLeft = parseFloat(clip.style.left) || 0;
       const clipWidth = parseFloat(clip.style.width) || 100;
@@ -1312,18 +1311,18 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   // 클립 크기 변경 시 키프레임 위치 업데이트
-  updateKeyframesInClip(track, sprite) {
-    const keyframeLayer = sprite.querySelector(".keyframe-layer");
+  updateKeyframesInClip(track, clip) {
+    const keyframeLayer = clip.querySelector(".keyframe-layer");
     if (!keyframeLayer) return;
 
     const keyframes = Array.from(keyframeLayer.querySelectorAll(".keyframe"));
-    const spriteWidth = sprite.offsetWidth;
+    const clipWidth = clip.offsetWidth;
 
     keyframes.forEach((keyframe) => {
       const pixelPosition = parseFloat(keyframe.dataset.pixelPosition);
 
       // 키프레임이 클립 범위를 벗어났는지 확인
-      if (pixelPosition < 0 || pixelPosition > spriteWidth) {
+      if (pixelPosition < 0 || pixelPosition > clipWidth) {
         // 키프레임 요소 제거
         keyframe.remove();
 
@@ -1334,14 +1333,14 @@ export class MotionTimeline extends BaseTimeline {
         }
 
         console.log(
-          `키프레임 삭제: position ${pixelPosition}px가 클립 범위(0-${spriteWidth}px)를 벗어남`
+          `키프레임 삭제: position ${pixelPosition}px가 클립 범위(0-${clipWidth}px)를 벗어남`
         );
         return;
       }
 
       // 범위 내의 키프레임은 프레임 값 업데이트
       const frame = Math.round(
-        (pixelPosition / spriteWidth) *
+        (pixelPosition / clipWidth) *
           this.options.totalSeconds *
           this.options.framesPerSecond
       );
@@ -1562,32 +1561,32 @@ export class MotionTimeline extends BaseTimeline {
     return names[propertyType] || propertyType;
   }
 
-  duplicateSprite(sourceSprite, track) {
+  duplicateClip(sourceClip, track) {
     // 새로운 스프라이트 생성
-    const newSprite = document.createElement("div");
-    newSprite.className = "animation-sprite";
-    newSprite.dataset.duration = sourceSprite.dataset.duration;
+    const newClip = document.createElement("div");
+    newClip.className = "animation-clip";
+    newClip.dataset.duration = sourceClip.dataset.duration;
 
     // 원본 클립의 이름을 유지
-    const originalName = sourceSprite.querySelector(".sprite-name").textContent;
-    newSprite.innerHTML = `
-      <div class="sprite-handle left"></div>
-      <div class="sprite-content">
-        <span class="sprite-name">${originalName}</span>
+    const originalName = sourceClip.querySelector(".clip-name").textContent;
+    newClip.innerHTML = `
+      <div class="clip-handle left"></div>
+      <div class="clip-content">
+        <span class="clip-name">${originalName}</span>
       </div>
-      <div class="sprite-handle right"></div>
+      <div class="clip-handle right"></div>
     `;
 
     // 위치와 크기 설정 (원본 클립 바로 다음에 위치)
-    const sourceLeft = parseFloat(sourceSprite.style.left) || 0;
-    const sourceWidth = parseFloat(sourceSprite.style.width) || 100;
+    const sourceLeft = parseFloat(sourceClip.style.left) || 0;
+    const sourceWidth = parseFloat(sourceClip.style.width) || 100;
     const newLeft = Math.min(100 - sourceWidth, sourceLeft + sourceWidth);
 
-    newSprite.style.left = `${newLeft}%`;
-    newSprite.style.width = `${sourceWidth}%`;
+    newClip.style.left = `${newLeft}%`;
+    newClip.style.width = `${sourceWidth}%`;
 
     // 키프레임 레이어 복제
-    const sourceKeyframeLayer = sourceSprite.querySelector(".keyframe-layer");
+    const sourceKeyframeLayer = sourceClip.querySelector(".keyframe-layer");
     if (sourceKeyframeLayer) {
       const newKeyframeLayer = document.createElement("div");
       newKeyframeLayer.className = "keyframe-layer";
@@ -1597,7 +1596,7 @@ export class MotionTimeline extends BaseTimeline {
       newKeyframeLayer.style.top = "0";
       newKeyframeLayer.style.left = "0";
       newKeyframeLayer.style.pointerEvents = "auto";
-      newSprite.appendChild(newKeyframeLayer);
+      newClip.appendChild(newKeyframeLayer);
 
       // 키프레임 복제
       sourceKeyframeLayer
@@ -1642,17 +1641,17 @@ export class MotionTimeline extends BaseTimeline {
     }
 
     // 트랙에 새 스프라이트 추가
-    sourceSprite.parentElement.appendChild(newSprite);
+    sourceClip.parentElement.appendChild(newClip);
 
     // 새 스프라이트에 이벤트 바인딩
-    this.bindSpriteEvents(newSprite, track);
+    this.bindClipEvents(newClip, track);
 
     // 키프레임 데이터 구조 복제
     if (track.keyframes) {
       const newKeyframes = { ...track.keyframes };
       Object.keys(newKeyframes).forEach((frame) => {
         if (newKeyframes[frame].element) {
-          const newElement = newSprite.querySelector(
+          const newElement = newClip.querySelector(
             `.keyframe[data-frame="${frame}"]`
           );
           if (newElement) {
@@ -1666,13 +1665,13 @@ export class MotionTimeline extends BaseTimeline {
       track.keyframes = newKeyframes;
     }
 
-    return newSprite;
+    return newClip;
   }
 
   // 클립 삭제 메서드 추가
-  deleteSprite(sprite, track) {
+  deleteClip(clip, track) {
     // 클립 내의 모든 키프레임 데이터 삭제
-    const keyframeLayer = sprite.querySelector(".keyframe-layer");
+    const keyframeLayer = clip.querySelector(".keyframe-layer");
     if (keyframeLayer) {
       const keyframes = keyframeLayer.querySelectorAll(".keyframe");
       keyframes.forEach((keyframe) => {
@@ -1684,12 +1683,12 @@ export class MotionTimeline extends BaseTimeline {
     }
 
     // 선택된 클립이었다면 선택 해제
-    if (sprite.classList.contains("selected")) {
-      this.selectedSprite = null;
+    if (clip.classList.contains("selected")) {
+      this.selectedClip = null;
     }
 
     // DOM에서 클립 제거
-    sprite.remove();
+    clip.remove();
 
     // 씬 업데이트
     const object = this.editor.scene.getObjectById(parseInt(track.objectId));
