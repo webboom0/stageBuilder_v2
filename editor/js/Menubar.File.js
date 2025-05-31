@@ -172,8 +172,6 @@ function MenubarFile(editor) {
 
   //
 
-  options.add(new UIHorizontalRule());
-
   // Save As with Download Attribute
 
   option = new UIRow()
@@ -229,6 +227,7 @@ function MenubarFile(editor) {
 
   // options.add(option);
 
+  options.add(new UIHorizontalRule());
   // Import
 
   const form = document.createElement("form");
@@ -338,7 +337,7 @@ function MenubarFile(editor) {
         saveArrayBuffer(result, "scene.glb");
       },
       undefined,
-      { binary: true, animations: optimizedAnimations }
+      { binary: true, animations: optimizedAnimations },
     );
   });
   fileExportSubmenu.add(option);
@@ -370,7 +369,7 @@ function MenubarFile(editor) {
         saveString(JSON.stringify(result, null, 2), "scene.gltf");
       },
       undefined,
-      { animations: optimizedAnimations }
+      { animations: optimizedAnimations },
     );
   });
   fileExportSubmenu.add(option);
@@ -433,7 +432,7 @@ function MenubarFile(editor) {
       function (result) {
         saveArrayBuffer(result, "model-binary.ply");
       },
-      { binary: true }
+      { binary: true },
     );
   });
   fileExportSubmenu.add(option);
@@ -468,7 +467,7 @@ function MenubarFile(editor) {
 
     saveArrayBuffer(
       exporter.parse(editor.scene, { binary: true }),
-      "model-binary.stl"
+      "model-binary.stl",
     );
   });
   fileExportSubmenu.add(option);
