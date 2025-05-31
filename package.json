@@ -1,6 +1,27 @@
 {
-  "type": "module",
+  "name": "web-video-editor",
+  "version": "1.0.0",
+  "description": "웹 기반 비디오 에디터",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "serve": "vite preview"
+  },
   "dependencies": {
-    "lodash": "^4.17.21"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@ffmpeg/ffmpeg": "^0.12.0",
+    "@ffmpeg/core": "^0.12.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "@mui/material": "^5.13.0",
+    "axios": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "typescript": "^5.0.4",
+    "vite": "^4.3.9"
   }
 }

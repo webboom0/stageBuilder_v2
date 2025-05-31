@@ -584,14 +584,20 @@ export class MotionTimeline extends BaseTimeline {
     let startLeft;
     let startWidth;
     let resizeHandle;
+    let parentWidth;
 
     sprite.addEventListener("mousedown", (e) => {
       console.log("mousedown");
       if (e.target.classList.contains("sprite-handle")) {
         isResizing = true;
         resizeHandle = e.target;
+        parentWidth = sprite.parentElement.offsetWidth;
       } else {
         isDragging = true;
+        parentWidth = sprite.parentElement.offsetWidth; // 항상 최신값
+        startX = e.clientX;
+        startLeft = parseFloat(sprite.style.left) || 0; // px 단위
+        e.stopPropagation();
       }
       startX = e.clientX;
       startLeft = parseFloat(sprite.style.left) || 0;
@@ -649,45 +655,41 @@ export class MotionTimeline extends BaseTimeline {
 
     document.addEventListener("mousemove", (e) => {
       if (!isDragging && !isResizing) return;
-      console.log("mousemove");
-      console.log(isResizing);
       const dx = e.clientX - startX;
-      const parentWidth = sprite.parentElement.offsetWidth;
-      const deltaPercent = (dx / parentWidth) * 100;
 
       if (isResizing) {
         if (resizeHandle.classList.contains("left")) {
-          const newLeft = Math.max(
+          let newLeft = Math.max(
             0,
-            Math.min(startLeft + deltaPercent, startLeft + startWidth - 10)
+            Math.min(startLeft + dx, startLeft + startWidth - 10)
           );
-          const newWidth = startWidth - (newLeft - startLeft);
+          let newWidth = startWidth - (newLeft - startLeft);
 
           if (
             newWidth >= 10 &&
             !this.checkClipCollision(sprite, newLeft, newWidth)
           ) {
-            sprite.style.left = `${newLeft}%`;
-            sprite.style.width = `${newWidth}%`;
+            sprite.style.left = `${newLeft}px`;
+            sprite.style.width = `${newWidth}px`;
             this.updateKeyframesInClip(track, sprite);
           }
         } else {
-          const newWidth = Math.max(
+          let newWidth = Math.max(
             10,
-            Math.min(startWidth + deltaPercent, 100 - startLeft)
+            Math.min(startWidth + dx, parentWidth - startLeft)
           );
           if (!this.checkClipCollision(sprite, startLeft, newWidth)) {
-            sprite.style.width = `${newWidth}%`;
+            sprite.style.width = `${newWidth}px`;
             this.updateKeyframesInClip(track, sprite);
           }
         }
       } else {
-        const newLeft = Math.max(
+        let newLeft = Math.max(
           0,
-          Math.min(100 - startWidth, startLeft + deltaPercent)
+          Math.min(parentWidth - startWidth, startLeft + dx)
         );
         if (!this.checkClipCollision(sprite, newLeft, startWidth)) {
-          sprite.style.left = `${newLeft}%`;
+          sprite.style.left = `${newLeft}px`;
           this.updateKeyframesInClip(track, sprite);
         }
       }
