@@ -776,7 +776,17 @@
   z-index: 1000;
   /* transform: translateX(-1px); */
 }
-
+.time-ruler-container .playhead .time-box {
+  position: absolute;
+  top: 0px;
+  left: 50%;
+  height: 15px;
+  background: #f00;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #fff;
+  padding: 4px;
+}
 /* 타임라인 전체에서 보이는 플레이헤드 */
 .timeline-viewport .playhead {
   position: absolute;
@@ -789,7 +799,7 @@
   /* transform: translateX(-4px); */
 }
 
-.time-ruler-container .playhead::before {
+/* .time-ruler-container .playhead::before {
   content: "";
   position: absolute;
   top: -10px;
@@ -798,7 +808,7 @@
   height: 10px;
   background: #f00;
   border-radius: 5px 5px 2px 2px;
-}
+} */
 
 /* 타임라인 뷰포트 */
 .timeline-viewport {

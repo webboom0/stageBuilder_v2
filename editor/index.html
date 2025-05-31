@@ -28,7 +28,7 @@
   <body>
     <div id="tabContainer">
       <div id="tabButtons">
-        <button class="addTabButton">+ New Tab</button>
+        <!-- <button class="addTabButton">+ New Tab</button> -->
       </div>
       <div id="tabPanels"></div>
     </div>
@@ -395,9 +395,9 @@
       }
 
       // 탭 버튼 클릭 이벤트
-      document
-        .querySelector(".addTabButton")
-        .addEventListener("click", createNewTab);
+      // document
+      //   .querySelector(".addTabButton")
+      //   .addEventListener("click", createNewTab);
 
       tabButtons.addEventListener("click", (e) => {
         if (e.target.classList.contains("tabButton")) {
