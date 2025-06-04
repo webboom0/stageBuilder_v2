@@ -987,3 +987,17 @@
 .next-keyframe-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
+
+/* LightTimeline.css */
+.light-timeline-container {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(2, auto);
+  gap: 8px;
+}
+.light-track {
+  border: 1px solid #ccc;
+  background: #222;
+  min-height: 60px;
+  /* 기타 스타일 */
+}

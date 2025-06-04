@@ -1,7 +1,10 @@
 import { UIPanel, UIInput, UIButton, UIRow } from "./libs/ui.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { Timeline } from "./timeline/Timeline.js";
 
 function VideoEdit(editor) {
+  console.log("VideoEdit");
   const signals = editor.signals;
   const container = new UIPanel();
   container.setId("videoEdit");
@@ -74,7 +77,7 @@ function VideoEdit(editor) {
       if (timeline.timelines.motion) {
         // 이미 존재하는 트랙인지 확인
         const existingTrack = timeline.timelines.motion.tracks.get(
-          selectedObject.id,
+          selectedObject.id
         );
         if (existingTrack) {
           alert("This object already has a timeline");
@@ -131,7 +134,124 @@ function VideoEdit(editor) {
       }
     });
   }
+  const background = {
+    create: function () {
+      console.log("background");
 
+      const loader = new FBXLoader();
+      loader.load(
+        "/files/background.fbx",
+        (object) => {
+          if (!editor.scene || !editor.scene.children) {
+            console.log("Scene or children not initialized yet");
+            return;
+          }
+
+          // 씬의 배경색을 검정색으로 설정
+          // editor.scene.background = new THREE.Color(0x000000);
+
+          // Stage 그룹 생성 또는 찾기
+          let stageGroup = editor.scene.children.find(
+            (child) => child.name === "Stage"
+          );
+
+          if (!stageGroup) {
+            stageGroup = new THREE.Group();
+            stageGroup.name = "Stage";
+            editor.scene.add(stageGroup);
+          }
+
+          // Background 객체 생성 및 추가
+          const existingBackground = stageGroup.children.find(
+            (child) => child.name === "_Background"
+          );
+          console.log("existingBackground");
+          console.log(existingBackground);
+          if (!existingBackground) {
+            object.name = "_Background";
+
+            object.position.set(117.7, -98.509, 398.4);
+            object.rotation.set(
+              -Math.PI / 2, // -90도
+              0, // 0도
+              Math.PI / 2 // 90도
+            );
+            object.scale.set(0.32, 0.32, 0.32);
+
+            // object.traverse((child) => {
+            //   if (child.isMesh) {
+            //     child.material = new THREE.MeshStandardMaterial({
+            //       color: 0x808080,
+            //       side: THREE.DoubleSide,
+            //       transparent: true,
+            //       opacity: 1,
+            //     });
+            //     child.userData.isBackground = true;
+            //     child.userData.notSelectable = true;
+            //     child.userData.notEditable = true;
+            //     child.raycast = () => null;
+            //   }
+            // });
+            // 객체 자체에도 설정
+            // object.userData.isBackground = true;
+            // object.userData.notSelectable = true;
+            // object.userData.notEditable = true;
+
+            stageGroup.add(object);
+            // editor.scene.add(object);
+          }
+
+          // 조명 설정
+          const existingLight = stageGroup.children.find(
+            (child) => child.name === "_Light"
+          );
+
+          if (!existingLight) {
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+            hemiLight.position.set(0, 1, 0);
+            hemiLight.name = "_Light";
+            stageGroup.add(hemiLight);
+          } else {
+            console.log("Light already exists");
+          }
+
+          // Stage 그룹 전체에 대한 userData 설정
+          stageGroup.userData.isBackground = true;
+          stageGroup.userData.notSelectable = true;
+          stageGroup.userData.notEditable = true;
+          stageGroup.userData.excludeFromTimeline = true;
+
+          editor.signals.sceneGraphChanged.dispatch();
+          editor.scene.userData.hasBackground = true;
+
+          editor.signals.objectSelected.remove(background.onObjectSelected);
+          editor.signals.objectSelected.add(background.onObjectSelected);
+
+          console.log("Background and floor loaded successfully");
+        },
+        undefined,
+        (error) => {
+          console.error("Error loading background:", error);
+        }
+      );
+    },
+
+    onObjectSelected: function (selected) {
+      if (
+        selected &&
+        (selected.name === "Background" || selected.userData.isBackground)
+      ) {
+        editor.selected = null;
+        editor.signals.objectSelected.dispatch(null);
+      }
+    },
+  };
+  console.log(editor.scene.userData.hasBackground);
+  // 새 파일일 경우에만 Background 생성
+  if (!editor.scene.userData.hasBackground) {
+    console.log("background호출");
+    background.create();
+  }
   return container;
 }
 
