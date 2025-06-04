@@ -6,6 +6,7 @@ import * as THREE from "three";
 export class MotionTimeline extends BaseTimeline {
   constructor(editor, options) {
     super(editor, options);
+    console.log(this.options);
     this.selectedObject = null;
     this.selectedProperty = null;
     this.isPlaying = false;
@@ -14,6 +15,7 @@ export class MotionTimeline extends BaseTimeline {
     this.selectedSprite = null;
     this.initMotionTracks();
     this.bindEvents();
+    this.timeline = this.editor.scene.userData.timeline;
 
     // 속성 편집 패널 생성
     this.propertyPanel = this.createPropertyPanel();
@@ -47,6 +49,7 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   // 모션 특화 메서드
+  /*
   updateObjectTransform(object, frame) {
     const positionTrack = this.tracks.get("position");
     const rotationTrack = this.tracks.get("rotation");
@@ -85,8 +88,9 @@ export class MotionTimeline extends BaseTimeline {
     //   }
     // }
   }
-
+*/
   // 키프레임 추가
+  /*
   addTransformKeyframe(object, frame) {
     const positionTrack = this.tracks.get("position");
     const rotationTrack = this.tracks.get("rotation");
@@ -116,6 +120,7 @@ export class MotionTimeline extends BaseTimeline {
     //   });
     // }
   }
+    */
 
   // UI 커스터마이징
   // createTrackElement(options) {
@@ -174,10 +179,11 @@ export class MotionTimeline extends BaseTimeline {
   // }
 
   // frame-markers 없이 keyframe-layer만 반환
+  /*
   createFrameMarkers() {
     return `<div class="keyframe-layer"></div>`;
   }
-
+*/
   bindTrackEvents(track) {
     // 키프레임 추가 버튼
     const addBtn = track.element.querySelector(
@@ -188,6 +194,30 @@ export class MotionTimeline extends BaseTimeline {
         e.stopPropagation();
         const currentFrame = this.currentFrame;
         this.addKeyframe(track.objectId, currentFrame);
+      });
+    }
+
+    // 이전/다음 키프레임 버튼 이벤트
+    const prevKeyframeBtn = track.element.querySelector(".prev-keyframe-btn");
+    const nextKeyframeBtn = track.element.querySelector(".next-keyframe-btn");
+
+    if (prevKeyframeBtn) {
+      prevKeyframeBtn.addEventListener("click", (e) => {
+        console.log("prev button clicked");
+        console.log(track.element);
+        e.stopPropagation();
+        // track.element를 직접 사용
+        this.moveToAdjacentKeyframe(track.element, "prev");
+      });
+    }
+
+    if (nextKeyframeBtn) {
+      nextKeyframeBtn.addEventListener("click", (e) => {
+        console.log("next button clicked");
+        console.log(track.element);
+        e.stopPropagation();
+        // track.element를 직접 사용
+        this.moveToAdjacentKeyframe(track.element, "next");
       });
     }
   }
@@ -255,94 +285,92 @@ export class MotionTimeline extends BaseTimeline {
 
   addKeyframe(objectId, propertyType, frame) {
     const track = this.tracks.get(objectId);
-    if (!track) return;
+    if (!track) {
+      console.warn("addKeyframe: track이 undefined입니다.");
+      return;
+    }
 
     const object = this.editor.scene.getObjectById(parseInt(objectId));
     if (!object) return;
 
-    // 현재 값 가져오기
-    const currentValue = this.getCurrentValue(parseInt(objectId));
-    if (!currentValue) return;
-
-    // track.keyframes 초기화
-    if (!track.keyframes) {
-      track.keyframes = {};
-    }
-
-    // propertyType에 대한 Map 초기화
-    if (!track.keyframes[propertyType]) {
-      track.keyframes[propertyType] = new Map();
-    }
-
-    // track.element를 사용하여 클립 찾기
-    const clipElement = track.element?.querySelector(".animation-sprite");
-    if (!clipElement) {
-      console.error("클립 엘리먼트를 찾을 수 없습니다:", objectId);
+    // 현재 선택된 클립 확인
+    const selectedSprite = track.element.querySelector(
+      ".animation-sprite.selected"
+    );
+    if (!selectedSprite) {
+      console.warn("선택된 클립이 없습니다.");
       return;
     }
 
-    // playhead 위치 가져오기 (타임라인 전체 기준)
-    const playheadElement = document.querySelector(".playhead");
-    const timelineElement = document.querySelector(".timeline-content");
-    const playheadLeft = playheadElement
-      ? parseFloat(playheadElement.style.left)
-      : 0;
-    const timelineWidth = timelineElement ? timelineElement.offsetWidth : 0;
+    // // 현재 선택된 클립 또는 첫 번째 클립 사용
+    // const selectedSprite = track.element.querySelector(
+    //   ".animation-sprite.selected"
+    // );
+    const sprite =
+      selectedSprite || track.element.querySelector(".animation-sprite");
 
-    // playhead의 시간 계산
-    const playheadTime = (playheadLeft / 100) * this.options.totalSeconds;
+    // if (!sprite) {
+    //   console.warn("클립을 찾을 수 없습니다.");
+    //   return;
+    // }
 
-    // frame 계산 (playhead 위치 기준)
-    const currentFrame = Math.floor(
-      playheadTime * this.options.framesPerSecond
-    );
-    frame = currentFrame; // frame이 undefined일 경우 현재 프레임 사용
+    // timeline-tracks와 playhead 요소 가져오기
+    const timelineTracks = document.querySelector(".timeline-track");
+    const playhead = document.querySelector(".playhead");
 
-    // 클립 관련 정보 가져오기
-    const clipStartTime = parseFloat(clipElement.dataset.startTime || "0");
-    const clipDuration = parseFloat(clipElement.dataset.duration || "0");
-    const clipWidth = clipElement.offsetWidth;
+    if (!timelineTracks) {
+      console.warn("timeline-tracks 또는 playhead를 찾을 수 없습니다.");
+      return;
+    }
 
-    // 클립 기준 상대 시간 계산
-    const relativeTime = Math.max(0, playheadTime - clipStartTime);
+    // playhead의 상대적 위치 계산 (timeline-tracks 기준)
+    const timelineRect = timelineTracks.getBoundingClientRect();
+    const playheadRect = playhead.getBoundingClientRect();
+    const spriteRect = sprite.getBoundingClientRect();
 
-    // 클립 내 상대적 위치 계산
-    const relativePosition = relativeTime / clipDuration;
-    const pixelPosition = Math.min(
-      clipWidth,
-      Math.max(0, relativePosition * clipWidth)
-    );
+    // playhead가 클립 영역 내에 있는지 체크
+    if (
+      playheadRect.left < spriteRect.left ||
+      playheadRect.left > spriteRect.right
+    ) {
+      console.warn("클립 영역을 벗어났습니다.");
+      return;
+    }
 
-    // position 값 설정
-    const value = {
-      x: currentValue.position.x,
-      y: currentValue.position.y,
-      z: currentValue.position.z,
-    };
+    // playhead의 위치를 클립 기준으로 변환
+    const relativePlayheadPosition = playheadRect.left - spriteRect.left;
 
-    // 키프레임 데이터를 클립 기준 시간으로 저장
-    track.keyframes[propertyType].set(frame.toString(), {
-      value: value,
-      time: relativeTime,
-    });
+    // 클립 내 시간 계산
+    const spriteWidth = spriteRect.width;
+    const clipDuration = parseFloat(sprite.dataset.duration) || 0;
+    const timeInSeconds =
+      (relativePlayheadPosition / spriteWidth) * clipDuration;
 
-    // 키프레임 엘리먼트 생성
+    // 클립의 currentFrame을 초 단위로 변환하여 time 값 설정
+    const relativeTime =
+      parseFloat(this.editor.scene.userData.timeline.currentSeconds) || 0;
+    // const relativeTime = currentFrame / this.options.framesPerSecond;
+    console.log("timeInSeconds");
+    console.log(timeInSeconds);
+
+    // 키프레임 요소 생성
     const keyframeElement = document.createElement("div");
     keyframeElement.className = "keyframe";
+    keyframeElement.style.left = `${relativePlayheadPosition}px`;
+    console.log(this.editor.scene.userData.timeline.currentSeconds);
+    keyframeElement.dataset.time = timeInSeconds.toString();
+    keyframeElement.dataset.pixelPosition = relativePlayheadPosition.toString();
 
-    // 데이터 속성 설정
-    keyframeElement.dataset.frame = frame.toString();
-    keyframeElement.dataset.time = relativeTime.toFixed(2);
-    keyframeElement.dataset.position = JSON.stringify([
-      value.x,
-      value.y,
-      value.z,
-    ]);
-    keyframeElement.dataset.pixelPosition =
-      Math.round(pixelPosition).toString();
+    // 현재 객체의 position 정보 저장
+    const position = [
+      object.position.x.toFixed(3),
+      object.position.y.toFixed(3),
+      object.position.z.toFixed(3),
+    ];
+    keyframeElement.dataset.position = JSON.stringify(position);
 
     // 위치 설정
-    keyframeElement.style.left = `${pixelPosition}px`;
+    keyframeElement.style.left = `${keyframeElement.dataset.pixelPosition}px`;
 
     // 클릭 이벤트 추가
     keyframeElement.addEventListener("click", (e) => {
@@ -351,11 +379,11 @@ export class MotionTimeline extends BaseTimeline {
     });
 
     // keyframe-layer 찾기 또는 생성
-    let keyframeLayer = clipElement.querySelector(".keyframe-layer");
+    let keyframeLayer = sprite.querySelector(".keyframe-layer");
     if (!keyframeLayer) {
       keyframeLayer = document.createElement("div");
       keyframeLayer.className = "keyframe-layer";
-      clipElement.appendChild(keyframeLayer);
+      sprite.appendChild(keyframeLayer);
     }
 
     // 키프레임을 keyframe-layer에 추가
@@ -369,19 +397,6 @@ export class MotionTimeline extends BaseTimeline {
 
     // 추가된 키프레임 자동 선택
     this.selectKeyframe(objectId, frame, keyframeElement);
-
-    console.log("키프레임 추가 상세 정보:", {
-      frame,
-      playheadLeft,
-      playheadTime,
-      clipStartTime,
-      clipDuration,
-      relativeTime,
-      relativePosition,
-      pixelPosition,
-      clipWidth,
-      timelineWidth,
-    });
 
     return keyframeElement;
   }
@@ -667,85 +682,74 @@ export class MotionTimeline extends BaseTimeline {
 
   // 프레임 업데이트 시 호출되는 메서드
   updateFrame(frame) {
-    // 현재 시간 계산
     const currentTime = frame / this.options.framesPerSecond;
 
     this.tracks.forEach((track, objectId) => {
-      const object = this.editor.scene.getObjectById(objectId);
+      const object = this.editor.scene.getObjectById(parseInt(objectId));
       if (!object) return;
 
-      // 클립의 visibility 체크 및 적용
-      const clipElement = track.element?.querySelector(".animation-sprite");
-      if (clipElement) {
-        const clipLeft = parseFloat(clipElement.style.left) || 0;
-        const clipWidth = parseFloat(clipElement.style.width) || 100;
+      // 기본적으로 객체를 숨김
+      object.visible = false;
 
-        // 클립의 시작과 끝 시간 계산 (퍼센트를 시간으로 변환)
+      const clips = track.element.querySelectorAll(".animation-sprite");
+      clips.forEach((clip) => {
+        const clipLeft = parseFloat(clip.style.left) || 0;
+        const clipWidth = parseFloat(clip.style.width) || 0;
         const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
         const clipEndTime =
-          ((clipLeft + clipWidth) / 100) * this.options.totalSeconds;
+          clipStartTime + (clipWidth / 100) * this.options.totalSeconds;
 
-        // 현재 시간이 클립 범위 내에 있는지 확인
         if (currentTime >= clipStartTime && currentTime <= clipEndTime) {
           object.visible = true;
-          console.log(`Object ${objectId} visible at time ${currentTime}`, {
-            clipStartTime,
-            clipEndTime,
-            currentTime,
+          let hasChanges = false;
+
+          ["position"].forEach((propertyType) => {
+            const keyframes = track.keyframes[propertyType];
+            if (!keyframes || keyframes.size === 0) return;
+
+            const keyframeArray = Array.from(keyframes.entries())
+              .map(([frame, data]) => ({
+                frame: parseInt(frame),
+                time: data.time,
+                value: data.value,
+              }))
+              .sort((a, b) => a.time - b.time);
+
+            let prevKeyframe = null;
+            let nextKeyframe = null;
+
+            for (let i = 0; i < keyframeArray.length; i++) {
+              if (keyframeArray[i].time <= currentTime) {
+                prevKeyframe = keyframeArray[i];
+              } else {
+                nextKeyframe = keyframeArray[i];
+                break;
+              }
+            }
+
+            if (prevKeyframe && nextKeyframe) {
+              const alpha =
+                (currentTime - prevKeyframe.time) /
+                (nextKeyframe.time - prevKeyframe.time);
+              this.interpolateProperty(
+                object,
+                propertyType,
+                prevKeyframe,
+                nextKeyframe,
+                alpha
+              );
+              hasChanges = true;
+            } else if (prevKeyframe) {
+              this.setPropertyValue(object, propertyType, prevKeyframe.value);
+              hasChanges = true;
+            }
           });
-        } else {
-          object.visible = false;
-          console.log(`Object ${objectId} hidden at time ${currentTime}`, {
-            clipStartTime,
-            clipEndTime,
-            currentTime,
-          });
-        }
-      }
 
-      let hasChanges = false;
-
-      ["position"].forEach((propertyType) => {
-        const keyframes = track.keyframes[propertyType];
-        if (!keyframes || keyframes.size === 0) return;
-
-        const keyframeArray = Array.from(keyframes.entries()).sort(
-          ([a], [b]) => a - b
-        );
-        let prevKeyframe = null;
-        let nextKeyframe = null;
-
-        for (let i = 0; i < keyframeArray.length; i++) {
-          if (keyframeArray[i][0] <= frame) {
-            prevKeyframe = keyframeArray[i];
+          if (hasChanges && this.editor.signals?.objectChanged) {
+            this.editor.signals.objectChanged.dispatch(object);
           }
-          if (keyframeArray[i][0] > frame) {
-            nextKeyframe = keyframeArray[i];
-            break;
-          }
-        }
-
-        if (prevKeyframe && nextKeyframe) {
-          const [prevFrame, prevData] = prevKeyframe;
-          const [nextFrame, nextData] = nextKeyframe;
-          const alpha = (frame - prevFrame) / (nextFrame - prevFrame);
-          this.interpolateProperty(
-            object,
-            propertyType,
-            prevData.value,
-            nextData.value,
-            alpha
-          );
-          hasChanges = true;
-        } else if (prevKeyframe) {
-          this.setPropertyValue(object, propertyType, prevKeyframe[1].value);
-          hasChanges = true;
         }
       });
-
-      if (hasChanges && this.editor.signals?.objectChanged) {
-        this.editor.signals.objectChanged.dispatch(object);
-      }
     });
   }
 
@@ -888,6 +892,7 @@ export class MotionTimeline extends BaseTimeline {
   }
 
   addTrack(objectUuid, objectId, objectName) {
+    console.log("addTrack", objectUuid, objectId, objectName);
     if (this.tracks.has(objectId)) return;
 
     // 1. 메인 트랙 컨테이너 생성
@@ -922,7 +927,9 @@ export class MotionTimeline extends BaseTimeline {
         }</span>
       </div>
       <div class="track-controls">
+        <button class="prev-keyframe-btn" title="Previous Keyframe"><i class="fa fa-step-backward"></i></button>
         <button class="add-keyframe-btn" title="Add Keyframe">+</button>
+        <button class="next-keyframe-btn" title="Next Keyframe"><i class="fa fa-step-forward"></i></button>
       </div>
     `;
     trackTopArea.appendChild(trackHeader);
@@ -939,7 +946,7 @@ export class MotionTimeline extends BaseTimeline {
       trackContent.className = "track-content";
 
       const sprite = document.createElement("div");
-      sprite.className = "animation-sprite";
+      sprite.className = "animation-sprite selected";
       sprite.dataset.duration = animationDuration;
       sprite.innerHTML = `
         <div class="sprite-handle left"></div>
@@ -1004,7 +1011,28 @@ export class MotionTimeline extends BaseTimeline {
           const objectId = track.dataset.objectId;
           const currentFrame = this.currentFrame;
           this.addKeyframe(objectId, currentFrame);
-          this.addKeyframe(objectId, "rotation", currentFrame);
+          // this.addKeyframe(objectId, "rotation", currentFrame);
+        }
+      }
+      // 이전 키프레임 버튼
+      if (
+        e.target.classList.contains("prev-keyframe-btn") ||
+        e.target.closest(".prev-keyframe-btn")
+      ) {
+        const track = e.target.closest(".timeline-track");
+        if (track) {
+          this.moveToAdjacentKeyframe(track, "prev");
+        }
+      }
+
+      // 다음 키프레임 버튼
+      if (
+        e.target.classList.contains("next-keyframe-btn") ||
+        e.target.closest(".next-keyframe-btn")
+      ) {
+        const track = e.target.closest(".timeline-track");
+        if (track) {
+          this.moveToAdjacentKeyframe(track, "next");
         }
       }
     });
@@ -1048,9 +1076,9 @@ export class MotionTimeline extends BaseTimeline {
             t
           );
         } else if (prevKeyframe) {
-          this.setPropertyValue(object, propertyType, prevKeyframe);
+          this.setPropertyValue(object, propertyType, prevKeyframe.value);
         } else if (nextKeyframe) {
-          this.setPropertyValue(object, propertyType, nextKeyframe);
+          this.setPropertyValue(object, propertyType, nextKeyframe.value);
         }
       });
     });
@@ -1204,7 +1232,61 @@ export class MotionTimeline extends BaseTimeline {
       e.stopPropagation();
     });
 
-    // 드래그 중
+    // 우클릭 메뉴
+    sprite.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // 클립 개수 확인
+      const clipCount = sprite.parentElement
+        ? sprite.parentElement.querySelectorAll(".animation-sprite").length
+        : 0;
+
+      // 기존 메뉴 제거
+      const existingMenu = document.querySelector(".context-menu");
+      if (existingMenu) {
+        existingMenu.remove();
+      }
+
+      // 메뉴 생성
+      const menu = document.createElement("div");
+      menu.className = "context-menu";
+      menu.style.position = "absolute";
+      menu.style.left = `${e.clientX}px`;
+      menu.style.top = `${e.clientY}px`;
+      menu.style.zIndex = "1000";
+
+      // 복제 버튼
+      const duplicateBtn = document.createElement("button");
+      duplicateBtn.textContent = "클립 복제";
+      duplicateBtn.onclick = () => {
+        this.duplicateClip(sprite, track);
+        menu.remove();
+      };
+
+      // 삭제 버튼 (클립이 2개 이상일 때만 표시)
+      if (clipCount > 1) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "클립 삭제";
+        deleteBtn.onclick = () => {
+          sprite.remove();
+          menu.remove();
+        };
+        menu.appendChild(deleteBtn);
+      }
+
+      menu.appendChild(duplicateBtn);
+      document.body.appendChild(menu);
+
+      // 메뉴 외부 클릭시 닫기
+      const closeMenu = (e) => {
+        if (!menu.contains(e.target)) {
+          menu.remove();
+          document.removeEventListener("click", closeMenu);
+        }
+      };
+      document.addEventListener("click", closeMenu);
+    });
+
     document.addEventListener("mousemove", (e) => {
       if (!isDragging && !isResizing) return;
 
@@ -1246,140 +1328,62 @@ export class MotionTimeline extends BaseTimeline {
           Math.min(100 - startWidth, startLeft + deltaPercent)
         );
         if (!this.checkClipCollision(sprite, newLeft, startWidth)) {
+          // 클립 위치 업데이트
           sprite.style.left = `${newLeft}%`;
 
-          // visibility 시간 계산
-          const totalSeconds = this.options.totalSeconds;
-          const startTime = (newLeft / 100) * totalSeconds;
-          const duration = (startWidth / 100) * totalSeconds;
-          const endTime = startTime + duration;
+          // 클립 내의 모든 .keyframe 요소 찾기
+          // const keyframeElements = sprite.querySelectorAll(".keyframe");
 
-          console.log("Visibility 시간 업데이트:", {
-            startTime,
-            endTime,
-            duration,
-            clipElement: sprite,
-          });
+          // 각 키프레임의 time을 타임라인 기준 위치로 업데이트
+          // keyframeElements.forEach((keyframe) => {
+          //   const keyframeLeft = parseFloat(keyframe.style.left);
+          //   const timelinePosition =
+          //     ((newLeft + (keyframeLeft / 100) * startWidth) / 100) *
+          //     this.options.totalSeconds;
+          //   keyframe.dataset.time = timelinePosition.toFixed(2);
+          // });
 
-          // 클립 요소에 visibility 시간 속성 설정
-          sprite.setAttribute("data-visibility-start", startTime.toString());
-          sprite.setAttribute("data-visibility-end", endTime.toString());
-          sprite.setAttribute("data-visibility-duration", duration.toString());
-
-          // 키프레임 위치 업데이트
+          // UI 업데이트
           this.updateKeyframesInClip(track, sprite);
         }
       }
     });
 
-    // 드래그 종료
     document.addEventListener("mouseup", () => {
       if (isDragging || isResizing) {
         isDragging = false;
         isResizing = false;
-        resizeHandle = null;
+        if (track.objectId) {
+          this.updateAnimation(track.objectId);
+        }
       }
     });
 
-    // 클립 선택
+    // 클립 선택 이벤트만 추가
     sprite.addEventListener("click", (e) => {
       e.stopPropagation();
-      const previousSelected = document.querySelector(
+
+      // 이전 선택된 클립의 선택 해제
+      const previousSelected = this.container.querySelector(
         ".animation-sprite.selected"
       );
       if (previousSelected) {
         previousSelected.classList.remove("selected");
       }
+
+      // 현재 클립 선택
       sprite.classList.add("selected");
-    });
+      this.selectedSprite = sprite;
 
-    // 우클릭 메뉴 이벤트 추가
-    sprite.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      // 기존 메뉴 제거
-      const existingMenu = document.querySelector(".context-menu");
-      if (existingMenu) {
-        existingMenu.remove();
+      // 연결된 FBX 객체 선택
+      const trackElement = sprite.closest(".motion-tracks");
+      if (trackElement && trackElement.dataset.uuid) {
+        this.editor.scene.traverse((object) => {
+          if (object.uuid === trackElement.dataset.uuid) {
+            this.editor.select(object);
+          }
+        });
       }
-
-      // 클립 개수 확인
-      const clipCount =
-        track.element.querySelectorAll(".animation-sprite").length;
-
-      // 컨텍스트 메뉴 생성
-      const menu = document.createElement("div");
-      menu.className = "context-menu";
-      menu.style.position = "fixed";
-      menu.style.left = `${e.clientX}px`;
-      menu.style.top = `${e.clientY}px`;
-      menu.style.backgroundColor = "#2c2c2c";
-      menu.style.border = "1px solid #444";
-      menu.style.padding = "5px 0";
-      menu.style.borderRadius = "3px";
-      menu.style.zIndex = "1000";
-
-      // 복제 메뉴 아이템
-      const duplicateItem = document.createElement("div");
-      duplicateItem.textContent = "클립복제";
-      duplicateItem.style.padding = "5px 15px";
-      duplicateItem.style.cursor = "pointer";
-      duplicateItem.style.color = "#fff";
-      duplicateItem.style.fontSize = "12px";
-
-      // 복제 클릭 이벤트
-      duplicateItem.addEventListener("click", () => {
-        this.duplicateSprite(sprite, track);
-        menu.remove();
-      });
-
-      // 호버 효과
-      duplicateItem.addEventListener("mouseover", () => {
-        duplicateItem.style.backgroundColor = "#3c3c3c";
-      });
-      duplicateItem.addEventListener("mouseout", () => {
-        duplicateItem.style.backgroundColor = "transparent";
-      });
-
-      menu.appendChild(duplicateItem);
-
-      // 클립이 2개 이상일 때만 삭제 버튼 추가
-      if (clipCount > 1) {
-        const deleteItem = document.createElement("div");
-        deleteItem.textContent = "클립삭제";
-        deleteItem.style.padding = "5px 15px";
-        deleteItem.style.cursor = "pointer";
-        deleteItem.style.color = "#ff4444";
-        deleteItem.style.fontSize = "12px";
-
-        // 호버 효과
-        deleteItem.addEventListener("mouseover", () => {
-          deleteItem.style.backgroundColor = "#3c3c3c";
-        });
-        deleteItem.addEventListener("mouseout", () => {
-          deleteItem.style.backgroundColor = "transparent";
-        });
-
-        // 삭제 클릭 이벤트
-        deleteItem.addEventListener("click", () => {
-          this.deleteSprite(sprite, track);
-          menu.remove();
-        });
-
-        menu.appendChild(deleteItem);
-      }
-
-      document.body.appendChild(menu);
-
-      // 메뉴 외부 클릭 시 닫기
-      const closeMenu = (e) => {
-        if (!menu.contains(e.target)) {
-          menu.remove();
-          document.removeEventListener("click", closeMenu);
-        }
-      };
-      document.addEventListener("click", closeMenu);
     });
   }
 
@@ -1664,111 +1668,116 @@ export class MotionTimeline extends BaseTimeline {
     return names[propertyType] || propertyType;
   }
 
-  duplicateSprite(sourceSprite, track) {
-    // 새로운 스프라이트 생성
-    const newSprite = document.createElement("div");
-    newSprite.className = "animation-sprite";
-    newSprite.dataset.duration = sourceSprite.dataset.duration;
+  duplicateClip(sourceClip, track) {
+    // 원본 클립의 위치와 크기 가져오기
+    // const originalLeft = parseFloat(sourceClip.style.left) || 0;
+    // const originalWidth = parseFloat(sourceClip.style.width) || 100;
 
-    // 원본 클립의 이름을 유지
-    const originalName = sourceSprite.querySelector(".sprite-name").textContent;
-    newSprite.innerHTML = `
-      <div class="sprite-handle left"></div>
-      <div class="sprite-content">
-        <span class="sprite-name">${originalName}</span>
-      </div>
-      <div class="sprite-handle right"></div>
-    `;
+    // 새로운 클립 생성
+    // const newSprite = sprite.cloneNode(true);
+    const newClip = document.createElement("div");
+    newClip.className = "animation-sprite";
+    newClip.dataset.duration = sourceClip.dataset.duration;
 
-    // 위치와 크기 설정 (원본 클립 바로 다음에 위치)
-    const sourceLeft = parseFloat(sourceSprite.style.left) || 0;
-    const sourceWidth = parseFloat(sourceSprite.style.width) || 100;
+    // 원본 클립의 이름을 유지하되, 키프레임 레이어는 비워둠
+    const originalName = sourceClip.querySelector(".sprite-name").textContent;
+    newClip.innerHTML = `
+    <div class="sprite-handle left"></div>
+    <div class="sprite-content">
+      <span class="sprite-name">${originalName}</span>
+      <div class="keyframe-layer"></div>
+    </div>
+    <div class="sprite-handle right"></div>
+  `;
+
+    // 새 클립의 위치를 원본 바로 다음으로 설정
+    // const newLeft = Math.min(100 - originalWidth, originalLeft + originalWidth);
+    // newClip.style.left = `${newLeft}%`;
+
+    // 위치와 크기 설정
+    const sourceLeft = parseFloat(sourceClip.style.left) || 0;
+    const sourceWidth = parseFloat(sourceClip.style.width) || 100;
     const newLeft = Math.min(100 - sourceWidth, sourceLeft + sourceWidth);
 
-    newSprite.style.left = `${newLeft}%`;
-    newSprite.style.width = `${sourceWidth}%`;
+    newClip.style.left = `${newLeft}%`;
+    newClip.style.width = `${sourceWidth}%`;
 
-    // 키프레임 레이어 복제
-    const sourceKeyframeLayer = sourceSprite.querySelector(".keyframe-layer");
-    if (sourceKeyframeLayer) {
-      const newKeyframeLayer = document.createElement("div");
-      newKeyframeLayer.className = "keyframe-layer";
-      newKeyframeLayer.style.position = "absolute";
-      newKeyframeLayer.style.width = "100%";
-      newKeyframeLayer.style.height = "100%";
-      newKeyframeLayer.style.top = "0";
-      newKeyframeLayer.style.left = "0";
-      newKeyframeLayer.style.pointerEvents = "auto";
-      newSprite.appendChild(newKeyframeLayer);
+    // 새 클립의 키프레임들 처리
+    // const newKeyframes = newSprite.querySelectorAll(".keyframe");
+    // const timeOffset =
+    //   ((newLeft - originalLeft) / 100) * this.options.totalSeconds;
 
-      // 키프레임 복제
-      sourceKeyframeLayer
-        .querySelectorAll(".keyframe")
-        .forEach((sourceKeyframe) => {
-          const newKeyframe = sourceKeyframe.cloneNode(true);
+    // newKeyframes.forEach((keyframe) => {
+    //   // 기존 이벤트 리스너 제거를 위해 새로운 요소로 교체
+    //   const newKeyframe = keyframe.cloneNode(true);
 
-          // 복제된 키프레임의 선택 상태 제거
-          newKeyframe.classList.remove("selected");
+    //   // 키프레임의 위치와 시간 조정
+    //   const currentLeft = parseFloat(newKeyframe.style.left) || 0;
+    //   const currentTime = parseFloat(newKeyframe.dataset.time) || 0;
 
-          newKeyframeLayer.appendChild(newKeyframe);
+    //   newKeyframe.style.left = `${currentLeft}%`;
+    //   newKeyframe.dataset.time = (currentTime + timeOffset).toFixed(2);
 
-          // 키프레임 이벤트 다시 바인딩
-          this.makeKeyframeDraggable(
-            newKeyframe,
-            track,
-            parseInt(newKeyframe.dataset.frame),
-            this.editor.scene.getObjectById(parseInt(track.objectId))
-          );
+    //   // 클릭 이벤트 추가
+    //   newKeyframe.addEventListener("click", (e) => {
+    //     e.stopPropagation();
+    //     this.selectKeyframe(
+    //       track.objectId,
+    //       newKeyframe.dataset.time,
+    //       newKeyframe
+    //     );
+    //   });
 
-          newKeyframe.addEventListener("click", (e) => {
-            e.stopPropagation();
-            this.selectKeyframe(
-              track.objectId,
-              parseInt(newKeyframe.dataset.frame),
-              newKeyframe
-            );
-          });
+    //   // 우클릭 메뉴 추가
+    //   newKeyframe.addEventListener("contextmenu", (e) => {
+    //     e.preventDefault();
+    //     e.stopPropagation();
 
-          // 우클릭 메뉴 이벤트 바인딩
-          newKeyframe.addEventListener("contextmenu", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.showKeyframeContextMenu(
-              e,
-              track,
-              parseInt(newKeyframe.dataset.frame),
-              newKeyframe
-            );
-          });
-        });
-    }
+    //     const menu = document.createElement("div");
+    //     menu.className = "context-menu";
+    //     menu.style.position = "absolute";
+    //     menu.style.left = `${e.clientX}px`;
+    //     menu.style.top = `${e.clientY}px`;
+    //     menu.style.zIndex = "1000";
 
-    // 트랙에 새 스프라이트 추가
-    sourceSprite.parentElement.appendChild(newSprite);
+    //     const deleteBtn = document.createElement("button");
+    //     deleteBtn.textContent = "키프레임 삭제";
+    //     deleteBtn.onclick = () => {
+    //       newKeyframe.remove();
+    //       menu.remove();
+    //       this.updateAnimation(track.objectId);
+    //     };
 
-    // 새 스프라이트에 이벤트 바인딩
-    this.bindSpriteEvents(newSprite, track);
+    //     menu.appendChild(deleteBtn);
+    //     document.body.appendChild(menu);
 
-    // 키프레임 데이터 구조 복제
-    if (track.keyframes) {
-      const newKeyframes = { ...track.keyframes };
-      Object.keys(newKeyframes).forEach((frame) => {
-        if (newKeyframes[frame].element) {
-          const newElement = newSprite.querySelector(
-            `.keyframe[data-frame="${frame}"]`
-          );
-          if (newElement) {
-            newKeyframes[frame] = {
-              ...newKeyframes[frame],
-              element: newElement,
-            };
-          }
-        }
-      });
-      track.keyframes = newKeyframes;
-    }
+    //     const closeMenu = (e) => {
+    //       if (!menu.contains(e.target)) {
+    //         menu.remove();
+    //         document.removeEventListener("click", closeMenu);
+    //       }
+    //     };
+    //     document.addEventListener("click", closeMenu);
+    //   });
 
-    return newSprite;
+    //   // 드래그 기능 추가
+    //   this.makeKeyframeDraggable(
+    //     newKeyframe,
+    //     track,
+    //     this.currentTime,
+    //     track.objectId
+    //   );
+
+    //   keyframe.parentNode.replaceChild(newKeyframe, keyframe);
+    // });
+
+    // 새 클립에 이벤트 바인딩
+    this.bindSpriteEvents(newClip, track);
+
+    // 새 클립을 트랙에 추가
+    sourceClip.parentElement.appendChild(newClip);
+
+    return newClip;
   }
 
   // 클립 삭제 메서드 추가
@@ -1797,6 +1806,46 @@ export class MotionTimeline extends BaseTimeline {
     const object = this.editor.scene.getObjectById(parseInt(track.objectId));
     if (object && this.editor.signals?.objectChanged) {
       this.editor.signals.objectChanged.dispatch(object);
+    }
+  }
+
+  // 인접한 키프레임으로 이동하는 함수 추가
+  moveToAdjacentKeyframe(trackElement, direction) {
+    // 현재 선택된 키프레임 찾기
+    const selectedKeyframe = trackElement.querySelector(".keyframe.selected");
+    if (!selectedKeyframe) {
+      console.log("No keyframe selected");
+      return;
+    }
+
+    // 현재 트랙의 모든 키프레임 요소들을 가져옴
+    const keyframeElements = Array.from(
+      trackElement.querySelectorAll(".keyframe")
+    );
+
+    // 프레임 번호를 기준으로 정렬
+    const sortedKeyframes = keyframeElements.sort((a, b) => {
+      return parseInt(a.dataset.frame) - parseInt(b.dataset.frame);
+    });
+
+    // 현재 선택된 키프레임의 인덱스 찾기
+    const currentIndex = sortedKeyframes.indexOf(selectedKeyframe);
+
+    if (direction === "prev" && currentIndex > 0) {
+      // 이전 키프레임 선택
+      const prevKeyframe = sortedKeyframes[currentIndex - 1];
+      selectedKeyframe.classList.remove("selected");
+      prevKeyframe.classList.add("selected");
+      this.selectedKeyframe = prevKeyframe;
+    } else if (
+      direction === "next" &&
+      currentIndex < sortedKeyframes.length - 1
+    ) {
+      // 다음 키프레임 선택
+      const nextKeyframe = sortedKeyframes[currentIndex + 1];
+      selectedKeyframe.classList.remove("selected");
+      nextKeyframe.classList.add("selected");
+      this.selectedKeyframe = nextKeyframe;
     }
   }
 }

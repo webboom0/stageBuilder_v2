@@ -51,7 +51,7 @@ class VideoTimeline extends BaseTimeline {
       opacity: 1,
     });
     const background = new THREE.Mesh(geometry, material);
-    background.position.set(0, 0, -50);
+    background.position.set(50, 50, 50);
     background.name = "_VideoBackground";
     background.userData.isBackground = true;
     background.userData.notSelectable = true;
@@ -60,7 +60,7 @@ class VideoTimeline extends BaseTimeline {
 
     // Stage 그룹 생성 또는 찾기
     let stageGroup = this.editor.scene.children.find(
-      (child) => child.name === "Stage",
+      (child) => child.name === "Stage"
     );
 
     if (!stageGroup) {
@@ -72,7 +72,7 @@ class VideoTimeline extends BaseTimeline {
 
     console.log("Stage 그룹 찾음");
     const existingBackground = stageGroup.children.find(
-      (child) => child.name === "_VideoBackground",
+      (child) => child.name === "_VideoBackground"
     );
     if (existingBackground) {
       console.log("기존 배경 제거");
@@ -126,7 +126,7 @@ class VideoTimeline extends BaseTimeline {
                 if (this.editor.renderer) {
                   this.editor.renderer.render(
                     this.editor.scene,
-                    this.editor.camera,
+                    this.editor.camera
                   );
                 }
               }
@@ -164,7 +164,7 @@ class VideoTimeline extends BaseTimeline {
               if (this.editor.renderer) {
                 this.editor.renderer.render(
                   this.editor.scene,
-                  this.editor.camera,
+                  this.editor.camera
                 );
               }
             }

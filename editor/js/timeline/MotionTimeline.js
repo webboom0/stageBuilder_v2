@@ -833,7 +833,7 @@ export class MotionTimeline extends BaseTimeline {
       opacity: 1,
     });
     const stagePlane = new THREE.Mesh(stageGeometry, stageMaterial);
-    stagePlane.position.set(0, 0, -50);
+    stagePlane.position.set(0, 50, -50);
     stagePlane.name = "_VideoBackground";
     stageGroup.add(stagePlane);
 

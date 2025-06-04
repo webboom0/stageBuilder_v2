@@ -1,6 +1,7 @@
 import { BaseTimeline } from "./BaseTimeline.js";
 import { UIPanel, UIRow, UINumber, UIText, UIColor } from "../libs/ui.js";
 import * as THREE from "three";
+import TimelineCore from "./TimelineCore.js";
 // editor/timeline/LightTimeline.js
 export class LightTimeline extends BaseTimeline {
   constructor(editor, options) {
@@ -9,28 +10,214 @@ export class LightTimeline extends BaseTimeline {
     this.selectedProperty = null;
     this.propertyPanel = this.createPropertyPanel();
     this.container.appendChild(this.propertyPanel.dom);
-    // this.initLightTracks();
+    // this.options.totalSeconds = options.totalSeconds || 180;
+    // this.options.framesPerSecond = options.framesPerSecond || 30;
+    this.currentTime = 0;
+    // 10개 조명 트랙 자동 생성
+    this.lightTracks = [];
+    this.createFixedLightTracks();
   }
 
-  initLightTracks() {
-    // 조명 관련 트랙 추가
-    this.addTrack("intensity", {
-      name: "Intensity",
-      properties: ["value"],
-      interpolation: "linear",
+  createFixedLightTracks() {
+    // 2줄 5칸 = 10개
+    const numRows = 2;
+    const numCols = 5;
+    let lightIndex = 0;
+
+    for (let row = 0; row < numRows; row++) {
+      for (let col = 0; col < numCols; col++) {
+        const lightId = `light_${lightIndex}`;
+        const lightName = `Light ${lightIndex + 1}`;
+        // 트랙 생성
+        this.addTrack(lightId, lightName, row, col);
+        // 3D 씬에 조명 생성 및 배치
+        this.createAndPlaceLight(lightId, row, col);
+        lightIndex++;
+      }
+    }
+  }
+
+  addTrack(lightId, lightName, row, col) {
+    if (this.tracks.has(lightId)) return;
+
+    // 트랙 최상위 div
+    const trackElement = document.createElement("div");
+    trackElement.className = "timeline-track";
+    trackElement.dataset.objectId = lightId;
+
+    // motion-tracks div
+    const motionTracks = document.createElement("div");
+    motionTracks.className = "motion-tracks";
+    motionTracks.dataset.objectId = lightId;
+    motionTracks.dataset.objectName = lightName;
+
+    // 트랙 헤더
+    const trackHeader = document.createElement("div");
+    trackHeader.className = "track-header";
+
+    // track-info (이름)
+    const trackInfo = document.createElement("div");
+    trackInfo.className = "track-info";
+    const trackName = document.createElement("span");
+    trackName.className = "track-name";
+    trackName.textContent = lightName;
+    trackInfo.appendChild(trackName);
+
+    // track-controls (이전/추가/다음 키프레임 버튼)
+    const trackControls = document.createElement("div");
+    trackControls.className = "track-controls";
+
+    // 이전 키프레임 버튼
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "prev-keyframe-btn";
+    prevBtn.title = "Previous Keyframe";
+    prevBtn.innerHTML = '<i class="fa fa-step-backward"></i>';
+
+    // 추가 키프레임 버튼
+    const addBtn = document.createElement("button");
+    addBtn.className = "add-keyframe-btn";
+    addBtn.title = "Add Keyframe";
+    addBtn.textContent = "+";
+
+    // 다음 키프레임 버튼
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "next-keyframe-btn";
+    nextBtn.title = "Next Keyframe";
+    nextBtn.innerHTML = '<i class="fa fa-step-forward"></i>';
+
+    // 버튼들 track-controls에 추가
+    trackControls.appendChild(prevBtn);
+    trackControls.appendChild(addBtn);
+    trackControls.appendChild(nextBtn);
+
+    // track-header에 info, controls 추가
+    trackHeader.appendChild(trackInfo);
+    trackHeader.appendChild(trackControls);
+
+    // track-content (클립/스프라이트 영역)
+    const trackContent = document.createElement("div");
+    trackContent.className = "track-content";
+
+    // === [여기서 animation-sprite(조명 클립) 추가] ===
+    const sprite = document.createElement("div");
+    sprite.className = "animation-sprite";
+    sprite.dataset.duration = this.options.totalSeconds || 180;
+    sprite.style.width = "100%";
+    sprite.style.left = "0%";
+
+    // 핸들 및 내용
+    const leftHandle = document.createElement("div");
+    leftHandle.className = "sprite-handle left";
+    const rightHandle = document.createElement("div");
+    rightHandle.className = "sprite-handle right";
+    const spriteContent = document.createElement("div");
+    spriteContent.className = "sprite-content";
+    const spriteName = document.createElement("span");
+    spriteName.className = "sprite-name";
+    spriteName.textContent = lightName;
+
+    spriteContent.appendChild(spriteName);
+    sprite.appendChild(leftHandle);
+    sprite.appendChild(spriteContent);
+    sprite.appendChild(rightHandle);
+
+    // track-content에 sprite 추가
+    trackContent.appendChild(sprite);
+
+    // === [클립 클릭 시 선택 처리] ===
+    sprite.addEventListener("click", (e) => {
+      // 모든 클립의 .selected 제거
+      this.container
+        .querySelectorAll(".animation-sprite.selected")
+        .forEach((el) => {
+          el.classList.remove("selected");
+        });
+      // 현재 클릭한 클립에 .selected 추가
+      sprite.classList.add("selected");
+
+      // === 장면 패널(3D 씬)에서도 해당 조명 선택 ===
+      const object = this.editor.scene.getObjectByName(lightId);
+      if (object) {
+        if (this.editor.select) {
+          this.editor.select(object); // select 메서드가 있으면 사용
+        } else {
+          this.editor.selected = object; // 없으면 직접 할당
+          if (this.editor.signals?.objectSelected) {
+            this.editor.signals.objectSelected.dispatch(object);
+          }
+        }
+      }
     });
 
-    this.addTrack("color", {
-      name: "Color",
-      properties: ["r", "g", "b"],
-      interpolation: "linear",
-    });
+    // motion-tracks에 header, content 추가
+    motionTracks.appendChild(trackHeader);
+    motionTracks.appendChild(trackContent);
 
-    this.addTrack("visibility", {
-      name: "Visibility",
-      properties: ["visible"],
-      interpolation: "step",
-    });
+    // timeline-track에 motion-tracks 추가
+    trackElement.appendChild(motionTracks);
+
+    // 타임라인 컨테이너에 추가
+    this.container.appendChild(trackElement);
+
+    // === [여기서 3D 씬에 조명 추가] ===
+    this.createAndPlaceLight(lightId, row, col);
+
+    // 트랙 객체로 관리
+    const track = {
+      element: trackElement,
+      keyframes: {
+        intensity: new Map(),
+        color: new Map(),
+        position: new Map(),
+      },
+      objectId: lightId,
+      objectName: lightName,
+      row,
+      col,
+      trackContent, // 클립 추가 시 사용
+      sprite, // 조명 클립 참조
+    };
+    this.tracks.set(lightId, track);
+    this.lightTracks.push(track);
+  }
+
+  createAndPlaceLight(lightId, row, col) {
+    // 3D 씬에 조명 생성 및 배치
+    const scene = this.editor.scene;
+    // 이미 있으면 중복 생성 방지
+    if (scene.getObjectByName(lightId)) return;
+
+    // SpotLight로 변경
+    const color = 0xffffff;
+    const intensity = 1;
+    const distance = 100;
+    const angle = Math.PI / 6; // 30도
+    const penumbra = 0.2;
+    const decay = 0.5;
+
+    const light = new THREE.SpotLight(
+      color,
+      intensity,
+      distance,
+      angle,
+      penumbra,
+      decay
+    );
+    light.name = lightId;
+
+    // 2줄 5칸 그리드 배치
+    const x = -10 + col * 5;
+    const y = 50; // 높이 고정
+    const z = -5 + row * 10;
+    light.position.set(x, y, z);
+
+    // 스포트라이트의 타겟을 아래로 향하게 설정
+    const target = new THREE.Object3D();
+    target.position.set(x, 0, z); // y=0(아래)로 타겟
+    scene.add(target);
+    light.target = target;
+
+    scene.add(light);
   }
 
   // BaseTimeline의 추상 메서드 구현
@@ -259,61 +446,6 @@ export class LightTimeline extends BaseTimeline {
     this.propertyPanel.dom.style.display = "";
   }
 
-  addTrack(objectId, objectName) {
-    if (this.tracks.has(objectId)) return;
-
-    const track = {
-      element: document.createElement("div"),
-      keyframes: {
-        intensity: new Map(),
-        color: new Map(),
-        position: new Map(),
-      },
-      objectId: objectId,
-      objectName: objectName,
-    };
-
-    track.element.className = "timeline-track";
-    track.element.dataset.objectId = objectId;
-
-    const trackTopArea = document.createElement("div");
-    trackTopArea.className = "light-tracks";
-
-    const trackHeader = document.createElement("div");
-    trackHeader.className = "track-header";
-    trackHeader.innerHTML = `
-      <div class="track-info">
-        <span class="track-name">${
-          typeof objectName === "object"
-            ? objectName.name || "Light"
-            : objectName
-        }</span>
-      </div>
-      <div class="track-controls">
-        <button class="add-keyframe-btn" title="Add Keyframe">+</button>
-      </div>
-    `;
-    trackTopArea.appendChild(trackHeader);
-
-    track.element.appendChild(trackTopArea);
-
-    const propertyTracksContainer = document.createElement("div");
-    propertyTracksContainer.className = "property-tracks";
-
-    ["intensity", "color", "position"].forEach((propertyType) => {
-      const propertyTrack = this.createPropertyTrack(objectId, propertyType);
-      propertyTracksContainer.appendChild(propertyTrack);
-    });
-
-    track.element.appendChild(propertyTracksContainer);
-
-    this.tracks.set(objectId, track);
-    this.container.appendChild(track.element);
-
-    this.bindTrackEvents(track);
-    return track;
-  }
-
   formatPropertyName(propertyType) {
     const names = {
       intensity: "Intensity",
@@ -323,3 +455,5 @@ export class LightTimeline extends BaseTimeline {
     return names[propertyType] || propertyType;
   }
 }
+
+export default LightTimeline;
