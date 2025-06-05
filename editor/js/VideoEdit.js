@@ -179,13 +179,13 @@ function VideoEdit(editor) {
             object.scale.set(0.6, 0.4, 0.6);
             */
             /* fbx 기준*/
-            object.position.set(117.7, -98.509, 398.4);
+            object.position.set(220, -153.989, 764.44);
             object.rotation.set(
               -Math.PI / 2, // -90도
               0, // 0도
               Math.PI / 2, // 90도
             );
-            object.scale.set(0.32, 0.32, 0.32);
+            object.scale.set(0.6, 0.6, 0.5);
            
 
             // object.traverse((child) => {
@@ -209,6 +209,17 @@ function VideoEdit(editor) {
 
             stageGroup.add(object);
             // editor.scene.add(object);
+
+            // === 카메라 위치 설정 예시 ===
+            if (editor.camera) {
+              editor.camera.position.set(-22.492, 70, 500); // 원하는 위치로 변경
+              editor.camera.lookAt(0, 0, 0); // 원하는 타겟으로 변경
+              editor.camera.rotation.set(
+                -11 * Math.PI / 180, 
+                -3 * Math.PI / 180,
+                0
+              );
+            }
           }
 
           // 조명 설정
@@ -238,9 +249,16 @@ function VideoEdit(editor) {
           editor.signals.objectSelected.add(background.onObjectSelected);
 
           console.log("Background and floor loaded successfully");
+
+          // === 여기 추가 ===
+          const modal = document.getElementById("loading-modal");
+          if (modal) modal.style.display = "none";
         },
         undefined,
         (error) => {
+          // 에러 시에도 모달 숨기기
+          const modal = document.getElementById("loading-modal");
+          if (modal) modal.style.display = "none";
           console.error("Error loading background:", error);
         },
       );
