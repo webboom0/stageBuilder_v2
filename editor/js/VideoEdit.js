@@ -77,7 +77,7 @@ function VideoEdit(editor) {
       if (timeline.timelines.motion) {
         // 이미 존재하는 트랙인지 확인
         const existingTrack = timeline.timelines.motion.tracks.get(
-          selectedObject.id
+          selectedObject.id,
         );
         if (existingTrack) {
           alert("This object already has a timeline");
@@ -140,7 +140,7 @@ function VideoEdit(editor) {
 
       const loader = new FBXLoader();
       loader.load(
-        "/files/background.fbx",
+        "https://webboom0.github.io/stageBuilder_v2/files/background.fbx",
         (object) => {
           if (!editor.scene || !editor.scene.children) {
             console.log("Scene or children not initialized yet");
@@ -152,7 +152,7 @@ function VideoEdit(editor) {
 
           // Stage 그룹 생성 또는 찾기
           let stageGroup = editor.scene.children.find(
-            (child) => child.name === "Stage"
+            (child) => child.name === "Stage",
           );
 
           if (!stageGroup) {
@@ -163,20 +163,30 @@ function VideoEdit(editor) {
 
           // Background 객체 생성 및 추가
           const existingBackground = stageGroup.children.find(
-            (child) => child.name === "_Background"
+            (child) => child.name === "_Background",
           );
           console.log("existingBackground");
           console.log(existingBackground);
           if (!existingBackground) {
             object.name = "_Background";
-
+            /*  obj 기준
+            object.position.set(234.86, -116.269, 619.18);
+            object.rotation.set(
+              0, // -90도
+              Math.PI / 2, // 0도
+              0, // 90도
+            );
+            object.scale.set(0.6, 0.4, 0.6);
+            */
+            /* fbx 기준*/
             object.position.set(117.7, -98.509, 398.4);
             object.rotation.set(
               -Math.PI / 2, // -90도
               0, // 0도
-              Math.PI / 2 // 90도
+              Math.PI / 2, // 90도
             );
             object.scale.set(0.32, 0.32, 0.32);
+           
 
             // object.traverse((child) => {
             //   if (child.isMesh) {
@@ -203,7 +213,7 @@ function VideoEdit(editor) {
 
           // 조명 설정
           const existingLight = stageGroup.children.find(
-            (child) => child.name === "_Light"
+            (child) => child.name === "_Light",
           );
 
           if (!existingLight) {
@@ -232,7 +242,7 @@ function VideoEdit(editor) {
         undefined,
         (error) => {
           console.error("Error loading background:", error);
-        }
+        },
       );
     },
 
