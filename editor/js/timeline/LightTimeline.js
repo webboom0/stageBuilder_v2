@@ -2,6 +2,7 @@ import { BaseTimeline } from "./BaseTimeline.js";
 import { UIPanel, UIRow, UINumber, UIText, UIColor } from "../libs/ui.js";
 import * as THREE from "three";
 import TimelineCore from "./TimelineCore.js";
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 // editor/timeline/LightTimeline.js
 export class LightTimeline extends BaseTimeline {
   constructor(editor, options) {
@@ -190,10 +191,10 @@ export class LightTimeline extends BaseTimeline {
     // SpotLight로 변경
     const color = 0xffffff;
     const intensity = 1;
-    const distance = 100;
-    const angle = Math.PI / 6; // 30도
-    const penumbra = 0.2;
-    const decay = 0.5;
+    const distance = 200;
+    const angle = Math.PI / 14; // 30도
+    const penumbra = 0;
+    const decay = 0;
 
     const light = new THREE.SpotLight(
       color,
@@ -206,9 +207,9 @@ export class LightTimeline extends BaseTimeline {
     light.name = lightId;
 
     // 2줄 5칸 그리드 배치
-    const x = -10 + col * 5;
-    const y = 50; // 높이 고정
-    const z = -5 + row * 10;
+    const x = -50 + col * 30;
+    const y = 130.435; // 높이 고정
+    const z = -20 + row * 30;
     light.position.set(x, y, z);
 
     // 스포트라이트의 타겟을 아래로 향하게 설정
@@ -218,6 +219,20 @@ export class LightTimeline extends BaseTimeline {
     light.target = target;
 
     scene.add(light);
+
+    // === 여기서 light.obj 불러와서 배치 ===
+    const loader = new OBJLoader();
+    loader.load(
+      '/files/light.obj',
+      (obj) => {
+        obj.position.set(x, y, z);
+        scene.add(obj);
+      },
+      undefined,
+      (error) => {
+        console.error('light.obj 로드 실패:', error);
+      }
+    );
   }
 
   // BaseTimeline의 추상 메서드 구현
