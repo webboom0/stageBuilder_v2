@@ -671,7 +671,7 @@ export class BaseTimeline {
 
   selectKeyframe(objectId, propertyType, frame, keyframeElement) {
     // 이전 선택 해제
-    const previousSelected = document.querySelector(".keyframe.selected");
+    const previousSelected =  document.querySelector(".keyframe.selected");
     if (previousSelected) {
       previousSelected.classList.remove("selected");
     }
