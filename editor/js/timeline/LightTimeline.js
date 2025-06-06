@@ -223,7 +223,7 @@ export class LightTimeline extends BaseTimeline {
     // === 여기서 light.obj 불러와서 배치 ===
     const loader = new OBJLoader();
     loader.load(
-      '/files/light.obj',
+      'https://webboom0.github.io/stageBuilder_v2/files/light.obj',
       (obj) => {
         obj.position.set(x, y, z);
         scene.add(obj);
