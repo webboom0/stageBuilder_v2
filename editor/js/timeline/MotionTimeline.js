@@ -20,11 +20,20 @@ export class MotionTimeline extends BaseTimeline {
     document
       .querySelector("#keyframe-property-panel")
       .appendChild(this.propertyPanel.dom);
+      let stageGroup = this.editor.scene.children.find(
+        (child) => child.name === "Stage"
+      );
+  
+      if (!stageGroup) {
+        stageGroup = new THREE.Group();
+        stageGroup.name = "Stage";
+        this.editor.scene.add(stageGroup);
+      }
+  
+    // 비디오 배경 생성}
+    this.createVideoBackground(stageGroup);
 
-    // 비디오 배경 생성
-    this.createBackground();
   }
-
   initMotionTracks() {
     // 위치, 회전, 스케일 트랙 추가
     // 필요 시 주석 해제
@@ -57,7 +66,8 @@ export class MotionTimeline extends BaseTimeline {
     const track = this.tracks.get(objectId);
     if (!track) return;
 
-    const object = this.editor.scene.getObjectById(parseInt(objectId));
+    const object =  this.editor.scene.getObjectById(parseInt(objectId));
+    ;
     if (!object) return;
 
     const selectedSprite = track.element.querySelector(
@@ -294,7 +304,7 @@ export class MotionTimeline extends BaseTimeline {
 
   selectKeyframe(objectId, frame, keyframeElement) {
     console.log("selectKeyframe");
-    const previousSelected = document.querySelector(".keyframe.selected");
+    const previousSelected =  document.querySelector(".keyframe.selected");
     if (previousSelected) {
       previousSelected.classList.remove("selected");
     }
@@ -417,7 +427,7 @@ export class MotionTimeline extends BaseTimeline {
       );
       if (object) {
         object.position.x = numValue;
-        this.editor.signals?.objectChanged.dispatch(object);
+        if (this.editor.signals?.objectChanged) this.editor.signals.objectChanged.dispatch(object);
       }
     });
 
@@ -434,7 +444,7 @@ export class MotionTimeline extends BaseTimeline {
       );
       if (object) {
         object.position.y = numValue;
-        this.editor.signals?.objectChanged.dispatch(object);
+        if (this.editor.signals?.objectChanged) this.editor.signals.objectChanged.dispatch(object);
       }
     });
 
@@ -451,7 +461,7 @@ export class MotionTimeline extends BaseTimeline {
       );
       if (object) {
         object.position.z = numValue;
-        this.editor.signals?.objectChanged.dispatch(object);
+        if (this.editor.signals?.objectChanged) this.editor.signals.objectChanged.dispatch(object);
       }
     });
 
@@ -779,18 +789,7 @@ export class MotionTimeline extends BaseTimeline {
       }
     });
   }
-
-  createBackground() {
-    let stageGroup = this.editor.scene.children.find(
-      (child) => child.name === "Stage"
-    );
-
-    if (!stageGroup) {
-      stageGroup = new THREE.Group();
-      stageGroup.name = "Stage";
-      this.editor.scene.add(stageGroup);
-    }
-
+  createVideoBackground(stageGroup) {
     const existingBackground = stageGroup.children.find(
       (child) => child.name === "_VideoBackground"
     );
@@ -798,7 +797,7 @@ export class MotionTimeline extends BaseTimeline {
       stageGroup.remove(existingBackground);
     }
 
-    const stageSize = new THREE.Vector3(200, 112.5, 1);
+    const stageSize = new THREE.Vector3(400, 250);
     const stageGeometry = new THREE.PlaneGeometry(stageSize.x, stageSize.y);
 
     const cloudName = "djqiaktcg";
@@ -833,10 +832,11 @@ export class MotionTimeline extends BaseTimeline {
       opacity: 1,
     });
     const stagePlane = new THREE.Mesh(stageGeometry, stageMaterial);
-    stagePlane.position.set(0, 50, -50);
+    stagePlane.position.set(0, 79.100, -74.039);
+    stagePlane.scale.set(1, 0.639, 1);
     stagePlane.name = "_VideoBackground";
     stageGroup.add(stagePlane);
-
+    // editor.scene.add(stagePlane);
     const loadVideo = async () => {
       try {
         await video.load();
@@ -998,3 +998,4 @@ export class MotionTimeline extends BaseTimeline {
     }
   }
 }
+

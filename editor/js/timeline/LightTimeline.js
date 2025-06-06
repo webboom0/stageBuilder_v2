@@ -398,7 +398,7 @@ export class LightTimeline extends BaseTimeline {
     const { objectId, propertyType, frame } = this.selectedKeyframe;
     const track = this.tracks.get(objectId);
     const keyframeData = track.keyframes[propertyType].get(frame);
-    const object = this.editor.scene.getObjectById(parseInt(objectId));
+    const object =  this.editor.scene.getObjectById(parseInt(objectId));
 
     if (keyframeData && object) {
       if (propertyType === "intensity") {
@@ -423,7 +423,7 @@ export class LightTimeline extends BaseTimeline {
 
     const { objectId, propertyType } = this.selectedKeyframe;
     const track = this.tracks.get(objectId);
-    const object = this.editor.scene.getObjectById(parseInt(objectId));
+    const object =  this.editor.scene.getObjectById(parseInt(objectId));
 
     if (!track || !object) return;
 

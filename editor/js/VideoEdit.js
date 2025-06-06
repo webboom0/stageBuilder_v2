@@ -135,6 +135,17 @@ function VideoEdit(editor) {
     });
   }
   const background = {
+    init: function () {
+      this.stageGroup = editor.scene.children.find(
+        (child) => child.name === "Stage",
+      );
+
+      if (!this.stageGroup) {
+        this.stageGroup = new THREE.Group();
+        this.stageGroup.name = "Stage";
+        editor.scene.add(this.stageGroup);
+      }
+    },
     create: function () {
       console.log("background");
 
@@ -150,19 +161,10 @@ function VideoEdit(editor) {
           // 씬의 배경색을 검정색으로 설정
           // editor.scene.background = new THREE.Color(0x000000);
 
-          // Stage 그룹 생성 또는 찾기
-          let stageGroup = editor.scene.children.find(
-            (child) => child.name === "Stage",
-          );
-
-          if (!stageGroup) {
-            stageGroup = new THREE.Group();
-            stageGroup.name = "Stage";
-            editor.scene.add(stageGroup);
-          }
+          
 
           // Background 객체 생성 및 추가
-          const existingBackground = stageGroup.children.find(
+          const existingBackground = this.stageGroup.children.find(
             (child) => child.name === "_Background",
           );
           console.log("existingBackground");
@@ -179,7 +181,7 @@ function VideoEdit(editor) {
             object.scale.set(0.6, 0.4, 0.6);
             */
             /* fbx 기준*/
-            object.position.set(220, -153.989, 764.44);
+            object.position.set(228.340, -153.989, 764.44);
             object.rotation.set(
               -Math.PI / 2, // -90도
               0, // 0도
@@ -207,7 +209,7 @@ function VideoEdit(editor) {
             // object.userData.notSelectable = true;
             // object.userData.notEditable = true;
 
-            stageGroup.add(object);
+            this.stageGroup.add(object);
             // editor.scene.add(object);
 
             // === 카메라 위치 설정 예시 ===
@@ -223,7 +225,7 @@ function VideoEdit(editor) {
           }
 
           // 조명 설정
-          const existingLight = stageGroup.children.find(
+          const existingLight = this.stageGroup.children.find(
             (child) => child.name === "_Light",
           );
 
@@ -231,16 +233,16 @@ function VideoEdit(editor) {
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
             hemiLight.position.set(0, 1, 0);
             hemiLight.name = "_Light";
-            stageGroup.add(hemiLight);
+            this.stageGroup.add(hemiLight);
           } else {
             console.log("Light already exists");
           }
 
           // Stage 그룹 전체에 대한 userData 설정
-          stageGroup.userData.isBackground = true;
-          stageGroup.userData.notSelectable = true;
-          stageGroup.userData.notEditable = true;
-          stageGroup.userData.excludeFromTimeline = true;
+          this.stageGroup.userData.isBackground = true;
+          this.stageGroup.userData.notSelectable = true;
+          this.stageGroup.userData.notEditable = true;
+          this.stageGroup.userData.excludeFromTimeline = true;
 
           editor.signals.sceneGraphChanged.dispatch();
           editor.scene.userData.hasBackground = true;
@@ -250,7 +252,7 @@ function VideoEdit(editor) {
 
           console.log("Background and floor loaded successfully");
 
-          // === 여기 추가 ===
+          // loading 모달 숨김
           const modal = document.getElementById("loading-modal");
           if (modal) modal.style.display = "none";
         },
@@ -263,7 +265,40 @@ function VideoEdit(editor) {
         },
       );
     },
+    createFloor: function () {
+      console.log("createFloor");
+       // 바닥 객체 생성
+       const existingFloor = this.stageGroup.children.find(
+        (child) => child.name === "_Floor",
+      );
 
+      if (!existingFloor) {
+        const floorGeometry = new THREE.BoxGeometry(147.446, 1, 111.747);
+        const floorMaterial = new THREE.MeshStandardMaterial({
+          color: 0x808080,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 1,
+          envMapIntensity: 1.0,
+          roughness: 0.5,
+          metalness: 0.0,
+        });
+
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.position.set(-2.975, -3.063, 0.0);
+        floor.scale.set(1.564, 6.779, 1.0);
+        floor.name = "_Floor";
+        // floor.userData.isBackground = true;
+        // floor.userData.notSelectable = true;
+        // floor.userData.notEditable = true;
+        floor.raycast = () => null;
+
+        this.stageGroup.add(floor);
+        // editor.scene.add(floor);
+      } else {
+        console.log("Floor already exists");
+      }
+    },
     onObjectSelected: function (selected) {
       if (
         selected &&
@@ -278,7 +313,9 @@ function VideoEdit(editor) {
   // 새 파일일 경우에만 Background 생성
   if (!editor.scene.userData.hasBackground) {
     console.log("background호출");
+    background.init();
     background.create();
+    background.createFloor();
   }
   return container;
 }
