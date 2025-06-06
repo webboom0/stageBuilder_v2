@@ -30,7 +30,7 @@ export class LightTimeline extends BaseTimeline {
         const lightId = `light_${lightIndex}`;
         const lightName = `Light ${lightIndex + 1}`;
         // 트랙 생성
-        this.addTrack(lightId, lightName, row, col);
+        // this.addTrack(lightId, lightName, row, col);
         // 3D 씬에 조명 생성 및 배치
         this.createAndPlaceLight(lightId, row, col);
         lightIndex++;
@@ -185,21 +185,19 @@ export class LightTimeline extends BaseTimeline {
   createAndPlaceLight(lightId, row, col) {
     // 3D 씬에 조명 생성 및 배치
     const scene = this.editor.scene;
-    this.LightGroup = scene.children.find(
-      (child) => child.name === "Light",
-    );
+    // this.LightGroup = scene.children.find(
+    //   (child) => child.name === "light",
+    // );
 
 
-    if (!this.LightGroup) {
-      this.LightGroup = new THREE.Group();
-      this.LightGroup.name = "Light";
-      scene.add(this.LightGroup);
-      this.LightGroup.position.set(0, 10.480, 0);
-      this.LightGroup.userData.isBackground = true;
-      this.LightGroup.userData.notSelectable = true;
-      this.LightGroup.userData.notEditable = true;
-      this.LightGroup.userData.excludeFromTimeline = true;
-    }
+    // if (!this.LightGroup) {
+    //   this.LightGroup = new THREE.Group();
+    //   this.LightGroup.name = "light";
+    //   scene.add(this.LightGroup);
+    //   this.LightGroup.position.set(0, 10.480, 0);
+    //   this.LightGroup.userData.isBackground = false;
+    //   this.LightGroup.userData.sceneHide = true;
+    // }
     // 이미 있으면 중복 생성 방지
     if (scene.getObjectByName(lightId)) return;
 
@@ -220,6 +218,8 @@ export class LightTimeline extends BaseTimeline {
       decay
     );
     light.name = lightId;
+    light.userData.isBackground = true;
+    light.userData.sceneHide = true;
 
     // 2줄 5칸 그리드 배치
     const x = -100 + col * 50;
@@ -230,27 +230,36 @@ export class LightTimeline extends BaseTimeline {
     // 스포트라이트의 타겟을 아래로 향하게 설정
     const target = new THREE.Object3D();
     target.position.set(x, 0, z); // y=0(아래)로 타겟
-    this.LightGroup.add(target);
+    scene.add(target);
     light.target = target;
     light.target.name = `${lightId}_Target`;
+    light.target.isLight = true;
+    light.target.userData.isBackground = false;
 
-    this.LightGroup.add(light);
+    scene.add(light);
 
     // === 여기서 light.obj 불러와서 배치 ===
     const loader = new OBJLoader();
     loader.load(
       'https://webboom0.github.io/stageBuilder_v2/files/light.obj',
       (obj) => {
-        obj.position.set(x, y, z);
+        obj.position.set(x, 137.319, z);
         obj.rotation.set(172.75, 0, 0);
         obj.name = `${lightId}_Light`;
-        this.LightGroup.add(obj);
+        obj.userData.isBackground = false;
+        obj.userData.sceneHide = true;
+        scene.add(obj);
       },
       undefined,
       (error) => {
         console.error('light.obj 로드 실패:', error);
       }
     );
+
+    // === 타겟 트랙 추가 ===
+    const targetId = `${lightId}_Target`;
+    const targetName = `${lightId}_Target`;
+    this.addTrack(targetId, targetName, row, col);
   }
 
   // BaseTimeline의 추상 메서드 구현

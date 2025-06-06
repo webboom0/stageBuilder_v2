@@ -4,6 +4,7 @@ import { SidebarScene } from "./Sidebar.Scene.js";
 import { SidebarProperties } from "./Sidebar.Properties.js";
 import { SidebarProject } from "./Sidebar.Project.js";
 import { SidebarSettings } from "./Sidebar.Settings.js";
+import { SidebarLight } from "./Sidebar.Light.js";
 
 function Sidebar(editor) {
   const strings = editor.strings;
@@ -16,8 +17,10 @@ function Sidebar(editor) {
   const scene = new UISpan().add(new SidebarScene(editor), sidebarProperties);
   const project = new SidebarProject(editor);
   const settings = new SidebarSettings(editor);
+  const sidebarLight = new SidebarLight(editor);
 
   container.addTab("scene", strings.getKey("sidebar/scene"), scene);
+  container.addTab("light", "조명", sidebarLight);
   // container.addTab("project", strings.getKey("sidebar/project"), project);
   //   container.addTab("settings", strings.getKey("sidebar/settings"), settings);
   container.select("scene");

@@ -381,6 +381,9 @@ function SidebarScene(editor) {
       for (let i = 0, l = objects.length; i < l; i++) {
         const object = objects[i];
 
+        // 라이트 및 라이트 그룹 제외
+        if (object.isLight || (object.isGroup && object.name.toLowerCase().includes('light'))) continue;
+
         if (nodeStates.has(object) === false) {
           nodeStates.set(object, false);
         }
