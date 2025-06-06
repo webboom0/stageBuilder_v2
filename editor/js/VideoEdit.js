@@ -181,13 +181,15 @@ function VideoEdit(editor) {
             object.scale.set(0.6, 0.4, 0.6);
             */
             /* fbx 기준*/
-            object.position.set(228.340, -153.989, 764.44);
+            // object.position.set(228.340, -153.989, 764.44);
+            object.position.set(228.340, -122.909, 764.44); // object.scale.set(0.6, 0.6, 0.5)일때
+            
             object.rotation.set(
               -Math.PI / 2, // -90도
               0, // 0도
               Math.PI / 2, // 90도
             );
-            object.scale.set(0.6, 0.6, 0.5);
+            object.scale.set(0.6, 0.6, 0.4);
            
 
             // object.traverse((child) => {

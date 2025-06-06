@@ -832,11 +832,13 @@ export class MotionTimeline extends BaseTimeline {
       opacity: 1,
     });
     const stagePlane = new THREE.Mesh(stageGeometry, stageMaterial);
-    stagePlane.position.set(0, 79.100, -74.039);
-    stagePlane.scale.set(1, 0.639, 1);
+    // stagePlane.position.set(0, 79.100, -74.039);
+    // stagePlane.scale.set(1, 0.639, 1);
+    stagePlane.position.set(8.243, 65.273, -74.039);
+    stagePlane.scale.set(0.937, 0.508, 1);
     stagePlane.name = "_VideoBackground";
-    stageGroup.add(stagePlane);
-    // editor.scene.add(stagePlane);
+    // stageGroup.add(stagePlane);
+    editor.scene.add(stagePlane);
     const loadVideo = async () => {
       try {
         await video.load();
