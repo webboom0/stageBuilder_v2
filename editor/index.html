@@ -1,121 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <title>three.js editor</title>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
-    />
-    <link rel="apple-touch-icon" href="images/icon.png" />
-    <link rel="manifest" href="manifest.json" />
-    <link
-      rel="shortcut icon"
-      href="../files/favicon_white.ico"
-      media="(prefers-color-scheme: dark)"
-    />
-    <link
-      rel="shortcut icon"
-      href="../files/favicon.ico"
-      media="(prefers-color-scheme: light)"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
-    />
-  </head>
 
-  <body>
-    <div id="tabContainer">
-      <div id="tabButtons">
-        <!-- <button class="addTabButton">+ New Tab</button> -->
-      </div>
-      <div id="tabPanels"></div>
+<head>
+  <title>Stage Builder</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <link rel="apple-touch-icon" href="images/icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="shortcut icon" href="../files/favicon_white.ico" media="(prefers-color-scheme: dark)" />
+  <link rel="shortcut icon" href="../files/favicon.ico" media="(prefers-color-scheme: light)" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+</head>
+
+<body>
+  <div id="tabContainer">
+    <div id="tabButtons">
+      <!-- <button class="addTabButton">+ New Tab</button> -->
     </div>
+    <div id="tabPanels"></div>
+  </div>
 
-    <template id="editorTemplate">
-      <div class="editorTab">
-        <div class="wrapper">
-          <div class="topWrapper">
-            <div class="topMenuBar"></div>
-          </div>
-          <div class="viewerWrapper">
-            <div class="side"></div>
-            <div class="viewer">
-              <div class="toolBar"></div>
-            </div>
-          </div>
-          <!-- <div class="musicEditWrapper">
-          <div class="music"></div>
-        </div> -->
-          <div id="keyframe-property-panel"></div>
-          <div class="timelineWrapper">
-            <div class="timeline"></div>
+  <template id="editorTemplate">
+    <div class="editorTab">
+      <div class="wrapper">
+        <div class="topWrapper">
+          <div class="topMenuBar"></div>
+        </div>
+        <div class="viewerWrapper">
+          <div class="side"></div>
+          <div class="viewer">
+            <div class="toolBar"></div>
           </div>
         </div>
+        <!-- <div class="musicEditWrapper">
+          <div class="music"></div>
+        </div> -->
+        <div id="keyframe-property-panel"></div>
+        <div class="timelineWrapper">
+          <div class="timeline"></div>
+        </div>
       </div>
-    </template>
-    <div id="loading-modal" style="
+    </div>
+  </template>
+  <div id="loading-modal" style="
   position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7);
   color:#fff; display:flex; align-items:center; justify-content:center; z-index:99999;">
- <img src="https://webboom0.github.io/stageBuilder_v2/files/loading.gif" alt="loading" style="width: 100px; height: 100px;">
- <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px;">loading...</span>
-</div>
-    <style>
-      #tabContainer {
-        width: 100%;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-      }
+    <img src="https://webboom0.github.io/stageBuilder_v2/files/loading.gif" alt="loading"
+      style="width: 100px; height: 100px;">
+    <span
+      style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px;">loading...</span>
+  </div>
+  <style>
+    #tabContainer {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-      #tabButtons {
-        display: flex;
-        background: #2a2a2a;
-        padding: 5px 5px 0;
-      }
+    #tabButtons {
+      display: flex;
+      background: #2a2a2a;
+      padding: 5px 5px 0;
+    }
 
-      .tabButton {
-        padding: 8px 20px;
-        border: none;
-        background: #3a3a3a;
-        color: white;
-        margin-right: 5px;
-        cursor: pointer;
-      }
+    .tabButton {
+      padding: 8px 20px;
+      border: none;
+      background: #3a3a3a;
+      color: white;
+      margin-right: 5px;
+      cursor: pointer;
+    }
 
-      .tabButton.active {
-        background: #4a4a4a;
-      }
+    .tabButton.active {
+      background: #4a4a4a;
+    }
 
-      .addTabButton {
-        padding: 8px 15px;
-        background: #444;
-        border: none;
-        color: white;
-        cursor: pointer;
-      }
+    .addTabButton {
+      padding: 8px 15px;
+      background: #444;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
 
-      #tabPanels {
-        flex: 1;
-        position: relative;
-      }
+    #tabPanels {
+      flex: 1;
+      position: relative;
+    }
 
-      .editorTab {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        display: none;
-      }
+    .editorTab {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
 
-      .editorTab.active {
-        display: block;
-      }
-    </style>
-    <link rel="stylesheet" href="css/main.css" />
-    <link rel="stylesheet" href="css/motionTimeline.css" />
-    <link rel="stylesheet" href="css/audio.css" />
-    <script type="importmap">
+    .editorTab.active {
+      display: block;
+    }
+  </style>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/motionTimeline.css" />
+  <link rel="stylesheet" href="css/audio.css" />
+  <script type="importmap">
       {
         "imports": {
           "three": "../build/three.module.js",
@@ -128,41 +117,41 @@
       }
     </script>
 
-    <script src="../examples/jsm/libs/draco/draco_encoder.js"></script>
+  <script src="../examples/jsm/libs/draco/draco_encoder.js"></script>
 
-    <!-- 코드 편집기 관련 부분 -->
-    <link rel="stylesheet" href="js/libs/codemirror/codemirror.css" />
-    <link rel="stylesheet" href="js/libs/codemirror/theme/monokai.css" />
-    <script src="js/libs/codemirror/codemirror.js"></script>
-    <script src="js/libs/codemirror/mode/javascript.js"></script>
-    <script src="js/libs/codemirror/mode/glsl.js"></script>
+  <!-- 코드 편집기 관련 부분 -->
+  <link rel="stylesheet" href="js/libs/codemirror/codemirror.css" />
+  <link rel="stylesheet" href="js/libs/codemirror/theme/monokai.css" />
+  <script src="js/libs/codemirror/codemirror.js"></script>
+  <script src="js/libs/codemirror/mode/javascript.js"></script>
+  <script src="js/libs/codemirror/mode/glsl.js"></script>
 
-    <script src="js/libs/esprima.js"></script>
-    <script src="js/libs/jsonlint.js"></script>
+  <script src="js/libs/esprima.js"></script>
+  <script src="js/libs/jsonlint.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
 
-    <link rel="stylesheet" href="js/libs/codemirror/addon/dialog.css" />
-    <link rel="stylesheet" href="js/libs/codemirror/addon/show-hint.css" />
-    <link rel="stylesheet" href="js/libs/codemirror/addon/tern.css" />
+  <link rel="stylesheet" href="js/libs/codemirror/addon/dialog.css" />
+  <link rel="stylesheet" href="js/libs/codemirror/addon/show-hint.css" />
+  <link rel="stylesheet" href="js/libs/codemirror/addon/tern.css" />
 
-    <script src="js/libs/codemirror/addon/dialog.js"></script>
-    <script src="js/libs/codemirror/addon/show-hint.js"></script>
-    <script src="js/libs/codemirror/addon/tern.js"></script>
-    <script src="js/libs/acorn/acorn.js"></script>
-    <script src="js/libs/acorn/acorn_loose.js"></script>
-    <script src="js/libs/acorn/walk.js"></script>
-    <script src="js/libs/ternjs/polyfill.js"></script>
-    <script src="js/libs/ternjs/signal.js"></script>
-    <script src="js/libs/ternjs/tern.js"></script>
-    <script src="js/libs/ternjs/def.js"></script>
-    <script src="js/libs/ternjs/comment.js"></script>
-    <script src="js/libs/ternjs/infer.js"></script>
-    <script src="js/libs/ternjs/doc_comment.js"></script>
-    <script src="js/libs/tern-threejs/threejs.js"></script>
-    <script src="js/libs/signals.min.js"></script>
-    <!-- 
+  <script src="js/libs/codemirror/addon/dialog.js"></script>
+  <script src="js/libs/codemirror/addon/show-hint.js"></script>
+  <script src="js/libs/codemirror/addon/tern.js"></script>
+  <script src="js/libs/acorn/acorn.js"></script>
+  <script src="js/libs/acorn/acorn_loose.js"></script>
+  <script src="js/libs/acorn/walk.js"></script>
+  <script src="js/libs/ternjs/polyfill.js"></script>
+  <script src="js/libs/ternjs/signal.js"></script>
+  <script src="js/libs/ternjs/tern.js"></script>
+  <script src="js/libs/ternjs/def.js"></script>
+  <script src="js/libs/ternjs/comment.js"></script>
+  <script src="js/libs/ternjs/infer.js"></script>
+  <script src="js/libs/ternjs/doc_comment.js"></script>
+  <script src="js/libs/tern-threejs/threejs.js"></script>
+  <script src="js/libs/signals.min.js"></script>
+  <!-- 
 	
 1. dialog.js: CodeMirror의 대화 상자(addon) 기능을 제공하는 스크립트로, 사용자와의 상호작용을 위한 대화 상자를 생성합니다.
 2. show-hint.js: CodeMirror의 자동 완성 기능을 제공하는 addon으로, 코드 입력 시 힌트를 보여줍니다.
@@ -181,435 +170,435 @@
 이 파일들은 주로 JavaScript 코드 편집기와 관련된 기능을 제공하며, 코드 완성, 구문 분석, 이벤트 처리 등을 지원합니다.
 -->
 
-    <script type="module">
-      import * as THREE from "three";
+  <script type="module">
+    import * as THREE from "three";
 
-      import { Editor } from "./js/Editor.js";
-      import { Viewport } from "./js/Viewport.js";
-      import { Toolbar } from "./js/Toolbar.js";
-      // import { Script } from './js/Script.js';
-      import { Player } from "./js/Player.js";
-      import { Sidebar } from "./js/Sidebar.js";
-      import { Menubar } from "./js/Menubar.js";
-      import { Resizer } from "./js/Resizer.js";
-      import { VideoEdit } from "./js/VideoEdit.js";
-      // import { Music } from './js/Music.js';
-      const { createFFmpeg, fetchFile } = FFmpeg;
+    import { Editor } from "./js/Editor.js";
+    import { Viewport } from "./js/Viewport.js";
+    import { Toolbar } from "./js/Toolbar.js";
+    // import { Script } from './js/Script.js';
+    import { Player } from "./js/Player.js";
+    import { Sidebar } from "./js/Sidebar.js";
+    import { Menubar } from "./js/Menubar.js";
+    import { Resizer } from "./js/Resizer.js";
+    import { VideoEdit } from "./js/VideoEdit.js";
+    // import { Music } from './js/Music.js';
+    const { createFFmpeg, fetchFile } = FFmpeg;
 
-      window.URL = window.URL || window.webkitURL;
-      window.BlobBuilder =
-        window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder;
+    window.URL = window.URL || window.webkitURL;
+    window.BlobBuilder =
+      window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder;
 
-      // THREE를 전역으로 설정
-      window.THREE = THREE;
+    // THREE를 전역으로 설정
+    window.THREE = THREE;
 
-      let tabCounter = 0;
-      const tabPanels = document.getElementById("tabPanels");
-      const tabButtons = document.getElementById("tabButtons");
-      const template = document.getElementById("editorTemplate");
+    let tabCounter = 0;
+    const tabPanels = document.getElementById("tabPanels");
+    const tabButtons = document.getElementById("tabButtons");
+    const template = document.getElementById("editorTemplate");
 
-      // 탭 버튼 생성 함수
-      function createTabButton(tabId) {
-        const tabButton = document.createElement("button");
-        tabButton.className = "tabButton";
-        tabButton.dataset.tabId = tabId;
+    // 탭 버튼 생성 함수
+    function createTabButton(tabId) {
+      const tabButton = document.createElement("button");
+      tabButton.className = "tabButton";
+      tabButton.dataset.tabId = tabId;
 
-        const tabText = document.createElement("span");
-        tabText.textContent = `Editor ${tabId}`;
+      const tabText = document.createElement("span");
+      tabText.textContent = `Editor ${tabId}`;
 
-        const closeButton = document.createElement("span");
-        closeButton.innerHTML = "&times;";
-        closeButton.className = "closeTab";
-        closeButton.style.marginLeft = "8px";
-        closeButton.style.cursor = "pointer";
+      const closeButton = document.createElement("span");
+      closeButton.innerHTML = "&times;";
+      closeButton.className = "closeTab";
+      closeButton.style.marginLeft = "8px";
+      closeButton.style.cursor = "pointer";
 
-        tabButton.appendChild(tabText);
-        tabButton.appendChild(closeButton);
+      tabButton.appendChild(tabText);
+      // tabButton.appendChild(closeButton);
 
-        // 닫기 버튼 클릭 이벤트
-        closeButton.addEventListener("click", (e) => {
-          e.stopPropagation(); // 탭 선택 이벤트 방지
-          removeTab(tabId);
-        });
+      // 닫기 버튼 클릭 이벤트
+      closeButton.addEventListener("click", (e) => {
+        e.stopPropagation(); // 탭 선택 이벤트 방지
+        removeTab(tabId);
+      });
 
-        return tabButton;
+      return tabButton;
+    }
+
+    // createNewTab 함수 수정 (기존 함수 대체)
+    async function createNewTab() {
+      tabCounter++;
+
+      // 탭 버튼 생성 (수정된 함수 사용)
+      const tabButton = createTabButton(tabCounter);
+      tabButtons.insertBefore(
+        tabButton,
+        document.querySelector(".addTabButton")
+      );
+
+      // 탭 패널 생성
+      const tabPanel = template.content.cloneNode(true);
+      const editorTab = tabPanel.querySelector(".editorTab");
+      editorTab.dataset.tabId = tabCounter;
+
+      // DOM에 먼저 추가
+      tabPanels.appendChild(editorTab);
+
+      // 새로운 에디터 인스턴스 생성
+      const editor = new Editor();
+      window[`editor${tabCounter}`] = editor;
+
+      // 현재 활성화된 editor를 전역으로 설정
+      window.editor = editor;
+
+      // 컴포넌트 초기화 전에 탭을 활성화
+      activateTab(tabCounter);
+
+      // DOM이 추가된 후 컴포넌트 초기화
+      const menubar = new Menubar(editor);
+      editorTab.querySelector(".topMenuBar").appendChild(menubar.dom);
+
+      // Viewport 초기화
+      const viewerElement = editorTab.querySelector(".viewer");
+
+      // viewerElement 크기 설정
+      viewerElement.style.width = "100%";
+      viewerElement.style.height = "400px"; // 초기 높이 설정
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const viewport = new Viewport(editor);
+
+      // viewport DOM 스타일 설정
+      viewport.dom.style.width = "100%";
+      viewport.dom.style.height = "100%";
+      viewport.dom.style.position = "absolute";
+
+      viewerElement.appendChild(viewport.dom);
+
+      // renderer 초기화를 위한 대기
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // 이제 renderer가 초기화된 후에 resize 이벤트 발생
+      try {
+        if (viewport.renderer) {
+          viewport.renderer.setSize(
+            viewerElement.clientWidth,
+            viewerElement.clientHeight,
+            true // updateStyle 파라미터 추가
+          );
+          viewport.renderer.setPixelRatio(window.devicePixelRatio);
+          viewport.camera.aspect =
+            viewerElement.clientWidth / viewerElement.clientHeight;
+          viewport.camera.updateProjectionMatrix();
+          viewport.render();
+        }
+      } catch (error) {
+        console.warn("Viewport initialization failed:", error);
       }
 
-      // createNewTab 함수 수정 (기존 함수 대체)
-      async function createNewTab() {
-        tabCounter++;
+      const toolbar = new Toolbar(editor);
+      editorTab.querySelector(".toolBar").appendChild(toolbar.dom);
 
-        // 탭 버튼 생성 (수정된 함수 사용)
-        const tabButton = createTabButton(tabCounter);
-        tabButtons.insertBefore(
-          tabButton,
-          document.querySelector(".addTabButton")
-        );
+      const player = new Player(editor);
+      editorTab.appendChild(player.dom);
 
-        // 탭 패널 생성
-        const tabPanel = template.content.cloneNode(true);
-        const editorTab = tabPanel.querySelector(".editorTab");
-        editorTab.dataset.tabId = tabCounter;
+      const sidebar = new Sidebar(editor);
+      editorTab.querySelector(".side").appendChild(sidebar.dom);
 
-        // DOM에 먼저 추가
-        tabPanels.appendChild(editorTab);
-
-        // 새로운 에디터 인스턴스 생성
-        const editor = new Editor();
-        window[`editor${tabCounter}`] = editor;
-
-        // 현재 활성화된 editor를 전역으로 설정
-        window.editor = editor;
-
-        // 컴포넌트 초기화 전에 탭을 활성화
-        activateTab(tabCounter);
-
-        // DOM이 추가된 후 컴포넌트 초기화
-        const menubar = new Menubar(editor);
-        editorTab.querySelector(".topMenuBar").appendChild(menubar.dom);
-
-        // Viewport 초기화
-        const viewerElement = editorTab.querySelector(".viewer");
-
-        // viewerElement 크기 설정
-        viewerElement.style.width = "100%";
-        viewerElement.style.height = "400px"; // 초기 높이 설정
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        const viewport = new Viewport(editor);
-
-        // viewport DOM 스타일 설정
-        viewport.dom.style.width = "100%";
-        viewport.dom.style.height = "100%";
-        viewport.dom.style.position = "absolute";
-
-        viewerElement.appendChild(viewport.dom);
-
-        // renderer 초기화를 위한 대기
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        // 이제 renderer가 초기화된 후에 resize 이벤트 발생
-        try {
-          if (viewport.renderer) {
-            viewport.renderer.setSize(
-              viewerElement.clientWidth,
-              viewerElement.clientHeight,
-              true // updateStyle 파라미터 추가
-            );
-            viewport.renderer.setPixelRatio(window.devicePixelRatio);
-            viewport.camera.aspect =
-              viewerElement.clientWidth / viewerElement.clientHeight;
-            viewport.camera.updateProjectionMatrix();
-            viewport.render();
-          }
-        } catch (error) {
-          console.warn("Viewport initialization failed:", error);
+      // VideoEdit 초기화
+      const timelineElement = editorTab.querySelector(".timeline");
+      if (timelineElement) {
+        const videoEdit = new VideoEdit(editor);
+        if (videoEdit.dom) {
+          timelineElement.appendChild(videoEdit.dom);
         }
+      }
 
-        const toolbar = new Toolbar(editor);
-        editorTab.querySelector(".toolBar").appendChild(toolbar.dom);
+      // Storage 초기화 및 상태 복원
+      editor.storage.init(function () {
+        editor.storage.get(async function (state) {
+          if (isLoadingFromHash) return;
 
-        const player = new Player(editor);
-        editorTab.appendChild(player.dom);
-
-        const sidebar = new Sidebar(editor);
-        editorTab.querySelector(".side").appendChild(sidebar.dom);
-
-        // VideoEdit 초기화
-        const timelineElement = editorTab.querySelector(".timeline");
-        if (timelineElement) {
-          const videoEdit = new VideoEdit(editor);
-          if (videoEdit.dom) {
-            timelineElement.appendChild(videoEdit.dom);
+          if (state !== undefined) {
+            await editor.fromJSON(state);
           }
-        }
 
-        // Storage 초기화 및 상태 복원
-        editor.storage.init(function () {
-          editor.storage.get(async function (state) {
-            if (isLoadingFromHash) return;
+          const selected = editor.config.getKey("selected");
 
-            if (state !== undefined) {
-              await editor.fromJSON(state);
-            }
+          if (selected !== undefined) {
+            editor.selectByUuid(selected);
+          }
+        });
 
-            const selected = editor.config.getKey("selected");
+        let timeout;
 
-            if (selected !== undefined) {
-              editor.selectByUuid(selected);
-            }
-          });
+        function saveState() {
+          if (editor.config.getKey("autosave") === false) {
+            return;
+          }
 
-          let timeout;
+          clearTimeout(timeout);
 
-          function saveState() {
-            if (editor.config.getKey("autosave") === false) {
-              return;
-            }
-
-            clearTimeout(timeout);
+          timeout = setTimeout(function () {
+            editor.signals.savingStarted.dispatch();
 
             timeout = setTimeout(function () {
-              editor.signals.savingStarted.dispatch();
+              editor.storage.set(editor.toJSON());
 
-              timeout = setTimeout(function () {
-                editor.storage.set(editor.toJSON());
+              editor.signals.savingFinished.dispatch();
+            }, 100);
+          }, 1000);
+        }
 
-                editor.signals.savingFinished.dispatch();
-              }, 100);
-            }, 1000);
-          }
+        const signals = editor.signals;
 
-          const signals = editor.signals;
+        signals.geometryChanged.add(saveState);
+        signals.objectAdded.add(saveState);
+        signals.objectChanged.add(saveState);
+        signals.objectRemoved.add(saveState);
+        signals.materialChanged.add(saveState);
+        signals.sceneBackgroundChanged.add(saveState);
+        signals.sceneEnvironmentChanged.add(saveState);
+        signals.sceneFogChanged.add(saveState);
+        signals.sceneGraphChanged.add(saveState);
+        signals.scriptChanged.add(saveState);
+      });
 
-          signals.geometryChanged.add(saveState);
-          signals.objectAdded.add(saveState);
-          signals.objectChanged.add(saveState);
-          signals.objectRemoved.add(saveState);
-          signals.materialChanged.add(saveState);
-          signals.sceneBackgroundChanged.add(saveState);
-          signals.sceneEnvironmentChanged.add(saveState);
-          signals.sceneFogChanged.add(saveState);
-          signals.sceneGraphChanged.add(saveState);
-          signals.scriptChanged.add(saveState);
+      // 마지막으로 resize 이벤트 발생
+      editor.signals.windowResize.dispatch();
+    }
+
+    function activateTab(tabId) {
+      // 모든 탭 비활성화
+      document
+        .querySelectorAll(".tabButton")
+        .forEach((btn) => btn.classList.remove("active"));
+      document
+        .querySelectorAll(".editorTab")
+        .forEach((tab) => tab.classList.remove("active"));
+
+      // 선택된 탭 활성화
+      document
+        .querySelector(`.tabButton[data-tab-id="${tabId}"]`)
+        .classList.add("active");
+      document
+        .querySelector(`.editorTab[data-tab-id="${tabId}"]`)
+        .classList.add("active");
+
+      // 현재 활성화된 editor를 전역으로 설정
+      window.editor = window[`editor${tabId}`];
+    }
+
+    // 탭 버튼 클릭 이벤트
+    // document
+    //   .querySelector(".addTabButton")
+    //   .addEventListener("click", createNewTab);
+
+    tabButtons.addEventListener("click", (e) => {
+      if (e.target.classList.contains("tabButton")) {
+        activateTab(e.target.dataset.tabId);
+      }
+    });
+
+    // 초기 탭 생성
+    await createNewTab();
+
+    document.addEventListener("dragover", function (event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    });
+
+    document.addEventListener("drop", function (event) {
+      event.preventDefault();
+
+      if (event.dataTransfer.types[0] === "text/plain") return; // Outliner drop
+
+      if (event.dataTransfer.items) {
+        // DataTransferItemList supports folders
+
+        editor.loader.loadItemList(event.dataTransfer.items);
+      } else {
+        editor.loader.loadFiles(event.dataTransfer.files);
+      }
+    });
+
+    function onWindowResize() {
+      if (window.editor && window.editor.signals) {
+        window.editor.signals.windowResize.dispatch();
+      }
+    }
+
+    window.addEventListener("resize", onWindowResize);
+
+    onWindowResize();
+
+    //
+
+    let isLoadingFromHash = false;
+    const hash = window.location.hash;
+
+    if (hash.slice(1, 6) === "file=") {
+      const file = hash.slice(6);
+
+      if (confirm(editor.strings.getKey("prompt/file/open"))) {
+        const loader = new THREE.FileLoader();
+        loader.crossOrigin = "";
+        loader.load(file, function (text) {
+          editor.clear();
+          editor.fromJSON(JSON.parse(text));
         });
 
-        // 마지막으로 resize 이벤트 발생
-        editor.signals.windowResize.dispatch();
+        isLoadingFromHash = true;
       }
+    }
 
-      function activateTab(tabId) {
-        // 모든 탭 비활성화
-        document
-          .querySelectorAll(".tabButton")
-          .forEach((btn) => btn.classList.remove("active"));
-        document
-          .querySelectorAll(".editorTab")
-          .forEach((tab) => tab.classList.remove("active"));
-
-        // 선택된 탭 활성화
-        document
-          .querySelector(`.tabButton[data-tab-id="${tabId}"]`)
-          .classList.add("active");
-        document
-          .querySelector(`.editorTab[data-tab-id="${tabId}"]`)
-          .classList.add("active");
-
-        // 현재 활성화된 editor를 전역으로 설정
-        window.editor = window[`editor${tabId}`];
+    // ServiceWorker
+    if ("serviceWorker" in navigator) {
+      try {
+        // 로컬 개발 환경과 프로덕션 환경 구분
+        const isLocalhost =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
+        const swPath = isLocalhost ? "/sw.js" : "/stageBuilder_v2/sw.js";
+        navigator.serviceWorker.register(swPath);
+      } catch (error) {
+        console.error("Service Worker 등록 실패:", error);
       }
+    }
 
-      // 탭 버튼 클릭 이벤트
-      // document
-      //   .querySelector(".addTabButton")
-      //   .addEventListener("click", createNewTab);
+    // 탭 삭제 함수
+    async function removeTab(tabId) {
+      // 탭 버튼과 패널 요소 찾기
+      const tabButton = document.querySelector(
+        `.tabButton[data-tab-id="${tabId}"]`
+      );
+      const tabPanel = document.querySelector(
+        `.editorTab[data-tab-id="${tabId}"]`
+      );
 
-      tabButtons.addEventListener("click", (e) => {
-        if (e.target.classList.contains("tabButton")) {
-          activateTab(e.target.dataset.tabId);
-        }
-      });
+      if (!tabButton || !tabPanel) return;
 
-      // 초기 탭 생성
-      await createNewTab();
-
-      document.addEventListener("dragover", function (event) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      });
-
-      document.addEventListener("drop", function (event) {
-        event.preventDefault();
-
-        if (event.dataTransfer.types[0] === "text/plain") return; // Outliner drop
-
-        if (event.dataTransfer.items) {
-          // DataTransferItemList supports folders
-
-          editor.loader.loadItemList(event.dataTransfer.items);
-        } else {
-          editor.loader.loadFiles(event.dataTransfer.files);
-        }
-      });
-
-      function onWindowResize() {
-        if (window.editor && window.editor.signals) {
-          window.editor.signals.windowResize.dispatch();
-        }
-      }
-
-      window.addEventListener("resize", onWindowResize);
-
-      onWindowResize();
-
-      //
-
-      let isLoadingFromHash = false;
-      const hash = window.location.hash;
-
-      if (hash.slice(1, 6) === "file=") {
-        const file = hash.slice(6);
-
-        if (confirm(editor.strings.getKey("prompt/file/open"))) {
-          const loader = new THREE.FileLoader();
-          loader.crossOrigin = "";
-          loader.load(file, function (text) {
-            editor.clear();
-            editor.fromJSON(JSON.parse(text));
-          });
-
-          isLoadingFromHash = true;
-        }
-      }
-
-      // ServiceWorker
-      if ("serviceWorker" in navigator) {
+      // editor 인스턴스 정리
+      const editor = window[`editor${tabId}`];
+      if (editor) {
         try {
-          // 로컬 개발 환경과 프로덕션 환경 구분
-          const isLocalhost =
-            window.location.hostname === "localhost" ||
-            window.location.hostname === "127.0.0.1";
-          const swPath = isLocalhost ? "/sw.js" : "/stageBuilder_v2/sw.js";
-          navigator.serviceWorker.register(swPath);
-        } catch (error) {
-          console.error("Service Worker 등록 실패:", error);
-        }
-      }
-
-      // 탭 삭제 함수
-      async function removeTab(tabId) {
-        // 탭 버튼과 패널 요소 찾기
-        const tabButton = document.querySelector(
-          `.tabButton[data-tab-id="${tabId}"]`
-        );
-        const tabPanel = document.querySelector(
-          `.editorTab[data-tab-id="${tabId}"]`
-        );
-
-        if (!tabButton || !tabPanel) return;
-
-        // editor 인스턴스 정리
-        const editor = window[`editor${tabId}`];
-        if (editor) {
-          try {
-            // renderer 정리
-            if (editor.viewport && editor.viewport.renderer) {
-              editor.viewport.renderer.dispose();
-              editor.viewport.renderer.forceContextLoss();
-              editor.viewport.renderer.domElement.remove();
-            }
-
-            // signals 정리
-            if (editor.signals) {
-              // 모든 signal의 리스너 제거
-              Object.keys(editor.signals).forEach((key) => {
-                const signal = editor.signals[key];
-                if (signal && typeof signal.removeAll === "function") {
-                  signal.removeAll();
-                }
-              });
-            }
-
-            // 메모리 정리
-            editor.clear();
-
-            // 전역 변수에서 제거
-            delete window[`editor${tabId}`];
-            if (window.editor === editor) {
-              window.editor = null;
-            }
-          } catch (error) {
-            console.warn("Error cleaning up editor:", error);
+          // renderer 정리
+          if (editor.viewport && editor.viewport.renderer) {
+            editor.viewport.renderer.dispose();
+            editor.viewport.renderer.forceContextLoss();
+            editor.viewport.renderer.domElement.remove();
           }
-        }
 
-        // DOM 요소 제거
-        tabButton.remove();
-        tabPanel.remove();
-
-        // 다른 탭이 있다면 첫 번째 탭을 활성화
-        const remainingTabs = Array.from(
-          document.querySelectorAll(".tabButton")
-        ).filter((tab) => tab.dataset.tabId); // '+' 버튼 제외
-
-        if (remainingTabs.length > 0) {
-          const firstTabId = remainingTabs[0].dataset.tabId;
-          activateTab(firstTabId);
-        } else {
-          // 탭이 없으면 새 탭 생성
-          await createNewTab();
-        }
-      }
-
-      // 전체 초기화 함수
-      async function resetAllTabs() {
-        try {
-          // 모든 탭 관련 요소 찾기
-          const tabButtons = document.querySelectorAll(
-            ".tabButton:not(.addTabButton)"
-          );
-          const tabPanels = document.querySelectorAll(".editorTab");
-
-          // 모든 탭과 관련 리소스 제거
-          tabButtons.forEach((button) => {
-            if (button && !button.classList.contains("addTabButton")) {
-              button.remove();
-            }
-          });
-
-          tabPanels.forEach((panel) => {
-            const tabId = panel.dataset.tabId;
-            if (tabId) {
-              // editor 인스턴스 정리
-              const editor = window[`editor${tabId}`];
-              if (editor) {
-                if (editor.viewport && editor.viewport.renderer) {
-                  editor.viewport.renderer.dispose();
-                  editor.viewport.renderer.forceContextLoss();
-                  editor.viewport.renderer.domElement?.remove();
-                }
-                editor.clear();
-                delete window[`editor${tabId}`];
+          // signals 정리
+          if (editor.signals) {
+            // 모든 signal의 리스너 제거
+            Object.keys(editor.signals).forEach((key) => {
+              const signal = editor.signals[key];
+              if (signal && typeof signal.removeAll === "function") {
+                signal.removeAll();
               }
-              panel.remove();
-            }
-          });
+            });
+          }
 
-          // 전역 변수 초기화
-          window.editor = null;
+          // 메모리 정리
+          editor.clear();
 
-          // tabCounter 초기화
-          tabCounter = 0;
-
-          // DOM이 완전히 정리될 때까지 잠시 대기
-          await new Promise((resolve) => setTimeout(resolve, 100));
-
-          // 새 탭 생성
-          await createNewTab();
-
-          // 음악 초기화 (VideoEdit.js의 initMusic 함수 호출)
-          if (typeof initMusic === "function") {
-            await initMusic();
+          // 전역 변수에서 제거
+          delete window[`editor${tabId}`];
+          if (window.editor === editor) {
+            window.editor = null;
           }
         } catch (error) {
-          console.error("Error during reset:", error);
-          // 에러 발생 시에도 새 탭 생성 시도
-          tabCounter = 0;
-          await createNewTab();
+          console.warn("Error cleaning up editor:", error);
         }
       }
 
-      // 전역으로 resetAllTabs 함수 노출
-      window.resetAllTabs = resetAllTabs;
+      // DOM 요소 제거
+      tabButton.remove();
+      tabPanel.remove();
 
-      // 초기 설정
-      document.addEventListener("DOMContentLoaded", async () => {
+      // 다른 탭이 있다면 첫 번째 탭을 활성화
+      const remainingTabs = Array.from(
+        document.querySelectorAll(".tabButton")
+      ).filter((tab) => tab.dataset.tabId); // '+' 버튼 제외
+
+      if (remainingTabs.length > 0) {
+        const firstTabId = remainingTabs[0].dataset.tabId;
+        activateTab(firstTabId);
+      } else {
+        // 탭이 없으면 새 탭 생성
         await createNewTab();
-      });
-    </script>
+      }
+    }
 
-    <!--
+    // 전체 초기화 함수
+    async function resetAllTabs() {
+      try {
+        // 모든 탭 관련 요소 찾기
+        const tabButtons = document.querySelectorAll(
+          ".tabButton:not(.addTabButton)"
+        );
+        const tabPanels = document.querySelectorAll(".editorTab");
+
+        // 모든 탭과 관련 리소스 제거
+        tabButtons.forEach((button) => {
+          if (button && !button.classList.contains("addTabButton")) {
+            button.remove();
+          }
+        });
+
+        tabPanels.forEach((panel) => {
+          const tabId = panel.dataset.tabId;
+          if (tabId) {
+            // editor 인스턴스 정리
+            const editor = window[`editor${tabId}`];
+            if (editor) {
+              if (editor.viewport && editor.viewport.renderer) {
+                editor.viewport.renderer.dispose();
+                editor.viewport.renderer.forceContextLoss();
+                editor.viewport.renderer.domElement?.remove();
+              }
+              editor.clear();
+              delete window[`editor${tabId}`];
+            }
+            panel.remove();
+          }
+        });
+
+        // 전역 변수 초기화
+        window.editor = null;
+
+        // tabCounter 초기화
+        tabCounter = 0;
+
+        // DOM이 완전히 정리될 때까지 잠시 대기
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // 새 탭 생성
+        await createNewTab();
+
+        // 음악 초기화 (VideoEdit.js의 initMusic 함수 호출)
+        if (typeof initMusic === "function") {
+          await initMusic();
+        }
+      } catch (error) {
+        console.error("Error during reset:", error);
+        // 에러 발생 시에도 새 탭 생성 시도
+        tabCounter = 0;
+        await createNewTab();
+      }
+    }
+
+    // 전역으로 resetAllTabs 함수 노출
+    window.resetAllTabs = resetAllTabs;
+
+    // 초기 설정
+    document.addEventListener("DOMContentLoaded", async () => {
+      await createNewTab();
+    });
+  </script>
+
+  <!--
 	<style>
 		body {
 			margin: 0;
@@ -702,7 +691,7 @@
 		}
 	</script>
 -->
-    <!-- <div class="music-controls">
+  <!-- <div class="music-controls">
 		<input type="file" id="fileInput" accept="audio/*">
 		<input type="number" id="startTime" placeholder="Start Time (s)" min="0">
 		<input type="number" id="endTime" placeholder="End Time (s)" min="0">
@@ -710,7 +699,7 @@
 		<audio id="audioPlayer" controls></audio>
 	</div> -->
 
-    <!-- 
+  <!-- 
 	<script>
 		const { createFFmpeg, fetchFile } = FFmpeg;
 		const ffmpeg = createFFmpeg({ log: true });
@@ -752,7 +741,7 @@
 		});
 	</script> -->
 
-    <!--
+  <!--
 	<style>
 		#controls {
 			margin-top: 20px;
@@ -832,5 +821,6 @@
 		});
 	</script>
 -->
-  </body>
+</body>
+
 </html>

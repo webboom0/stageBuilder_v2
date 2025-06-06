@@ -101,10 +101,10 @@ function Loader(editor) {
               },
               function (error) {
                 console.error(error);
-              }
+              },
             );
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -124,7 +124,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, object));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -144,7 +144,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, object));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -164,7 +164,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, amfobject));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -188,7 +188,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, collada.scene));
           },
-          false
+          false,
         );
         reader.readAsText(file);
 
@@ -227,7 +227,7 @@ function Loader(editor) {
               editor.execute(new AddObjectCommand(editor, object));
             });
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -256,7 +256,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, object));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -335,7 +335,7 @@ function Loader(editor) {
               loader.ktx2Loader.dispose();
             });
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -361,7 +361,7 @@ function Loader(editor) {
               loader.ktx2Loader.dispose();
             });
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -406,7 +406,7 @@ function Loader(editor) {
 
             handleJSON(data);
           },
-          false
+          false,
         );
         reader.readAsText(file);
 
@@ -428,7 +428,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, collada.scene));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -454,7 +454,7 @@ function Loader(editor) {
               editor.execute(new AddObjectCommand(editor, group));
             });
           },
-          false
+          false,
         );
         reader.readAsText(file);
 
@@ -481,7 +481,7 @@ function Loader(editor) {
             mesh.animations.push(...geometry.animations);
             editor.execute(new AddObjectCommand(editor, mesh));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -551,7 +551,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, object));
           },
-          false
+          false,
         );
         reader.readAsText(file);
 
@@ -573,7 +573,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, points));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -608,7 +608,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, object));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -633,7 +633,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, mesh));
           },
-          false
+          false,
         );
 
         if (reader.readAsBinaryString !== undefined) {
@@ -687,7 +687,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, group));
           },
-          false
+          false,
         );
         reader.readAsText(file);
 
@@ -709,7 +709,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, group));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -740,7 +740,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, group));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -766,7 +766,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, mesh));
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -787,7 +787,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, result));
           },
-          false
+          false,
         );
         reader.readAsText(file);
 
@@ -814,7 +814,7 @@ function Loader(editor) {
 
             editor.execute(new AddObjectCommand(editor, points));
           },
-          false
+          false,
         );
         reader.readAsText(file);
 
@@ -827,7 +827,7 @@ function Loader(editor) {
           function (event) {
             handleZIP(event.target.result);
           },
-          false
+          false,
         );
         reader.readAsArrayBuffer(file);
 
@@ -919,7 +919,7 @@ function Loader(editor) {
       const { OBJLoader } = await import("three/addons/loaders/OBJLoader.js");
 
       const materials = new MTLLoader(manager).parse(
-        strFromU8(zip["materials.mtl"])
+        strFromU8(zip["materials.mtl"]),
       );
       const object = new OBJLoader()
         .setMaterials(materials)
