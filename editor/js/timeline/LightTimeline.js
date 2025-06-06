@@ -185,6 +185,21 @@ export class LightTimeline extends BaseTimeline {
   createAndPlaceLight(lightId, row, col) {
     // 3D 씬에 조명 생성 및 배치
     const scene = this.editor.scene;
+    this.LightGroup = scene.children.find(
+      (child) => child.name === "Light",
+    );
+
+
+    if (!this.LightGroup) {
+      this.LightGroup = new THREE.Group();
+      this.LightGroup.name = "Light";
+      scene.add(this.LightGroup);
+      this.LightGroup.position.set(0, 10.480, 0);
+      this.LightGroup.userData.isBackground = true;
+      this.LightGroup.userData.notSelectable = true;
+      this.LightGroup.userData.notEditable = true;
+      this.LightGroup.userData.excludeFromTimeline = true;
+    }
     // 이미 있으면 중복 생성 방지
     if (scene.getObjectByName(lightId)) return;
 
@@ -194,7 +209,7 @@ export class LightTimeline extends BaseTimeline {
     const distance = 200;
     const angle = Math.PI / 14; // 30도
     const penumbra = 0;
-    const decay = 0;
+    const decay = 0.2;
 
     const light = new THREE.SpotLight(
       color,
@@ -207,18 +222,19 @@ export class LightTimeline extends BaseTimeline {
     light.name = lightId;
 
     // 2줄 5칸 그리드 배치
-    const x = -50 + col * 30;
+    const x = -100 + col * 50;
     const y = 130.435; // 높이 고정
-    const z = -20 + row * 30;
+    const z = -30 + row * 50;
     light.position.set(x, y, z);
 
     // 스포트라이트의 타겟을 아래로 향하게 설정
     const target = new THREE.Object3D();
     target.position.set(x, 0, z); // y=0(아래)로 타겟
-    scene.add(target);
+    this.LightGroup.add(target);
     light.target = target;
+    light.target.name = `${lightId}_Target`;
 
-    scene.add(light);
+    this.LightGroup.add(light);
 
     // === 여기서 light.obj 불러와서 배치 ===
     const loader = new OBJLoader();
@@ -226,7 +242,9 @@ export class LightTimeline extends BaseTimeline {
       'https://webboom0.github.io/stageBuilder_v2/files/light.obj',
       (obj) => {
         obj.position.set(x, y, z);
-        scene.add(obj);
+        obj.rotation.set(172.75, 0, 0);
+        obj.name = `${lightId}_Light`;
+        this.LightGroup.add(obj);
       },
       undefined,
       (error) => {
@@ -413,7 +431,7 @@ export class LightTimeline extends BaseTimeline {
     const { objectId, propertyType, frame } = this.selectedKeyframe;
     const track = this.tracks.get(objectId);
     const keyframeData = track.keyframes[propertyType].get(frame);
-    const object =  this.editor.scene.getObjectById(parseInt(objectId));
+    const object = this.editor.scene.getObjectById(parseInt(objectId));
 
     if (keyframeData && object) {
       if (propertyType === "intensity") {
@@ -438,7 +456,7 @@ export class LightTimeline extends BaseTimeline {
 
     const { objectId, propertyType } = this.selectedKeyframe;
     const track = this.tracks.get(objectId);
-    const object =  this.editor.scene.getObjectById(parseInt(objectId));
+    const object = this.editor.scene.getObjectById(parseInt(objectId));
 
     if (!track || !object) return;
 

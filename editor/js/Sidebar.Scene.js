@@ -41,25 +41,28 @@ function SidebarScene(editor) {
     }
 
     // opener
-    /*
     if (nodeStates.has(object)) {
-      const state = nodeStates.get(object);
+      // fbx 객체는 opener 생성/삽입을 건너뜀
+      console.log("opener");
+      console.log(object.children.filter(child => child.isMesh));
+      if (object.children.filter(child => child.isMesh).length <= 0) {
+        const state = nodeStates.get(object);
 
-      const opener = document.createElement("span");
-      opener.classList.add("opener");
+        const opener = document.createElement("span");
+        opener.classList.add("opener");
 
-      if (object.children.length > 0) {
-        opener.classList.add(state ? "open" : "closed");
+        if (object.children.length > 0) {
+          opener.classList.add(state ? "open" : "closed");
+        }
+
+        opener.addEventListener("click", function () {
+          nodeStates.set(object, nodeStates.get(object) === false); // toggle
+          refreshUI();
+        });
+
+        option.insertBefore(opener, option.firstChild);
       }
-
-      opener.addEventListener("click", function () {
-        nodeStates.set(object, nodeStates.get(object) === false); // toggle
-        refreshUI();
-      });
-
-      option.insertBefore(opener, option.firstChild);
     }
-*/
     return option;
   }
 
