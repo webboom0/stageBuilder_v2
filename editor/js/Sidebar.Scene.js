@@ -17,7 +17,7 @@ function SidebarScene(editor) {
 
   const container = new UIPanel();
   container.setBorderTop("0");
-  container.setPaddingTop("20px");
+  // container.setPaddingTop("20px");
 
   // outliner
 

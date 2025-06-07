@@ -19,7 +19,7 @@
     </div>
     <div id="tabPanels"></div>
   </div>
-
+  <div id="floatingPanels"></div>
   <template id="editorTemplate">
     <div class="editorTab">
       <div class="wrapper">
@@ -27,7 +27,8 @@
           <div class="topMenuBar"></div>
         </div>
         <div class="viewerWrapper">
-          <div class="side"></div>
+          <div class="side" id="sidebar"></div>
+          <!-- <div id="propertyPanel"></div> -->
           <div class="viewer">
             <div class="toolBar"></div>
           </div>
@@ -151,6 +152,8 @@
   <script src="js/libs/ternjs/doc_comment.js"></script>
   <script src="js/libs/tern-threejs/threejs.js"></script>
   <script src="js/libs/signals.min.js"></script>
+
+
   <!-- 
 	
 1. dialog.js: CodeMirror의 대화 상자(addon) 기능을 제공하는 스크립트로, 사용자와의 상호작용을 위한 대화 상자를 생성합니다.
@@ -182,6 +185,7 @@
     import { Menubar } from "./js/Menubar.js";
     import { Resizer } from "./js/Resizer.js";
     import { VideoEdit } from "./js/VideoEdit.js";
+    import { SidebarProperties } from "./js/Sidebar.Properties.js";
     // import { Music } from './js/Music.js';
     const { createFFmpeg, fetchFile } = FFmpeg;
 
@@ -303,7 +307,10 @@
       editorTab.appendChild(player.dom);
 
       const sidebar = new Sidebar(editor);
-      editorTab.querySelector(".side").appendChild(sidebar.dom);
+      // editorTab.querySelector(".side").appendChild(sidebar.dom);
+
+      // const sidebarProperties = new SidebarProperties(editor);
+      // editorTab.querySelector("#propertyPanel").appendChild(sidebarProperties.dom);
 
       // VideoEdit 초기화
       const timelineElement = editorTab.querySelector(".timeline");

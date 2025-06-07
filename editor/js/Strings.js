@@ -1,6 +1,6 @@
-function Strings( config ) {
+function Strings(config) {
 
-	const language = config.getKey( 'language' );
+	const language = config.getKey('language');
 
 	const values = {
 
@@ -1730,7 +1730,7 @@ function Strings( config ) {
 			'sidebar/properties/script': '스크립트',
 
 			'sidebar/object/type': '타입',
-			'sidebar/object/new': '새로 만들기',
+			'sidebar/object/new': '생성',
 			'sidebar/object/uuid': 'UUID',
 			'sidebar/object/name': '이름',
 			'sidebar/object/position': '위치',
@@ -2015,9 +2015,9 @@ function Strings( config ) {
 
 	return {
 
-		getKey: function ( key ) {
+		getKey: function (key) {
 
-			return values[ language ][ key ] || '???';
+			return values[language][key] || '???';
 
 		}
 
