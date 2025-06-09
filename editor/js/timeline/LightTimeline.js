@@ -17,28 +17,25 @@ export class LightTimeline extends BaseTimeline {
     // 10개 조명 트랙 자동 생성
     this.lightTracks = [];
     this.createFixedLightTracks();
+    this.timelineEl = document.querySelector(".timeline");
   }
 
   createFixedLightTracks() {
-    // 2줄 5칸 = 10개
     const numRows = 2;
     const numCols = 5;
     let lightIndex = 0;
-
     for (let row = 0; row < numRows; row++) {
       for (let col = 0; col < numCols; col++) {
         const lightId = `light_${lightIndex}`;
         const lightName = `Light ${lightIndex + 1}`;
-        // 트랙 생성
-        // this.addTrack(lightId, lightName, row, col);
-        // 3D 씬에 조명 생성 및 배치
-        this.createAndPlaceLight(lightId, row, col);
+        this.addTrack(lightId, lightName, row, col);
+        this.placeLightObjOnly(lightId, row, col); // obj만 배치
         lightIndex++;
       }
     }
   }
 
-  addTrack(lightId, lightName, row, col) {
+  addTrack(lightId, lightName, row, col, lightType = null) {
     if (this.tracks.has(lightId)) return;
 
     // 트랙 최상위 div
@@ -59,10 +56,16 @@ export class LightTimeline extends BaseTimeline {
     // track-info (이름)
     const trackInfo = document.createElement("div");
     trackInfo.className = "track-info";
-    const trackName = document.createElement("span");
-    trackName.className = "track-name";
-    trackName.textContent = lightName;
-    trackInfo.appendChild(trackName);
+
+    // === select로 변경 ===
+    const trackNameSelect = document.createElement("select");
+    trackNameSelect.innerHTML = `
+      <option value="">조명 선택</option>
+      <option value="SpotLight">SpotLight</option>
+      <option value="PointLight">PointLight</option>
+      <option value="DirectionalLight">DirectionalLight</option>
+    `;
+    trackInfo.appendChild(trackNameSelect);
 
     // track-controls (이전/추가/다음 키프레임 버튼)
     const trackControls = document.createElement("div");
@@ -99,57 +102,6 @@ export class LightTimeline extends BaseTimeline {
     const trackContent = document.createElement("div");
     trackContent.className = "track-content";
 
-    // === [여기서 animation-sprite(조명 클립) 추가] ===
-    const sprite = document.createElement("div");
-    sprite.className = "animation-sprite";
-    sprite.dataset.duration = this.options.totalSeconds || 180;
-    sprite.style.width = "100%";
-    sprite.style.left = "0%";
-
-    // 핸들 및 내용
-    const leftHandle = document.createElement("div");
-    leftHandle.className = "sprite-handle left";
-    const rightHandle = document.createElement("div");
-    rightHandle.className = "sprite-handle right";
-    const spriteContent = document.createElement("div");
-    spriteContent.className = "sprite-content";
-    const spriteName = document.createElement("span");
-    spriteName.className = "sprite-name";
-    spriteName.textContent = lightName;
-
-    spriteContent.appendChild(spriteName);
-    sprite.appendChild(leftHandle);
-    sprite.appendChild(spriteContent);
-    sprite.appendChild(rightHandle);
-
-    // track-content에 sprite 추가
-    trackContent.appendChild(sprite);
-
-    // === [클립 클릭 시 선택 처리] ===
-    sprite.addEventListener("click", (e) => {
-      // 모든 클립의 .selected 제거
-      this.container
-        .querySelectorAll(".animation-sprite.selected")
-        .forEach((el) => {
-          el.classList.remove("selected");
-        });
-      // 현재 클릭한 클립에 .selected 추가
-      sprite.classList.add("selected");
-
-      // === 장면 패널(3D 씬)에서도 해당 조명 선택 ===
-      const object = this.editor.scene.getObjectByName(lightId);
-      if (object) {
-        if (this.editor.select) {
-          this.editor.select(object); // select 메서드가 있으면 사용
-        } else {
-          this.editor.selected = object; // 없으면 직접 할당
-          if (this.editor.signals?.objectSelected) {
-            this.editor.signals.objectSelected.dispatch(object);
-          }
-        }
-      }
-    });
-
     // motion-tracks에 header, content 추가
     motionTracks.appendChild(trackHeader);
     motionTracks.appendChild(trackContent);
@@ -159,9 +111,6 @@ export class LightTimeline extends BaseTimeline {
 
     // 타임라인 컨테이너에 추가
     this.container.appendChild(trackElement);
-
-    // === [여기서 3D 씬에 조명 추가] ===
-    this.createAndPlaceLight(lightId, row, col);
 
     // 트랙 객체로 관리
     const track = {
@@ -176,76 +125,126 @@ export class LightTimeline extends BaseTimeline {
       row,
       col,
       trackContent, // 클립 추가 시 사용
-      sprite, // 조명 클립 참조
+      sprite: null, // 아직 없음
+      lightType: null,
     };
     this.tracks.set(lightId, track);
     this.lightTracks.push(track);
+
+    // === select 이벤트: 조명/클립 생성 ===
+    trackNameSelect.addEventListener("change", (e) => {
+      const newType = e.target.value;
+      // 기존 조명/타겟/obj/클립 삭제
+      const oldLight = this.editor.scene.getObjectByName(lightId);
+      if (oldLight) this.editor.scene.remove(oldLight);
+      const oldTarget = this.editor.scene.getObjectByName(`${lightId}_Target`);
+      if (oldTarget) this.editor.scene.remove(oldTarget);
+      const oldObj = this.editor.scene.getObjectByName(`${lightId}_LightObjOnly`);
+      if (oldObj) this.editor.scene.remove(oldObj);
+      if (track.sprite) {
+        trackContent.removeChild(track.sprite);
+        track.sprite = null;
+      }
+      if (!newType) {
+        this.placeLightObjOnly(lightId, row, col);
+        return;
+      }
+
+      // === 여기서 조명 객체가 Scene에 추가됨 ===
+      this.createAndPlaceLight(lightId, row, col, newType);
+
+      // 클립 생성
+      const sprite = document.createElement("div");
+      sprite.className = "animation-sprite";
+      sprite.dataset.duration = this.options.totalSeconds || 180;
+      sprite.style.width = "100%";
+      sprite.style.left = "0%";
+      // ... 핸들, 내용 등 추가 ...
+      const spriteContent = document.createElement("div");
+      spriteContent.className = "sprite-content";
+      const spriteName = document.createElement("span");
+      spriteName.className = "sprite-name";
+      spriteName.textContent = lightName;
+      spriteContent.appendChild(spriteName);
+      sprite.appendChild(spriteContent);
+      // ... 핸들 등 추가 생략 ...
+      trackContent.appendChild(sprite);
+      track.sprite = sprite;
+
+      sprite.addEventListener("click", () => {
+        // 1. 모든 클립에서 selected 클래스 제거
+        const allSprites = document.querySelectorAll(".animation-sprite");
+        console.log(allSprites);
+        // document.querySelector("#main-timeline .animation-sprite.selected").classList.remove("selected");
+        allSprites.forEach(s => s.classList.remove("selected"));
+
+        // 2. 현재 클릭한 클립에 selected 클래스 추가
+        sprite.classList.add("selected");
+
+        // 3. 해당 조명 객체를 선택
+        const object = this.editor.scene.getObjectByName(lightId);
+        if (object) {
+          this.editor.select(object);
+        }
+      });
+
+      // === 선택 처리 등 기존 코드 재사용 가능 ===
+    });
   }
 
-  createAndPlaceLight(lightId, row, col) {
-    // 3D 씬에 조명 생성 및 배치
+  createAndPlaceLight(lightId, row, col, lightType = "SpotLight") {
     const scene = this.editor.scene;
-    // this.LightGroup = scene.children.find(
-    //   (child) => child.name === "light",
-    // );
-
-
-    // if (!this.LightGroup) {
-    //   this.LightGroup = new THREE.Group();
-    //   this.LightGroup.name = "light";
-    //   scene.add(this.LightGroup);
-    //   this.LightGroup.position.set(0, 10.480, 0);
-    //   this.LightGroup.userData.isBackground = false;
-    //   this.LightGroup.userData.sceneHide = true;
-    // }
-    // 이미 있으면 중복 생성 방지
     if (scene.getObjectByName(lightId)) return;
 
-    // SpotLight로 변경
-    const color = 0xffffff;
-    const intensity = 1;
-    const distance = 200;
-    const angle = Math.PI / 14; // 30도
-    const penumbra = 0;
-    const decay = 0.2;
-
-    const light = new THREE.SpotLight(
-      color,
-      intensity,
-      distance,
-      angle,
-      penumbra,
-      decay
-    );
+    let light;
+    switch (lightType) {
+      case "PointLight":
+        light = new THREE.PointLight(0xffffff, 1, 200, 2);
+        break;
+      case "DirectionalLight":
+        light = new THREE.DirectionalLight(0xffffff, 1);
+        break;
+      case "SpotLight":
+      default:
+        light = new THREE.SpotLight(0xffffff, 1, 200, Math.PI / 14, 0, 0.2);
+        break;
+    }
     light.name = lightId;
-    light.userData.isBackground = true;
-    light.userData.sceneHide = true;
+    light.userData.isBackground = false;
+    light.userData.sceneHide = false;
 
-    // 2줄 5칸 그리드 배치
     const x = -100 + col * 50;
-    const y = 130.435; // 높이 고정
+    const y = 130.435;
     const z = -30 + row * 50;
     light.position.set(x, y, z);
 
-    // 스포트라이트의 타겟을 아래로 향하게 설정
-    const target = new THREE.Object3D();
-    target.position.set(x, 0, z); // y=0(아래)로 타겟
-    scene.add(target);
-    light.target = target;
-    light.target.name = `${lightId}_Target`;
-    light.target.isLight = true;
-    light.target.userData.isBackground = false;
+    // SpotLight만 타겟 필요
+    if (lightType === "SpotLight") {
+      const target = new THREE.Object3D();
+      target.position.set(x, 0, z);
+      target.name = `${lightId}_Target`;
+      target.isLight = true;
+      target.userData.isBackground = false;
+      scene.add(target);
+      light.target = target;
+    }
 
     scene.add(light);
+  }
 
-    // === 여기서 light.obj 불러와서 배치 ===
+  placeLightObjOnly(lightId, row, col) {
+    const scene = this.editor.scene;
+
+    const x = -100 + col * 50;
+    const y = 137.319;
+    const z = -30 + row * 50;
     const loader = new OBJLoader();
     loader.load(
       'https://webboom0.github.io/stageBuilder_v2/files/light.obj',
       (obj) => {
-        obj.position.set(x, 137.319, z);
+        obj.position.set(x, y, z);
         obj.rotation.set(172.75, 0, 0);
-        obj.name = `${lightId}_Light`;
+        obj.name = `${lightId}_LightObjOnly`;
         obj.userData.isBackground = false;
         obj.userData.sceneHide = true;
         scene.add(obj);
@@ -255,11 +254,6 @@ export class LightTimeline extends BaseTimeline {
         console.error('light.obj 로드 실패:', error);
       }
     );
-
-    // === 타겟 트랙 추가 ===
-    const targetId = `${lightId}_Target`;
-    const targetName = `${lightId}_Target`;
-    this.addTrack(targetId, targetName, row, col);
   }
 
   // BaseTimeline의 추상 메서드 구현
