@@ -133,6 +133,7 @@ export class LightTimeline extends BaseTimeline {
 
     // === select 이벤트: 조명/클립 생성 ===
     trackNameSelect.addEventListener("change", (e) => {
+      console.log("trackNameSelect", e.target.value);
       const newType = e.target.value;
       // 기존 조명/타겟/obj/클립 삭제
       const oldLight = this.editor.scene.getObjectByName(lightId);
@@ -185,6 +186,7 @@ export class LightTimeline extends BaseTimeline {
         const object = this.editor.scene.getObjectByName(lightId);
         if (object) {
           this.editor.select(object);
+
         }
       });
 
@@ -228,8 +230,10 @@ export class LightTimeline extends BaseTimeline {
       scene.add(target);
       light.target = target;
     }
-
     scene.add(light);
+    if (this.editor.signals?.objectChanged) {
+      this.editor.signals.sceneGraphChanged.dispatch(); // 조명 객체 추가 시 트리 업데이트
+    }
   }
 
   placeLightObjOnly(lightId, row, col) {
@@ -493,3 +497,4 @@ export class LightTimeline extends BaseTimeline {
 }
 
 export default LightTimeline;
+                                                             
