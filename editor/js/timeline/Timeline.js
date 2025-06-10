@@ -76,7 +76,7 @@ class Timeline {
     zoomSlider.value = "1";
     zoomSlider.style.marginLeft = "10px";
     zoomSlider.style.width = "50px";
-    controlsContainer.appendChild(zoomSlider);
+    // controlsContainer.appendChild(zoomSlider);  // 타임라인 줌 기능 비활성화
 
     zoomSlider.addEventListener("input", (e) => {
       const zoomLevel = parseFloat(e.target.value);
@@ -89,13 +89,11 @@ class Timeline {
       const basePixelPerSecond = 10; // 기본 1초당 10px
       const newPixelPerSecond = basePixelPerSecond * zoomLevel;
 
-      timeRuler.style.width = `${
-        newPixelPerSecond * this.timelineSettings.totalSeconds
-      }px`;
-      tracks.forEach((track) => {
-        track.style.width = `${
-          newPixelPerSecond * this.timelineSettings.totalSeconds
+      timeRuler.style.width = `${newPixelPerSecond * this.timelineSettings.totalSeconds
         }px`;
+      tracks.forEach((track) => {
+        track.style.width = `${newPixelPerSecond * this.timelineSettings.totalSeconds
+          }px`;
 
         // 클립 크기 조정
         const clips = track.querySelectorAll(".animation-sprite");
@@ -193,10 +191,9 @@ class Timeline {
           
           <span class="time-display">00:00:00</span>
           <input type="number" class="frame-input" min="0" value="0">
-          <span class="frame-total">/ ${
-            this.timelineSettings.totalSeconds *
-            this.timelineSettings.framesPerSecond
-          }</span>
+          <span class="frame-total">/ ${this.timelineSettings.totalSeconds *
+      this.timelineSettings.framesPerSecond
+      }</span>
         </div>
       </div>
     `;
@@ -488,14 +485,14 @@ class Timeline {
                   // 위치 보간
                   character.position.set(
                     prevKeyframe.position.x +
-                      (nextKeyframe.position.x - prevKeyframe.position.x) *
-                        progress,
+                    (nextKeyframe.position.x - prevKeyframe.position.x) *
+                    progress,
                     prevKeyframe.position.y +
-                      (nextKeyframe.position.y - prevKeyframe.position.y) *
-                        progress,
+                    (nextKeyframe.position.y - prevKeyframe.position.y) *
+                    progress,
                     prevKeyframe.position.z +
-                      (nextKeyframe.position.z - prevKeyframe.position.z) *
-                        progress
+                    (nextKeyframe.position.z - prevKeyframe.position.z) *
+                    progress
                   );
                 }
               } else {
@@ -571,9 +568,8 @@ class Timeline {
     // 프레임 정보 표시 업데이트
     const frameTotal = this.container.querySelector(".frame-total");
     if (frameTotal) {
-      frameTotal.textContent = `/ ${
-        timelineSettings.totalSeconds * timelineSettings.framesPerSecond
-      }`;
+      frameTotal.textContent = `/ ${timelineSettings.totalSeconds * timelineSettings.framesPerSecond
+        }`;
     }
   }
 
@@ -770,17 +766,17 @@ class Timeline {
               parseFloat(prevKeyframe.position[0]) +
               (parseFloat(nextKeyframe.position[0]) -
                 parseFloat(prevKeyframe.position[0])) *
-                progress;
+              progress;
             const y =
               parseFloat(prevKeyframe.position[1]) +
               (parseFloat(nextKeyframe.position[1]) -
                 parseFloat(prevKeyframe.position[1])) *
-                progress;
+              progress;
             const z =
               parseFloat(prevKeyframe.position[2]) +
               (parseFloat(nextKeyframe.position[2]) -
                 parseFloat(prevKeyframe.position[2])) *
-                progress;
+              progress;
 
             // 캐릭터 위치 즉시 업데이트
             character.position.set(x, y, z);
@@ -988,17 +984,17 @@ class Timeline {
             parseFloat(prevKeyframe.position[0]) +
             (parseFloat(nextKeyframe.position[0]) -
               parseFloat(prevKeyframe.position[0])) *
-              progress;
+            progress;
           const y =
             parseFloat(prevKeyframe.position[1]) +
             (parseFloat(nextKeyframe.position[1]) -
               parseFloat(prevKeyframe.position[1])) *
-              progress;
+            progress;
           const z =
             parseFloat(prevKeyframe.position[2]) +
             (parseFloat(nextKeyframe.position[2]) -
               parseFloat(prevKeyframe.position[2])) *
-              progress;
+            progress;
 
           character.position.set(x, y, z);
 
