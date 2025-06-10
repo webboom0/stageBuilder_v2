@@ -497,4 +497,3 @@ export class LightTimeline extends BaseTimeline {
 }
 
 export default LightTimeline;
-                                                             
