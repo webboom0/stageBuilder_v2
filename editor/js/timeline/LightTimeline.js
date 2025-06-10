@@ -144,10 +144,12 @@ export class LightTimeline extends BaseTimeline {
       if (oldObj) this.editor.scene.remove(oldObj);
       if (track.sprite) {
         trackContent.removeChild(track.sprite);
+        this.editor.signals.sceneGraphChanged.dispatch(); // 조명 객체 추가 시 트리 업데이트
         track.sprite = null;
       }
       if (!newType) {
         this.placeLightObjOnly(lightId, row, col);
+        this.editor.signals.sceneGraphChanged.dispatch(); // 조명 객체 추가 시 트리 업데이트
         return;
       }
 
@@ -231,9 +233,7 @@ export class LightTimeline extends BaseTimeline {
       light.target = target;
     }
     scene.add(light);
-    if (this.editor.signals?.objectChanged) {
-      this.editor.signals.sceneGraphChanged.dispatch(); // 조명 객체 추가 시 트리 업데이트
-    }
+    this.editor.signals.sceneGraphChanged.dispatch(); // 조명 객체 추가 시 트리 업데이트
   }
 
   placeLightObjOnly(lightId, row, col) {
