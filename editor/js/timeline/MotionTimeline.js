@@ -20,18 +20,18 @@ export class MotionTimeline extends BaseTimeline {
     document
       .querySelector("#keyframe-property-panel")
       .appendChild(this.propertyPanel.dom);
-      let stageGroup = this.editor.scene.children.find(
-        (child) => child.name === "Stage"
-      );
-  
-      if (!stageGroup) {
-        stageGroup = new THREE.Group();
-        stageGroup.name = "Stage";
-        this.editor.scene.add(stageGroup);
-      }
-  
+    let stageGroup = this.editor.scene.children.find(
+      (child) => child.name === "Stage"
+    );
+
+    if (!stageGroup) {
+      stageGroup = new THREE.Group();
+      stageGroup.name = "Stage";
+      this.editor.scene.add(stageGroup);
+    }
+
     // 비디오 배경 생성}
-    this.createVideoBackground(stageGroup);
+    // this.createVideoBackground(stageGroup);
 
   }
   initMotionTracks() {
@@ -66,7 +66,7 @@ export class MotionTimeline extends BaseTimeline {
     const track = this.tracks.get(objectId);
     if (!track) return;
 
-    const object =  this.editor.scene.getObjectById(parseInt(objectId));
+    const object = this.editor.scene.getObjectById(parseInt(objectId));
     ;
     if (!object) return;
 
@@ -304,7 +304,7 @@ export class MotionTimeline extends BaseTimeline {
 
   selectKeyframe(objectId, frame, keyframeElement) {
     console.log("selectKeyframe");
-    const previousSelected =  document.querySelector(".keyframe.selected");
+    const previousSelected = document.querySelector(".keyframe.selected");
     if (previousSelected) {
       previousSelected.classList.remove("selected");
     }
@@ -521,11 +521,10 @@ export class MotionTimeline extends BaseTimeline {
     trackHeader.className = "track-header";
     trackHeader.innerHTML = `
       <div class="track-info">
-        <span class="track-name">${
-          typeof objectName === "object"
-            ? objectName.name || "Object"
-            : objectName
-        }</span>
+        <span class="track-name">${typeof objectName === "object"
+        ? objectName.name || "Object"
+        : objectName
+      }</span>
       </div>
       <div class="track-controls">
         <button class="prev-keyframe-btn" title="Previous Keyframe"><i class="fa fa-step-backward"></i></button>
@@ -551,9 +550,8 @@ export class MotionTimeline extends BaseTimeline {
       sprite.innerHTML = `
         <div class="sprite-handle left"></div>
         <div class="sprite-content">
-          <span class="sprite-name">${
-            object.animations[0]?.name || "Animation"
-          }</span>
+          <span class="sprite-name">${object.animations[0]?.name || "Animation"
+        }</span>
         </div>
         <div class="sprite-handle right"></div>
       `;
@@ -779,8 +777,8 @@ export class MotionTimeline extends BaseTimeline {
 
       const frame = Math.round(
         (pixelPosition / spriteWidth) *
-          this.options.totalSeconds *
-          this.options.framesPerSecond
+        this.options.totalSeconds *
+        this.options.framesPerSecond
       );
       keyframe.dataset.frame = frame.toString();
 
@@ -883,11 +881,11 @@ export class MotionTimeline extends BaseTimeline {
               await video.play();
               message.remove();
               document.removeEventListener("click", playVideo);
-            } catch (error) {}
+            } catch (error) { }
           };
           document.addEventListener("click", playVideo);
         }
-      } catch (error) {}
+      } catch (error) { }
     };
 
     loadVideo();

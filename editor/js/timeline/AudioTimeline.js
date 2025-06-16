@@ -3,7 +3,7 @@ import { UIPanel, UIRow, UINumber, UIText, UIElement } from "../libs/ui.js";
 import * as THREE from "three";
 // editor/timeline/AudioTimeline.js
 const AUDIO_FILE = {
-  path: "../files/music/DRAMA.mp3",
+  path: "../files/music/SUJESHUN.mp3",
   name: "DRAMA",
 };
 
@@ -259,7 +259,7 @@ export class AudioTimeline extends BaseTimeline {
   }
 
   // 오디오 파형 표시 등 특수 기능
-  showWaveform(audioData) {}
+  showWaveform(audioData) { }
 
   // BaseTimeline의 추상 메서드 구현
   getPropertyValue(object, propertyType) {
@@ -542,11 +542,10 @@ export class AudioTimeline extends BaseTimeline {
     trackHeader.className = "track-header";
     trackHeader.innerHTML = `
       <div class="track-info">
-        <span class="track-name">${
-          typeof objectName === "object"
-            ? objectName.name || "Audio"
-            : objectName
-        }</span>
+        <span class="track-name">${typeof objectName === "object"
+        ? objectName.name || "Audio"
+        : objectName
+      }</span>
       </div>
       <div class="track-controls">
         <button class="add-keyframe-btn" title="Add Keyframe">+</button>
@@ -817,8 +816,8 @@ export class AudioTimeline extends BaseTimeline {
             Math.min(
               startLeft + dragDelta,
               startLeft +
-                startWidth -
-                (MIN_WIDTH / this.options.totalSeconds) * 100
+              startWidth -
+              (MIN_WIDTH / this.options.totalSeconds) * 100
             )
           );
           const newWidth = startWidth - (newLeft - startLeft);
