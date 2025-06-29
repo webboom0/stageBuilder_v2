@@ -186,9 +186,6 @@ export class MotionTimeline extends BaseTimeline {
     // 타임라인 컨테이너에 애니메이션 상태 업데이트
     this.updateTimelineAnimationState(currentTime);
 
-    // 키프레임 강조 상태 업데이트
-    this.updateKeyframeStates(currentTime);
-
     const precomputedData = this.timelineData.precomputedData;
     if (!precomputedData) {
       console.log("precomputedData가 없어서 생성합니다.");
@@ -388,35 +385,13 @@ export class MotionTimeline extends BaseTimeline {
       const keyframes = track.element.querySelectorAll('.keyframe');
       keyframes.forEach(keyframe => {
         const keyframeTime = parseFloat(keyframe.dataset.time) || 0;
-
-        // 클립 기준으로 상대 시간 계산
-        const sprite = keyframe.closest('.animation-sprite');
-        let timeDiff = Infinity;
-        let isCurrent = false;
-
-        if (sprite) {
-          const clipLeft = parseFloat(sprite.style.left) || 0;
-          const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
-          const clipDuration = parseFloat(sprite.dataset.duration) || 5;
-
-          // 현재 시간이 클립 범위에 있는지 확인
-          if (currentTime >= clipStartTime && currentTime <= clipStartTime + clipDuration) {
-            // 클립 내에서의 상대 시간 계산
-            const relativeTime = currentTime - clipStartTime;
-            // 키프레임의 상대 시간과 비교 (keyframeTime은 이미 클립 내 상대 시간)
-            timeDiff = Math.abs(keyframeTime - relativeTime);
-            isCurrent = timeDiff < 0.1; // 0.1초 이내면 현재 키프레임으로 간주
-          }
-        }
-
-        // 기존 current 클래스 제거
-        keyframe.classList.remove('current');
+        const timeDiff = Math.abs(currentTime - keyframeTime);
+        const isCurrent = timeDiff < 0.1; // 0.1초 이내면 현재 키프레임으로 간주
 
         keyframe.dataset.isCurrent = isCurrent.toString();
         keyframe.dataset.timeDiff = timeDiff.toFixed(3);
 
         if (isCurrent) {
-          keyframe.classList.add('current');
           keyframe.dataset.currentTime = currentTime.toFixed(3);
         } else {
           delete keyframe.dataset.currentTime;
@@ -1272,6 +1247,8 @@ export class MotionTimeline extends BaseTimeline {
             // 클립 길이 변경 시 duration 업데이트
             const newDuration = (newWidth / 100) * this.options.totalSeconds;
             sprite.dataset.duration = newDuration.toString();
+
+            this.updateKeyframesInClip(track, sprite);
           }
         } else {
           const newWidth = Math.max(
@@ -1284,6 +1261,8 @@ export class MotionTimeline extends BaseTimeline {
             // 클립 길이 변경 시 duration 업데이트
             const newDuration = (newWidth / 100) * this.options.totalSeconds;
             sprite.dataset.duration = newDuration.toString();
+
+            this.updateKeyframesInClip(track, sprite);
           }
         }
       } else {
@@ -1301,10 +1280,8 @@ export class MotionTimeline extends BaseTimeline {
     // 마우스 업 이벤트
     document.addEventListener("mouseup", () => {
       if (isDragging || isResizing) {
-        // 클립 크기 조정이 완료된 후에만 키프레임 업데이트
-        if (isResizing) {
-          this.updateKeyframesInClip(track, sprite);
-        }
+        // 클립 드래그 시 키프레임 시간 업데이트 제거 - 이제 필요 없음
+        // 키프레임 시간은 그대로 유지하고 재생 시에만 클립 기준으로 계산
 
         // dragging 클래스 제거
         sprite.classList.remove('dragging');
@@ -1432,40 +1409,161 @@ export class MotionTimeline extends BaseTimeline {
       clipDuration
     });
 
-    // 클립을 늘릴 때는 키프레임의 CSS 위치만 업데이트하고 TimelineData는 건드리지 않음
+    // TimelineData에서 해당 객체의 트랙들을 가져옴
+    const objectUuid = track.uuid;
+    if (!this.timelineData.tracks.has(objectUuid)) return;
+
+    const objectTracks = this.timelineData.tracks.get(objectUuid);
+
     keyframes.forEach((keyframe) => {
       const pixelPosition = parseFloat(keyframe.dataset.pixelPosition);
       const propertyType = keyframe.dataset.property;
 
-      // 클립을 늘릴 때 키프레임이 사라지지 않도록 수정
-      // pixelPosition이 클립 범위를 벗어나도 키프레임을 유지하고 위치만 조정
-      let adjustedPixelPosition = pixelPosition;
+      if (pixelPosition < 0 || pixelPosition > spriteWidth) {
+        keyframe.remove();
 
-      // pixelPosition이 클립 범위를 벗어난 경우 클립 경계로 조정
-      if (pixelPosition < 0) {
-        adjustedPixelPosition = 0;
-      } else if (pixelPosition > spriteWidth) {
-        adjustedPixelPosition = spriteWidth;
+        const frame = parseInt(keyframe.dataset.frame);
+        if (track.keyframes && track.keyframes[frame]) {
+          delete track.keyframes[frame];
+        }
+
+        // TimelineData에서도 키프레임 제거
+        if (propertyType && objectTracks.has(propertyType)) {
+          const trackData = objectTracks.get(propertyType);
+          const oldTime = parseFloat(keyframe.dataset.time) || 0;
+          trackData.removeKeyframe(oldTime);
+        }
+
+        return;
       }
 
-      console.log("키프레임 위치 업데이트:", {
-        originalPixelPosition: pixelPosition,
-        adjustedPixelPosition,
+      // 클립 기준 상대 시간 계산 (수정된 로직)
+      const relativeTime = (pixelPosition / spriteWidth) * clipDuration;
+      const absoluteTime = clipStartTime + relativeTime;
+
+      console.log("키프레임 시간 업데이트:", {
+        pixelPosition,
         spriteWidth,
+        relativeTime,
+        absoluteTime,
         propertyType
       });
 
-      // 키프레임의 CSS 위치만 업데이트 (TimelineData는 건드리지 않음)
-      const percentPosition = (adjustedPixelPosition / spriteWidth) * 100;
-      keyframe.style.left = `${percentPosition}%`;
+      if (track.keyframes) {
+        const frame = Math.round(absoluteTime * this.options.framesPerSecond);
+        track.keyframes[frame] = {
+          time: absoluteTime,
+          property: propertyType
+        };
+      }
 
-      // 조정된 pixelPosition도 업데이트
-      keyframe.dataset.pixelPosition = adjustedPixelPosition.toString();
+      // TimelineData의 TrackData에서 키프레임 시간 업데이트
+      if (propertyType && objectTracks.has(propertyType)) {
+        const trackData = objectTracks.get(propertyType);
+        const oldTime = parseFloat(keyframe.dataset.time) || 0;
+
+        // 기존 키프레임 제거
+        trackData.removeKeyframe(oldTime);
+
+        // 새로운 시간으로 키프레임 추가
+        const value = new THREE.Vector3(
+          parseFloat(keyframe.dataset.x) || 0,
+          parseFloat(keyframe.dataset.y) || 0,
+          parseFloat(keyframe.dataset.z) || 0
+        );
+        trackData.addKeyframe(absoluteTime, value);
+
+        // 키프레임 데이터셋 업데이트
+        keyframe.dataset.time = absoluteTime.toString();
+        keyframe.dataset.position = JSON.stringify([value.x, value.y, value.z]);
+      }
     });
 
-    // TimelineData 업데이트는 하지 않음 (키프레임 시간은 재생 시에만 계산)
-    console.log("클립 크기 조정 완료 - 키프레임 위치만 업데이트됨");
+    // TimelineData의 최대 시간 업데이트
+    this.timelineData.updateMaxTime(this.options.totalSeconds);
+    this.timelineData.dirty = true;
+    this.timelineData.precomputeAnimationData();
   }
+
+  // 키프레임 이동 시 속성 키프레임들의 시간을 업데이트하는 메서드 (사용하지 않음)
+  // 클립만 이동하고 키프레임은 그대로 유지하도록 변경됨
+  /*
+  updateKeyframeTimesForClipMove(track, sprite) {
+    const keyframeLayer = sprite.querySelector(".keyframe-layer");
+    if (!keyframeLayer) return;
+
+    const keyframes = Array.from(keyframeLayer.querySelectorAll(".keyframe"));
+
+    // TimelineData에서 해당 객체의 트랙들을 가져옴
+    const objectUuid = track.uuid;
+    if (!this.timelineData.tracks.has(objectUuid)) return;
+
+    const objectTracks = this.timelineData.tracks.get(objectUuid);
+
+    // 클립의 현재 위치와 초기 위치의 차이를 계산
+    const currentLeft = parseFloat(sprite.style.left) || 0;
+    const initialLeft = parseFloat(sprite.dataset.initialLeft) || currentLeft;
+
+    // 초기 위치가 저장되지 않았다면 현재 위치를 저장하고 종료
+    if (!sprite.dataset.initialLeft) {
+      sprite.dataset.initialLeft = currentLeft.toString();
+      return; // 첫 번째 호출에서는 아무것도 하지 않음
+    }
+
+    console.log('클립 이동 완료');
+    console.log('클립 위치:', initialLeft, '% ->', currentLeft, '%');
+
+    // 클립 이동량 계산 (시간 단위)
+    const leftDiff = currentLeft - initialLeft;
+    const timeDiff = (leftDiff / 100) * this.options.totalSeconds;
+
+    console.log('클립 이동량:', {
+      leftDiff: leftDiff + '%',
+      timeDiff: timeDiff + 's'
+    });
+
+    // 모든 키프레임의 절대 시간을 클립 이동량만큼 조정
+    keyframes.forEach((keyframe) => {
+      const propertyType = keyframe.dataset.property;
+      if (!propertyType || !objectTracks.has(propertyType)) return;
+
+      const trackData = objectTracks.get(propertyType);
+
+      // 기존 키프레임의 절대 시간
+      const oldAbsoluteTime = parseFloat(keyframe.dataset.time) || 0;
+
+      // 새로운 절대 시간 계산 (클립 이동량만큼 조정)
+      const newAbsoluteTime = oldAbsoluteTime + timeDiff;
+
+      console.log(`키프레임 시간 조정: ${propertyType} - ${oldAbsoluteTime}s -> ${newAbsoluteTime}s`);
+
+      // 기존 키프레임 제거
+      trackData.removeKeyframe(oldAbsoluteTime);
+
+      // 새로운 절대 시간으로 키프레임 추가
+      const value = new THREE.Vector3(
+        parseFloat(keyframe.dataset.x) || 0,
+        parseFloat(keyframe.dataset.y) || 0,
+        parseFloat(keyframe.dataset.z) || 0
+      );
+      trackData.addKeyframe(newAbsoluteTime, value);
+
+      // 키프레임 데이터셋 업데이트 (절대 시간 유지)
+      keyframe.dataset.time = newAbsoluteTime.toString();
+      keyframe.dataset.position = JSON.stringify([value.x, value.y, value.z]);
+    });
+
+    // TimelineData 즉시 업데이트
+    this.timelineData.dirty = true;
+    this.timelineData.precomputeAnimationData();
+
+    // 현재 시간에 맞춰 애니메이션 업데이트
+    this.updateAnimation(this.currentTime);
+
+    // 초기 위치 업데이트 (다음 이동을 위해)
+    sprite.dataset.initialLeft = currentLeft.toString();
+  }
+  */
 
   createVideoBackground(stageGroup) {
     const existingBackground = stageGroup.children.find(
@@ -1801,22 +1899,8 @@ export class MotionTimeline extends BaseTimeline {
       keyframeElement.dataset.pixelPosition = relativePosition.toString();
 
       // 현재 시간과 일치하는 키프레임 강조
-      // 클립의 시작 시간을 기준으로 상대적인 위치 계산
-      const sprite = keyframeElement.closest('.animation-sprite');
-      if (sprite) {
-        const clipLeft = parseFloat(sprite.style.left) || 0;
-        const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
-        const clipDuration = parseFloat(sprite.dataset.duration) || 5;
-
-        // 현재 시간이 클립 범위에 있는지 확인
-        if (keyframeTime >= clipStartTime && keyframeTime <= clipStartTime + clipDuration) {
-          // 클립 내에서의 상대 시간 계산
-          const relativeTime = keyframeTime - clipStartTime;
-          // 키프레임의 상대 시간과 비교 (keyframeTime은 이미 클립 내 상대 시간)
-          if (Math.abs(keyframeTime - relativeTime) < 0.001) {
-            keyframeElement.classList.add('current');
-          }
-        }
+      if (Math.abs(keyframeTime - time) < 0.001) {
+        keyframeElement.classList.add('current');
       }
 
       // 키프레임 데이터 저장

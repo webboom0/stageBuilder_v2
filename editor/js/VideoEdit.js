@@ -16,6 +16,9 @@ function VideoEdit(editor) {
   // Timeline 인스턴스 생성
   const timeline = new Timeline(editor);
 
+  // Timeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
+  editor.timeline = timeline;
+
   // Timeline의 container를 UIPanel로 래핑
   const timelineWrapper = new UIPanel();
   timelineWrapper.dom.appendChild(timeline.container);
@@ -161,7 +164,7 @@ function VideoEdit(editor) {
           // 씬의 배경색을 검정색으로 설정
           // editor.scene.background = new THREE.Color(0x000000);
 
-          
+
 
           // Background 객체 생성 및 추가
           const existingBackground = this.stageGroup.children.find(
@@ -183,14 +186,14 @@ function VideoEdit(editor) {
             /* fbx 기준*/
             // object.position.set(228.340, -153.989, 764.44);
             object.position.set(228.340, -122.909, 764.44); // object.scale.set(0.6, 0.6, 0.5)일때
-            
+
             object.rotation.set(
               -Math.PI / 2, // -90도
               0, // 0도
               Math.PI / 2, // 90도
             );
             object.scale.set(0.6, 0.6, 0.4);
-           
+
 
             // object.traverse((child) => {
             //   if (child.isMesh) {
@@ -219,7 +222,7 @@ function VideoEdit(editor) {
               editor.camera.position.set(-22.492, 70, 500); // 원하는 위치로 변경
               editor.camera.lookAt(0, 0, 0); // 원하는 타겟으로 변경
               editor.camera.rotation.set(
-                -11 * Math.PI / 180, 
+                -11 * Math.PI / 180,
                 -3 * Math.PI / 180,
                 0
               );
@@ -269,8 +272,8 @@ function VideoEdit(editor) {
     },
     createFloor: function () {
       console.log("createFloor");
-       // 바닥 객체 생성
-       const existingFloor = this.stageGroup.children.find(
+      // 바닥 객체 생성
+      const existingFloor = this.stageGroup.children.find(
         (child) => child.name === "_Floor",
       );
 

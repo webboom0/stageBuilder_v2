@@ -7,16 +7,6 @@ export const INTERPOLATION = {
   BEZIER: 1,
   STEP: 2
 };
-
-// 키프레임 이벤트 타입
-export const KEYFRAME_EVENTS = {
-  ADDED: 'keyframe_added',
-  REMOVED: 'keyframe_removed',
-  UPDATED: 'keyframe_updated',
-  MOVED: 'keyframe_moved',
-  SELECTED: 'keyframe_selected'
-};
-
 // 최대 키프레임 수
 const MAX_FRAMES = 3600; // 60fps * 60초
 
@@ -29,42 +19,9 @@ export class TrackData {
     this.interpolations = new Uint8Array(MAX_FRAMES); // 보간 타입
     this.keyframeCount = 0;
     this.dirty = true; // 프리컴파일 필요 여부
-    this.eventListeners = new Map(); // 이벤트 리스너들
   }
 
-  // 이벤트 리스너 추가
-  addEventListener(eventType, callback) {
-    if (!this.eventListeners.has(eventType)) {
-      this.eventListeners.set(eventType, []);
-    }
-    this.eventListeners.get(eventType).push(callback);
-  }
-
-  // 이벤트 리스너 제거
-  removeEventListener(eventType, callback) {
-    if (this.eventListeners.has(eventType)) {
-      const listeners = this.eventListeners.get(eventType);
-      const index = listeners.indexOf(callback);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
-    }
-  }
-
-  // 이벤트 발생
-  emit(eventType, data) {
-    if (this.eventListeners.has(eventType)) {
-      this.eventListeners.get(eventType).forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`이벤트 리스너 오류 (${eventType}):`, error);
-        }
-      });
-    }
-  }
-
-  // 키프레임 추가 (안전한 버전)
+  // 키프레임 추가
   addKeyframe(time, value, interpolation = INTERPOLATION.LINEAR) {
     console.log('TrackData.addKeyframe called with:', {
       time,
@@ -112,31 +69,11 @@ export class TrackData {
     this.dirty = true;
 
     this.sortKeyframes();
-
-    // 이벤트 발생
-    this.emit(KEYFRAME_EVENTS.ADDED, {
-      index,
-      time,
-      value,
-      interpolation
-    });
-
     return true;
   }
-
-  // 키프레임 삭제 (인덱스 기반) - 안전한 버전
+  // 키프레임 삭제 (인덱스 기반)
   removeKeyframeByIndex(index) {
-    if (index < 0 || index >= this.keyframeCount) {
-      console.warn(`유효하지 않은 키프레임 인덱스: ${index}`);
-      return false;
-    }
-
-    const removedTime = this.times[index];
-    const removedValue = new THREE.Vector3(
-      this.values[index * 3],
-      this.values[index * 3 + 1],
-      this.values[index * 3 + 2]
-    );
+    if (index < 0 || index >= this.keyframeCount) return false;
 
     // 마지막 키프레임을 현재 위치로 이동
     if (index < this.keyframeCount - 1) {
@@ -150,87 +87,6 @@ export class TrackData {
     this.keyframeCount--;
     this.dirty = true;
     this.sortKeyframes();
-
-    // 이벤트 발생
-    this.emit(KEYFRAME_EVENTS.REMOVED, {
-      index,
-      time: removedTime,
-      value: removedValue
-    });
-
-    return true;
-  }
-
-  // 키프레임 시간 업데이트 (안전한 버전)
-  updateKeyframeTime(index, newTime) {
-    if (index < 0 || index >= this.keyframeCount) {
-      console.warn(`유효하지 않은 키프레임 인덱스: ${index}`);
-      return false;
-    }
-
-    const oldTime = this.times[index];
-    if (Math.abs(oldTime - newTime) < 0.001) {
-      console.log("키프레임 시간이 동일합니다:", newTime);
-      return true; // 변경 없음
-    }
-
-    // 같은 시간에 다른 키프레임이 있는지 확인
-    const existingIndex = this.findKeyframeIndex(newTime);
-    if (existingIndex !== -1 && existingIndex !== index) {
-      console.warn("해당 시간에 이미 키프레임이 존재합니다:", newTime);
-      return false;
-    }
-
-    this.times[index] = newTime;
-    this.dirty = true;
-    this.sortKeyframes();
-
-    // 이벤트 발생
-    this.emit(KEYFRAME_EVENTS.MOVED, {
-      index,
-      oldTime,
-      newTime,
-      value: new THREE.Vector3(
-        this.values[index * 3],
-        this.values[index * 3 + 1],
-        this.values[index * 3 + 2]
-      )
-    });
-
-    return true;
-  }
-
-  // 키프레임 값 업데이트 (안전한 버전)
-  updateKeyframeValue(index, newValue) {
-    if (index < 0 || index >= this.keyframeCount) {
-      console.warn(`유효하지 않은 키프레임 인덱스: ${index}`);
-      return false;
-    }
-
-    if (!newValue || typeof newValue.x === 'undefined' || typeof newValue.y === 'undefined' || typeof newValue.z === 'undefined') {
-      console.error("유효하지 않은 키프레임 값:", newValue);
-      return false;
-    }
-
-    const oldValue = new THREE.Vector3(
-      this.values[index * 3],
-      this.values[index * 3 + 1],
-      this.values[index * 3 + 2]
-    );
-
-    this.values[index * 3] = newValue.x;
-    this.values[index * 3 + 1] = newValue.y;
-    this.values[index * 3 + 2] = newValue.z;
-    this.dirty = true;
-
-    // 이벤트 발생
-    this.emit(KEYFRAME_EVENTS.UPDATED, {
-      index,
-      time: this.times[index],
-      oldValue,
-      newValue
-    });
-
     return true;
   }
 
@@ -449,7 +305,6 @@ export class TrackData {
         return prevValue.lerp(nextValue, t);
     }
   }
-
   // 베지어 보간 구현
   bezierInterpolate(p0, p1, p2, p3, t) {
     const cx = 3 * (p1.x - p0.x);
@@ -473,45 +328,6 @@ export class TrackData {
       az * t3 + bz * t2 + cz * t + p0.z
     );
   }
-
-  // 트랙 데이터 검증
-  validate() {
-    const errors = [];
-
-    if (this.keyframeCount < 0) {
-      errors.push("키프레임 개수가 음수입니다");
-    }
-
-    if (this.keyframeCount > MAX_FRAMES) {
-      errors.push("키프레임 개수가 최대값을 초과했습니다");
-    }
-
-    // 시간 순서 검증
-    for (let i = 1; i < this.keyframeCount; i++) {
-      if (this.times[i] < this.times[i - 1]) {
-        errors.push(`키프레임 시간이 순서대로 정렬되지 않았습니다: 인덱스 ${i - 1}(${this.times[i - 1]}) > 인덱스 ${i}(${this.times[i]})`);
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
-  // 트랙 데이터 복사
-  clone() {
-    const cloned = new TrackData();
-    cloned.keyframeCount = this.keyframeCount;
-    cloned.dirty = this.dirty;
-
-    // 배열 복사
-    cloned.times.set(this.times.slice(0, this.keyframeCount));
-    cloned.values.set(this.values.slice(0, this.keyframeCount * 3));
-    cloned.interpolations.set(this.interpolations.slice(0, this.keyframeCount));
-
-    return cloned;
-  }
 }
 
 // 타임라인 데이터 클래스
@@ -522,41 +338,7 @@ export class TimelineData {
     this.frameRate = 30;
     this.precomputedData = null;
     this.dirty = true; // 프리컴파일 필요 여부
-    this.eventListeners = new Map(); // 이벤트 리스너들
   }
-
-  // 이벤트 리스너 추가
-  addEventListener(eventType, callback) {
-    if (!this.eventListeners.has(eventType)) {
-      this.eventListeners.set(eventType, []);
-    }
-    this.eventListeners.get(eventType).push(callback);
-  }
-
-  // 이벤트 리스너 제거
-  removeEventListener(eventType, callback) {
-    if (this.eventListeners.has(eventType)) {
-      const listeners = this.eventListeners.get(eventType);
-      const index = listeners.indexOf(callback);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
-    }
-  }
-
-  // 이벤트 발생
-  emit(eventType, data) {
-    if (this.eventListeners.has(eventType)) {
-      this.eventListeners.get(eventType).forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`TimelineData 이벤트 리스너 오류 (${eventType}):`, error);
-        }
-      });
-    }
-  }
-
   // 트랙 추가
   addTrack(objectUuid, property) {
     if (!this.tracks.has(objectUuid)) {
@@ -564,26 +346,10 @@ export class TimelineData {
     }
     const objectTracks = this.tracks.get(objectUuid);
     if (!objectTracks.has(property)) {
-      const trackData = new TrackData();
-      objectTracks.set(property, trackData);
-
-      // 트랙 데이터의 이벤트를 TimelineData로 전달
-      trackData.addEventListener(KEYFRAME_EVENTS.ADDED, (data) => {
-        this.emit('track_keyframe_added', { objectUuid, property, ...data });
-      });
-      trackData.addEventListener(KEYFRAME_EVENTS.REMOVED, (data) => {
-        this.emit('track_keyframe_removed', { objectUuid, property, ...data });
-      });
-      trackData.addEventListener(KEYFRAME_EVENTS.UPDATED, (data) => {
-        this.emit('track_keyframe_updated', { objectUuid, property, ...data });
-      });
-      trackData.addEventListener(KEYFRAME_EVENTS.MOVED, (data) => {
-        this.emit('track_keyframe_moved', { objectUuid, property, ...data });
-      });
+      objectTracks.set(property, new TrackData());
     }
     return objectTracks.get(property);
   }
-
   // 트랙 삭제
   removeTrack(objectUuid, property) {
     const objectTracks = this.tracks.get(objectUuid);
@@ -592,16 +358,13 @@ export class TimelineData {
       if (objectTracks.size === 0) {
         this.tracks.delete(objectUuid);
       }
-      this.dirty = true;
     }
   }
-
   // 최대 시간 업데이트
   updateMaxTime(time) {
     this.maxTime = Math.max(this.maxTime, time);
     this.dirty = true;
   }
-
   // 애니메이션 데이터 사전 계산
   precomputeAnimationData() {
     if (!this.dirty) return;
@@ -653,7 +416,6 @@ export class TimelineData {
     this.dirty = false;
     console.log("precomputeAnimationData 완료");
   }
-
   // JSON 형식으로 변환
   toJSON() {
     const data = {
@@ -677,7 +439,6 @@ export class TimelineData {
     console.log(data);
     return data;
   }
-
   // JSON 형식으로 부터 데이터 로드     
   fromJSON(data) {
     this.tracks.clear();
@@ -700,46 +461,6 @@ export class TimelineData {
 
     this.dirty = true;
   }
-
-  // 타임라인 데이터 검증
-  validate() {
-    const errors = [];
-
-    this.tracks.forEach((objectTracks, objectUuid) => {
-      objectTracks.forEach((trackData, property) => {
-        const validation = trackData.validate();
-        if (!validation.isValid) {
-          errors.push(`트랙 ${objectUuid}.${property}: ${validation.errors.join(', ')}`);
-        }
-      });
-    });
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
-  // 타임라인 데이터 복사
-  clone() {
-    const cloned = new TimelineData();
-    cloned.maxTime = this.maxTime;
-    cloned.frameRate = this.frameRate;
-    cloned.dirty = this.dirty;
-
-    this.tracks.forEach((objectTracks, objectUuid) => {
-      objectTracks.forEach((trackData, property) => {
-        const clonedTrack = cloned.addTrack(objectUuid, property);
-        // 트랙 데이터 복사
-        clonedTrack.keyframeCount = trackData.keyframeCount;
-        clonedTrack.times.set(trackData.times.slice(0, trackData.keyframeCount));
-        clonedTrack.values.set(trackData.values.slice(0, trackData.keyframeCount * 3));
-        clonedTrack.interpolations.set(trackData.interpolations.slice(0, trackData.keyframeCount));
-      });
-    });
-
-    return cloned;
-  }
 }
 
 // 타임라인 코어 클래스
@@ -749,7 +470,6 @@ class TimelineCore {
     this.tracks = new Map();
     this.container = options.container;
   }
-
   // 트랙 추가
   addTrack(type, objectId, objectName, extraOptions = {}) {
     const track = {
@@ -795,7 +515,6 @@ class TimelineCore {
     this.bindClipEvents(clip, track);
     return clip;
   }
-
   // 키프레임 추가 (인덱스 기반)
   addKeyframeByIndex(clip, index, options = {}) {
     const keyframe = document.createElement("div");

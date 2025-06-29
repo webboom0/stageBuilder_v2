@@ -150,15 +150,6 @@ export class BaseTimeline {
     return false;
   }
 
-  removeKeyframeByIndex(objectId, property, index) {
-    const track = this.timelineData.tracks.get(objectId)?.get(property);
-    if (track && track.removeKeyframeByIndex(index)) {
-      this.updateUI();
-      return true;
-    }
-    return false;
-  }
-
   removeKeyframe(objectId, property, time) {
     const track = this.timelineData.tracks.get(objectId)?.get(property);
     if (track && track.removeKeyframe(time)) {
@@ -170,40 +161,6 @@ export class BaseTimeline {
 
   getKeyframe(objectId, property, time) {
     return this.timelineData.getValueAtTime(objectId, property, time);
-  }
-
-  getKeyframeByIndex(objectId, property, index) {
-    const track = this.timelineData.tracks.get(objectId)?.get(property);
-    if (track) {
-      return track.getKeyframeByIndex(index);
-    }
-    return null;
-  }
-
-  setKeyframeByIndex(objectId, property, index, time, value, interpolation = INTERPOLATION.LINEAR) {
-    const track = this.timelineData.tracks.get(objectId)?.get(property);
-    if (track && track.setKeyframeByIndex(index, time, value, interpolation)) {
-      this.timelineData.updateMaxTime(time);
-      this.updateUI();
-      return true;
-    }
-    return false;
-  }
-
-  getKeyframeCount(objectId, property) {
-    const track = this.timelineData.tracks.get(objectId)?.get(property);
-    if (track) {
-      return track.getKeyframeCount();
-    }
-    return 0;
-  }
-
-  getAllKeyframes(objectId, property) {
-    const track = this.timelineData.tracks.get(objectId)?.get(property);
-    if (track) {
-      return track.getAllKeyframes();
-    }
-    return [];
   }
 
   createKeyframeElement(frame) {
@@ -415,10 +372,9 @@ export class BaseTimeline {
   }
 
   play() {
-    console.log("BaseTimeline- play");
     if (this.isPlaying) return;
     this.isPlaying = true;
-    this.timelineData.precomputeAnimationData(); // 애니메이션 데이터 프리컴파일
+    this.timelineData.precomputeAnimation(); // 애니메이션 데이터 프리컴파일
     this.animate();
   }
 

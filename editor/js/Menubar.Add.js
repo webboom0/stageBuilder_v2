@@ -49,13 +49,13 @@ function MenubarAdd(editor) {
   meshSubmenuTitle.onMouseOut(function () {
     meshSubmenu.setDisplay("none");
   });
-  options.add(meshSubmenuTitle);
+  // options.add(meshSubmenuTitle);
 
   const meshSubmenu = new UIPanel()
     .setPosition("fixed")
     .addClass("options")
     .setDisplay("none");
-  meshSubmenuTitle.add(meshSubmenu);
+  // meshSubmenuTitle.add(meshSubmenu);
 
   // Mesh / Box
 
@@ -327,7 +327,7 @@ function MenubarAdd(editor) {
   lightSubmenuTitle.onMouseOut(function () {
     lightSubmenu.setDisplay("none");
   });
-  options.add(lightSubmenuTitle);
+  // options.add(lightSubmenuTitle);
 
   const lightSubmenu = new UIPanel()
     .setPosition("fixed")
@@ -451,7 +451,7 @@ function MenubarAdd(editor) {
   cameraSubmenuTitle.onMouseOut(function () {
     cameraSubmenu.setDisplay("none");
   });
-  options.add(cameraSubmenuTitle);
+  // options.add(cameraSubmenuTitle);
 
   const cameraSubmenu = new UIPanel()
     .setPosition("fixed")

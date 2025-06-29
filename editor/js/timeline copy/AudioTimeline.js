@@ -334,6 +334,25 @@ export class AudioTimeline extends BaseTimeline {
         }
       }
 
+      // 타임라인이 재생 중일 때 오디오 동기화
+      if (this.editor.scene?.userData?.timeline?.isPlaying && object.userData.audioElement) {
+        const audioElement = object.userData.audioElement;
+        const currentTime = frame / this.options.framesPerSecond;
+
+        // 오디오가 로드되었고 재생 가능한 상태인지 확인
+        if (audioElement.readyState >= 2) {
+          // 오디오 시간과 타임라인 시간 동기화
+          if (Math.abs(audioElement.currentTime - currentTime) > 0.1) {
+            audioElement.currentTime = currentTime;
+          }
+
+          // 오디오가 일시정지 상태라면 재생
+          if (audioElement.paused) {
+            audioElement.play().catch(e => console.error("오디오 재생 실패:", e));
+          }
+        }
+      }
+
       if (hasChanges && this.editor.signals?.objectChanged) {
         this.editor.signals.objectChanged.dispatch(object);
       }
@@ -974,5 +993,56 @@ export class AudioTimeline extends BaseTimeline {
     //   }
     // `;
     // document.head.appendChild(style);
+  }
+
+  // 타임라인 제어 메서드들
+  play() {
+    console.log("=== AudioTimeline play() ===");
+    this.tracks.forEach((track) => {
+      const object = this.editor.scene.getObjectById(parseInt(track.objectId));
+      if (!object || !object.userData.audioElement) return;
+
+      const audio = object.userData.audioElement;
+      console.log("오디오 재생 시작 - 객체 ID:", track.objectId);
+
+      // 오디오가 로드되었는지 확인
+      if (audio.readyState >= 2) {
+        audio.play().catch(e => console.error("오디오 재생 실패:", e));
+      } else {
+        // 로드 대기
+        audio.addEventListener('canplay', () => {
+          audio.play().catch(e => console.error("지연 재생 실패:", e));
+        }, { once: true });
+      }
+    });
+  }
+
+  pause() {
+    console.log("=== AudioTimeline pause() ===");
+    this.tracks.forEach((track) => {
+      const object = this.editor.scene.getObjectById(parseInt(track.objectId));
+      if (!object || !object.userData.audioElement) return;
+
+      const audio = object.userData.audioElement;
+      console.log("오디오 일시정지 - 객체 ID:", track.objectId);
+
+      if (!audio.paused) {
+        audio.pause();
+      }
+    });
+  }
+
+  stop() {
+    console.log("=== AudioTimeline stop() ===");
+    this.tracks.forEach((track) => {
+      const object = this.editor.scene.getObjectById(parseInt(track.objectId));
+      if (!object || !object.userData.audioElement) return;
+
+      const audio = object.userData.audioElement;
+      console.log("오디오 정지 - 객체 ID:", track.objectId);
+
+      audio.pause();
+      audio.currentTime = 0;
+    });
   }
 }

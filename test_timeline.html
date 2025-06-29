@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .timelineWrapper {
+            background-color: #2c2c2c;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .main-timeline-container {
+            background-color: #2c2c2c;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+
+        .timeline-header {
+            padding: 10px;
+            border-bottom: 1px solid #444;
+        }
+
+        .controls-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .play-button,
+        .stop-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .play-button:hover,
+        .stop-button:hover {
+            background-color: #45a049;
+        }
+
+        .time-ruler-container {
+            height: 30px;
+            background-color: #333;
+            position: relative;
+            border-radius: 3px;
+        }
+
+        .playhead {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background-color: #ff4444;
+            z-index: 10;
+        }
+
+        .time-tick {
+            position: absolute;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            background-color: #666;
+        }
+
+        .time-tick.major {
+            height: 100%;
+            background-color: #999;
+        }
+
+        .time-label {
+            position: absolute;
+            top: 35px;
+            left: -20px;
+            font-size: 10px;
+            color: #ccc;
+        }
+
+        .timeline-body {
+            padding: 10px;
+        }
+
+        .timeline-viewport {
+            min-height: 200px;
+            background-color: #333;
+            border-radius: 3px;
+        }
+
+        .timeline-footer {
+            padding: 10px;
+            border-top: 1px solid #444;
+        }
+
+        .time-display {
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .frame-input {
+            background-color: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 4px 8px;
+            border-radius: 3px;
+            width: 60px;
+        }
+
+        .test-info {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .test-button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .test-button:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-container">
+        <h1>Timeline Test</h1>
+
+        <div class="test-info">
+            <h3>타임라인 테스트</h3>
+            <p>이 페이지는 타임라인 기능을 테스트하기 위한 독립적인 HTML 파일입니다.</p>
+            <p><strong>주요 기능:</strong></p>
+            <ul>
+                <li>Play 버튼: 재생 시작 (pause 아이콘으로 변경)</li>
+                <li>Stop 버튼: 재생 정지 및 처음으로 이동 (play 아이콘으로 변경)</li>
+                <li>Pause: 일시정지 (play 아이콘으로 변경)</li>
+                <li>오디오 재생/정지 동기화</li>
+            </ul>
+            <p><strong>테스트 방법:</strong></p>
+            <ol>
+                <li>Play 버튼 클릭 → pause 아이콘으로 변경되는지 확인</li>
+                <li>Stop 버튼 클릭 → play 아이콘으로 변경되고 오디오가 정지되는지 확인</li>
+                <li>Pause 버튼 클릭 → play 아이콘으로 변경되는지 확인</li>
+            </ol>
+        </div>
+
+        <div class="timelineWrapper">
+            <!-- 타임라인 컨테이너가 여기에 동적으로 생성됩니다 -->
+        </div>
+
+        <div class="test-info">
+            <h3>디버그 정보:</h3>
+            <div id="debug-info">
+                <p>상태: <span id="status">초기화 중...</span></p>
+                <p>현재 시간: <span id="current-time">0.0s</span></p>
+                <p>재생 상태: <span id="playing-status">정지</span></p>
+            </div>
+        </div>
+
+        <div class="test-info">
+            <h3>테스트 버튼:</h3>
+            <div class="controls">
+                <button class="play-button" onclick="testPlay()">
+                    <i class="fa fa-play"></i> Play
+                </button>
+                <button class="stop-button" onclick="testStop()">
+                    <i class="fa fa-stop"></i> Stop
+                </button>
+                <button onclick="testPause()">Pause</button>
+                <button onclick="testJumpToTime()">Jump to 5s</button>
+                <button onclick="testAudioStop()">Audio Stop Test</button>
+                <button onclick="testUIState()">Check UI State</button>
+                <button onclick="testStopButton()">Test Stop Button</button>
+                <button onclick="testPlayButton()">Test Play Button</button>
+                <button onclick="testForceStopAudio()">Force Stop Audio</button>
+                <button onclick="checkAudioStatus()">Check Audio Status</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // 모의 Editor 객체 생성
+        const mockEditor = {
+            scene: {
+                userData: {
+                    timeline: {
+                        isPlaying: false,
+                        currentFrame: 0,
+                        currentSeconds: 0
+                    }
+                },
+                add: (obj) => console.log('Scene에 객체 추가:', obj),
+                getObjectById: (id) => null,
+                getObjectByProperty: (prop, value) => null,
+                traverse: (callback) => console.log('Scene traverse'),
+                children: []
+            },
+            signals: {
+                sceneGraphChanged: {
+                    dispatch: () => console.log('Scene graph changed')
+                },
+                objectChanged: {
+                    dispatch: (obj) => console.log('Object changed:', obj)
+                },
+                timelineChanged: {
+                    dispatch: () => console.log('Timeline changed')
+                }
+            },
+            select: (obj) => console.log('Object selected:', obj)
+        };
+
+        // Timeline 모듈 동적 로드
+        async function loadTimeline() {
+            try {
+                const { Timeline } = await import('./editor/js/timeline/Timeline.js');
+                window.timeline = new Timeline(mockEditor);
+
+                // 타임라인을 DOM에 추가
+                const timelineWrapper = document.querySelector('.timelineWrapper');
+                timelineWrapper.appendChild(window.timeline.container);
+
+                // 초기 상태 업데이트
+                updateDebugInfo();
+
+                console.log('Timeline 로드 완료:', window.timeline);
+            } catch (error) {
+                console.error('Timeline 로드 실패:', error);
+                document.getElementById('status').textContent = '로드 실패: ' + error.message;
+            }
+        }
+
+        // 디버그 정보 업데이트
+        function updateDebugInfo() {
+            if (window.timeline) {
+                const status = window.timeline.isPlaying ? '재생 중' : '정지';
+                const currentTime = window.timeline.editor.scene.userData.timeline.currentSeconds || 0;
+                const playingStatus = window.timeline.isPlaying ? '재생' : '정지';
+
+                document.getElementById('status').textContent = '로드 완료';
+                document.getElementById('current-time').textContent = currentTime.toFixed(1) + 's';
+                document.getElementById('playing-status').textContent = playingStatus;
+            }
+        }
+
+        // 테스트 함수들
+        window.testPlay = function () {
+            if (window.timeline) {
+                window.timeline.play();
+                updateDebugInfo();
+                console.log('Play 테스트 실행');
+            }
+        };
+
+        window.testPause = function () {
+            if (window.timeline) {
+                window.timeline.pause();
+                updateDebugInfo();
+                console.log('Pause 테스트 실행');
+            }
+        };
+
+        window.testStop = function () {
+            if (window.timeline) {
+                window.timeline.stop();
+                updateDebugInfo();
+                console.log('Stop 테스트 실행');
+            }
+        };
+
+        window.testJumpToTime = function () {
+            if (window.timeline) {
+                const frame = 5 * window.timeline.timelineSettings.framesPerSecond;
+                window.timeline.setCurrentFrame(frame);
+                updateDebugInfo();
+                console.log('5초로 점프 테스트 실행');
+            }
+        };
+
+        window.testAudioStop = function () {
+            console.log('=== Audio Stop Test ===');
+            if (window.timeline && window.timeline.timelines.audio) {
+                console.log('AudioTimeline stop() 직접 호출');
+                window.timeline.timelines.audio.stop();
+
+                // 오디오 객체 상태 확인
+                const audioTracks = Array.from(window.timeline.timelines.audio.tracks.values());
+                audioTracks.forEach((track) => {
+                    if (track.audioElement) {
+                        console.log('오디오 상태:', {
+                            name: track.name,
+                            paused: track.audioElement.paused,
+                            currentTime: track.audioElement.currentTime,
+                            volume: track.audioElement.volume
+                        });
+                    }
+                });
+            } else {
+                console.log('AudioTimeline이 없습니다.');
+            }
+        };
+
+        window.testUIState = function () {
+            console.log('=== UI State Check ===');
+            const playButton = document.querySelector('.play-button');
+            if (playButton) {
+                console.log('Play 버튼 HTML:', playButton.innerHTML);
+                console.log('Play 버튼에 fa-pause 클래스 있음:', playButton.querySelector('.fa-pause') !== null);
+                console.log('Play 버튼에 fa-play 클래스 있음:', playButton.querySelector('.fa-play') !== null);
+            }
+
+            if (window.timeline) {
+                console.log('Timeline 상태:', {
+                    isPlaying: window.timeline.isPlaying,
+                    currentFrame: window.timeline.editor.scene?.userData?.timeline?.currentFrame,
+                    currentSeconds: window.timeline.editor.scene?.userData?.timeline?.currentSeconds
+                });
+            }
+        };
+
+        window.testStopButton = function () {
+            console.log('=== Stop Button Test ===');
+            const stopButton = document.querySelector('.stop-button');
+            if (stopButton) {
+                console.log('Stop 버튼 클릭 시뮬레이션');
+                stopButton.click();
+            } else {
+                console.log('Stop 버튼을 찾을 수 없습니다.');
+            }
+        };
+
+        window.testPlayButton = function () {
+            console.log('=== Play Button Test ===');
+            const playButton = document.querySelector('.play-button');
+            if (playButton) {
+                console.log('Play 버튼 클릭 시뮬레이션');
+                playButton.click();
+            } else {
+                console.log('Play 버튼을 찾을 수 없습니다.');
+            }
+        };
+
+        window.testForceStopAudio = function () {
+            console.log('=== Force Stop Audio Test ===');
+
+            // 1. 모든 audio 엘리먼트 찾기
+            const allAudio = document.querySelectorAll('audio');
+            console.log('페이지의 모든 audio 엘리먼트:', allAudio.length);
+
+            allAudio.forEach((audio, index) => {
+                console.log(`Audio ${index + 1}:`, {
+                    src: audio.src,
+                    paused: audio.paused,
+                    currentTime: audio.currentTime,
+                    volume: audio.volume,
+                    readyState: audio.readyState
+                });
+
+                // 강제 정지
+                audio.pause();
+                audio.currentTime = 0;
+                audio.volume = 0;
+
+                console.log(`Audio ${index + 1} 정지 후:`, {
+                    paused: audio.paused,
+                    currentTime: audio.currentTime,
+                    volume: audio.volume
+                });
+            });
+
+            // 2. Timeline의 stopAllAudio 호출
+            if (window.timeline && window.timeline.stopAllAudio) {
+                console.log('Timeline의 stopAllAudio 호출');
+                window.timeline.stopAllAudio();
+            }
+
+            // 3. AudioTimeline의 stop 직접 호출
+            if (window.timeline && window.timeline.timelines.audio) {
+                console.log('AudioTimeline stop 직접 호출');
+                window.timeline.timelines.audio.stop();
+            }
+        };
+
+        window.checkAudioStatus = function () {
+            console.log('=== Audio Status Check ===');
+
+            // 모든 audio 엘리먼트 상태 확인
+            const allAudio = document.querySelectorAll('audio');
+            console.log('총 audio 엘리먼트 수:', allAudio.length);
+
+            allAudio.forEach((audio, index) => {
+                console.log(`Audio ${index + 1} 상태:`, {
+                    src: audio.src,
+                    paused: audio.paused,
+                    currentTime: audio.currentTime,
+                    volume: audio.volume,
+                    readyState: audio.readyState,
+                    ended: audio.ended,
+                    duration: audio.duration
+                });
+            });
+
+            // Timeline 상태 확인
+            if (window.timeline) {
+                console.log('Timeline 상태:', {
+                    isPlaying: window.timeline.isPlaying,
+                    currentFrame: window.timeline.editor.scene?.userData?.timeline?.currentFrame,
+                    currentSeconds: window.timeline.editor.scene?.userData?.timeline?.currentSeconds
+                });
+
+                if (window.timeline.timelines.audio) {
+                    const audioTracks = Array.from(window.timeline.timelines.audio.tracks.values());
+                    console.log('AudioTimeline 트랙 수:', audioTracks.length);
+
+                    audioTracks.forEach((track, index) => {
+                        console.log(`AudioTrack ${index + 1}:`, {
+                            name: track.name,
+                            hasAudioElement: !!track.audioElement,
+                            audioElementPaused: track.audioElement?.paused,
+                            audioElementCurrentTime: track.audioElement?.currentTime
+                        });
+                    });
+                }
+            }
+        };
+
+        // 페이지 로드 시 타임라인 초기화
+        window.addEventListener('load', () => {
+            loadTimeline();
+
+            // 주기적으로 디버그 정보 업데이트
+            setInterval(updateDebugInfo, 100);
+        });
+    </script>
+</body>
+
+</html>
