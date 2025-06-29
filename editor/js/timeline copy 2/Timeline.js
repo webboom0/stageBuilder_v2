@@ -595,38 +595,8 @@ class Timeline {
 
     // 오디오 재생 처리
     if (this.timelines.audio) {
-      const audioTracks = Array.from(this.timelines.audio.tracks.values());
-      audioTracks.forEach((track) => {
-        const objectId =
-          typeof track.objectId === "string"
-            ? parseInt(track.objectId)
-            : track.objectId;
-        const audioObject = this.editor.scene.getObjectById(objectId);
-
-        if (
-          audioObject &&
-          audioObject.userData &&
-          audioObject.userData.audioElement
-        ) {
-          const audio = audioObject.userData.audioElement;
-          audio.currentTime =
-            currentFrame / this.timelineSettings.framesPerSecond;
-          audio.volume = audioObject.userData.volume || 1.0;
-          audio.playbackRate = audioObject.userData.playbackRate || 1.0;
-          audio.muted = audioObject.userData.mute || false;
-
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                console.log("오디오 재생 시작됨");
-              })
-              .catch((error) => {
-                console.error("오디오 재생 실패:", error);
-              });
-          }
-        }
-      });
+      console.log("AudioTimeline play() 호출");
+      this.timelines.audio.play();
     }
 
     // MotionTimeline의 play() 메서드 호출
@@ -648,9 +618,25 @@ class Timeline {
         currentFrame = 0;
       }
 
-      // 오디오는 자체적으로 재생되도록 함 - 시간 동기화 제거
+      // MotionTimeline의 현재 시간 업데이트
+      if (this.timelines.motion) {
+        this.timelines.motion.currentTime = currentFrame / this.timelineSettings.framesPerSecond;
+        this.timelines.motion.updateAnimation(this.timelines.motion.currentTime);
+      }
 
-      // setCurrentFrame을 사용하여 모션 애니메이션 업데이트 (오디오 제외)
+      // AudioTimeline의 현재 시간 업데이트
+      if (this.timelines.audio) {
+        this.timelines.audio.updateAnimation(currentFrame / this.timelineSettings.framesPerSecond);
+      }
+
+      // 현재 프레임과 시간 업데이트
+      this.editor.scene.userData.timeline.currentFrame = currentFrame;
+      this.editor.scene.userData.timeline.currentSeconds = currentFrame / this.timelineSettings.framesPerSecond;
+
+      // 시간 표시 업데이트
+      this.updateTimeDisplay(currentFrame);
+
+      // setCurrentFrame을 사용하여 모든 타임라인 업데이트 (playhead 드래그와 동일한 방식)
       this.setCurrentFrame(currentFrame, true);
 
       // 플레이헤드 위치 업데이트
@@ -680,26 +666,10 @@ class Timeline {
       this.timelines.motion.pause();
     }
 
-    // 오디오 일시정지
+    // AudioTimeline의 pause() 메서드 호출
     if (this.timelines.audio) {
-      const audioTracks = Array.from(this.timelines.audio.tracks.values());
-      audioTracks.forEach((track) => {
-        const objectId =
-          typeof track.objectId === "string"
-            ? parseInt(track.objectId)
-            : track.objectId;
-        const audioObject = this.editor.scene.getObjectById(objectId);
-
-        if (
-          audioObject &&
-          audioObject.userData &&
-          audioObject.userData.audioElement
-        ) {
-          const audio = audioObject.userData.audioElement;
-          audio.pause();
-          audio.currentTime = 0;
-        }
-      });
+      console.log("AudioTimeline pause() 호출");
+      this.timelines.audio.pause();
     }
 
     if (this.animationFrameId) {
@@ -727,26 +697,10 @@ class Timeline {
       this.timelines.motion.stop();
     }
 
-    // 오디오 정지
+    // AudioTimeline의 stop() 메서드 호출
     if (this.timelines.audio) {
-      const audioTracks = Array.from(this.timelines.audio.tracks.values());
-      audioTracks.forEach((track) => {
-        const objectId =
-          typeof track.objectId === "string"
-            ? parseInt(track.objectId)
-            : track.objectId;
-        const audioObject = this.editor.scene.getObjectById(objectId);
-
-        if (
-          audioObject &&
-          audioObject.userData &&
-          audioObject.userData.audioElement
-        ) {
-          const audio = audioObject.userData.audioElement;
-          audio.pause();
-          audio.currentTime = 0;
-        }
-      });
+      console.log("AudioTimeline stop() 호출");
+      this.timelines.audio.stop();
     }
 
     if (this.animationFrameId) {

@@ -737,6 +737,108 @@ export class AudioTimeline extends BaseTimeline {
     });
   }
 
+  // 오디오 재생 제어 메서드들
+  play() {
+    console.log("=== AudioTimeline play() ===");
+    this.tracks.forEach((track) => {
+      if (track.audioElement) {
+        // 클립 범위 확인
+        const sprite = track.element.querySelector('.audio-sprite');
+        if (sprite) {
+          const clipLeft = parseFloat(sprite.style.left) || 0;
+          const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
+          const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+          const clipEndTime = clipStartTime + clipDuration;
+
+          const currentTime = this.editor.scene?.userData?.timeline?.currentSeconds || 0;
+
+          // 현재 시간이 클립 범위에 있지 않으면 재생하지 않음
+          if (currentTime < clipStartTime || currentTime > clipEndTime) {
+            console.log("오디오 클립 범위 밖:", { currentTime, clipStartTime, clipEndTime });
+            return;
+          }
+        }
+
+        // 현재 시간 설정 (Timeline.js와 동기화)
+        if (this.editor.scene?.userData?.timeline?.currentSeconds) {
+          track.audioElement.currentTime = this.editor.scene.userData.timeline.currentSeconds;
+        }
+
+        // 오디오 설정 적용
+        const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+        if (audioObject && audioObject.userData) {
+          track.audioElement.volume = audioObject.userData.volume || 1.0;
+          track.audioElement.muted = audioObject.userData.mute || false;
+          track.audioElement.playbackRate = audioObject.userData.playbackRate || 1.0;
+        }
+
+        const playPromise = track.audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.error("오디오 재생 실패:", error);
+          });
+        }
+      }
+    });
+  }
+
+  pause() {
+    console.log("=== AudioTimeline pause() ===");
+    this.tracks.forEach((track) => {
+      if (track.audioElement) {
+        track.audioElement.pause();
+      }
+    });
+  }
+
+  stop() {
+    console.log("=== AudioTimeline stop() ===");
+    this.tracks.forEach((track) => {
+      if (track.audioElement) {
+        track.audioElement.pause();
+        track.audioElement.currentTime = 0;
+      }
+    });
+  }
+
+  // 애니메이션 업데이트 (Timeline.js에서 호출됨)
+  updateAnimation(currentTime = null) {
+    if (!currentTime) return;
+
+    this.tracks.forEach((track) => {
+      if (track.audioElement) {
+        // 클립 범위 확인
+        const sprite = track.element.querySelector('.audio-sprite');
+        if (sprite) {
+          const clipLeft = parseFloat(sprite.style.left) || 0;
+          const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
+          const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+          const clipEndTime = clipStartTime + clipDuration;
+
+          // 현재 시간이 클립 범위를 벗어나면 오디오 정지
+          if (currentTime < clipStartTime || currentTime > clipEndTime) {
+            if (!track.audioElement.paused) {
+              track.audioElement.pause();
+              console.log("오디오 클립 범위를 벗어나서 정지:", { currentTime, clipStartTime, clipEndTime });
+            }
+            return;
+          }
+        }
+
+        // 오디오가 재생 중이 아닐 때만 시간 업데이트 (재생 중에는 자동으로 업데이트됨)
+        if (track.audioElement.paused) {
+          track.audioElement.currentTime = currentTime;
+        } else {
+          // 재생 중일 때는 시간 차이가 너무 크면 동기화
+          const timeDiff = Math.abs(track.audioElement.currentTime - currentTime);
+          if (timeDiff > 0.5) { // 0.5초 이상 차이나면 동기화
+            track.audioElement.currentTime = currentTime;
+          }
+        }
+      }
+    });
+  }
+
   bindSpriteEvents(sprite, track) {
     let isDragging = false;
     let dragStartX = 0;

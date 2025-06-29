@@ -135,8 +135,7 @@
   position: relative;
 }
 
-.timeline-track {
-}
+.timeline-track {}
 
 .track-header {
   display: flex;
@@ -247,8 +246,7 @@
   position: relative;
 }
 
-.timeline-track {
-}
+.timeline-track {}
 
 .track-header {
   width: 200px;
@@ -314,9 +312,11 @@
   grid-template-columns: 200px 1fr;
   box-sizing: border-box;
 }
+
 .motion-tracks {
   /* padding-bottom: 15px; */
 }
+
 .track-header {
   background: #3a3a3a;
   padding: 5px;
@@ -441,23 +441,16 @@
 }
 
 .keyframe-layer {
-  /* position: absolute;
+  position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none; */
-
-  position: absolute;
   width: 100%;
-  height: 5px;
-  bottom: -10px !important;
-  left: 0px;
+  height: 100%;
+  pointer-events: none;
+}
+
+.keyframe-layer .keyframe {
   pointer-events: auto;
-  background: transparent;
-  z-index: 1;
-  height: 3px !important;
-  top: auto !important;
 }
 
 /* 스크롤바 스타일링 */
@@ -477,6 +470,7 @@
 .property-keyframes-scroll::-webkit-scrollbar-thumb:hover {
   background: #666;
 }
+
 .property-edit-panel {
   /* position: absolute;
   right: 10px;
@@ -489,8 +483,9 @@
 }
 
 .keyframe.selected {
-  background: #ff4081;
-  box-shadow: 0 0 5px rgba(255, 64, 129, 0.5);
+  background: #ff9800;
+  box-shadow: 0 0 5px rgba(230, 115, 8, 0.479);
+  border-color: #ff9800;
 }
 
 .property-edit-panel input {
@@ -556,8 +551,7 @@
   font-size: 12px;
 }
 
-.property-tracks {
-}
+.property-tracks {}
 
 .property-track {
   /* height: 24px; */
@@ -591,12 +585,15 @@
   position: absolute;
   width: 8px;
   height: 8px;
-  background-color: #fff;
-  /* border-radius: 50%; */
+  background-color: #f90;
+  border: 1px solid #c60;
+  border-radius: 50%;
   cursor: pointer;
-  transform: translate(-50%, -50%) rotate(45deg);
+  transform: translate(-50%, -50%);
   top: 50%;
+  z-index: 10;
 }
+
 .keyframe.selected {
   background: #ff9800;
   box-shadow: 0 0 5px rgba(230, 115, 8, 0.479);
@@ -776,6 +773,7 @@
   z-index: 1000;
   /* transform: translateX(-1px); */
 }
+
 .time-ruler-container .playhead .time-box {
   position: absolute;
   top: 0px;
@@ -787,6 +785,7 @@
   color: #fff;
   padding: 4px;
 }
+
 /* 타임라인 전체에서 보이는 플레이헤드 */
 .timeline-viewport .playhead {
   position: absolute;
@@ -871,7 +870,9 @@
   /* 왼쪽 레이블 200px, 오른쪽 트랙 전체 */
   overflow: hidden;
   position: relative;
-  height: calc(100% - /* 헤더 높이 */ 30px);
+  height: calc(100% -
+      /* 헤더 높이 */
+      30px);
 }
 
 /* 2) 레이블 컬럼 */
@@ -963,8 +964,10 @@
 } */
 
 .keyframe.delete-preview {
+  background: #ff4444 !important;
   opacity: 0.5;
-  background-color: #ff4444;
+  transform: scale(1.2);
+  box-shadow: 0 0 10px #ff4444;
 }
 
 .track-controls {
@@ -995,9 +998,321 @@
   grid-template-rows: repeat(2, auto);
   gap: 8px;
 }
+
 .light-track {
   border: 1px solid #ccc;
   background: #222;
   min-height: 60px;
   /* 기타 스타일 */
+}
+
+/* 키프레임 삭제 준비 상태 스타일 */
+.keyframe.dragging {
+  z-index: 1000;
+  cursor: grabbing;
+}
+
+.keyframe.dragging[style*="background: #ff4444"] {
+  background: #ff4444 !important;
+  opacity: 0.5;
+  transform: scale(1.2);
+  box-shadow: 0 0 10px #ff4444;
+  border: 2px solid #ff0000;
+}
+
+/* data-* 속성을 활용한 애니메이션 상태 스타일 */
+
+/* 타임라인 컨테이너 애니메이션 상태 */
+.timeline-container[data-is-playing="true"] {
+  border-left: 3px solid #00ff00;
+}
+
+.timeline-container[data-is-playing="false"] {
+  border-left: 3px solid #666;
+}
+
+/* 현재 재생 중인 클립 스타일 */
+.animation-sprite[data-is-active="true"] {
+  background: linear-gradient(90deg, #4CAF50, #45a049);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+  border: 2px solid #4CAF50;
+}
+
+.animation-sprite[data-is-active="false"] {
+  background: #6cf;
+  border: 1px solid #39c;
+}
+
+/* 클립 진행률 표시 */
+.animation-sprite[data-is-active="true"]::after {
+  content: attr(data-relative-progress) "%";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* 현재 키프레임 스타일 */
+.keyframe[data-is-current="true"] {
+  background: #ff0000 !important;
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+  transform: scale(1.3);
+  z-index: 10;
+}
+
+.keyframe[data-is-current="true"]::after {
+  content: "현재";
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  color: #fff;
+  background: #ff0000;
+  padding: 2px 4px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+/* 키프레임 시간 차이에 따른 스타일 */
+.keyframe[data-time-diff]:not([data-is-current="true"]) {
+  opacity: calc(1 - (attr(data-time-diff number) * 2));
+}
+
+/* 애니메이션 시간 표시 */
+.timeline-container[data-animation-time]::before {
+  content: "시간: " attr(data-animation-time) "s";
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  font-size: 12px;
+  color: #ccc;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* 프레임 번호 표시 */
+.timeline-container[data-animation-frame]::after {
+  content: "프레임: " attr(data-animation-frame);
+  position: absolute;
+  top: 5px;
+  right: 80px;
+  font-size: 12px;
+  color: #ccc;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* 재생 상태 표시 */
+.timeline-container[data-is-playing="true"] .timeline-header {
+  background: linear-gradient(90deg, #2b2b2b, #4CAF50, #2b2b2b);
+  background-size: 200% 100%;
+  animation: playing-indicator 2s ease-in-out infinite;
+}
+
+@keyframes playing-indicator {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 클립 진행률 바 */
+.animation-sprite[data-is-active="true"] .sprite-content::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: attr(data-relative-progress number)%;
+  background: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+  transition: width 0.1s ease;
+}
+
+/* 키프레임 호버 시 시간 정보 표시 */
+.keyframe:hover::after {
+  content: "시간: " attr(data-time) "s";
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 3px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+/* 현재 키프레임 호버 시 추가 정보 */
+.keyframe[data-is-current="true"]:hover::after {
+  content: "현재 시간: " attr(data-current-time) "s | 키프레임: " attr(data-time) "s";
+}
+
+/* 클립 호버 시 시간 정보 표시 */
+.animation-sprite:hover::after {
+  content: "시작: " attr(data-clip-start-time) "s | 끝: " attr(data-clip-end-time) "s | 길이: " attr(data-duration) "s";
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 4px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+/* 애니메이션 속도 표시 */
+.timeline-container[data-frame-rate]::before {
+  content: "FPS: " attr(data-frame-rate);
+  position: absolute;
+  top: 5px;
+  left: 10px;
+  font-size: 12px;
+  color: #ccc;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* 최대 시간 표시 */
+.timeline-container[data-max-time]::after {
+  content: "최대: " attr(data-max-time) "s";
+  position: absolute;
+  top: 25px;
+  right: 10px;
+  font-size: 10px;
+  color: #999;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* 드래그 중인 키프레임 스타일 */
+.keyframe.dragging[data-is-current="true"] {
+  background: #ff6600 !important;
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 15px rgba(255, 102, 0, 0.9);
+}
+
+/* 삭제 예정 키프레임 스타일 */
+.keyframe.delete-preview[data-is-current="true"] {
+  background: #ff0000 !important;
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.9);
+}
+
+/* 애니메이션 일시정지 상태 */
+.timeline-container[data-is-playing="false"] .timeline-header {
+  background: #2b2b2b;
+  border-left: 3px solid #ff9800;
+}
+
+/* 클립 선택 상태와 활성 상태 조합 */
+.animation-sprite.selected[data-is-active="true"] {
+  background: linear-gradient(90deg, #4CAF50, #45a049);
+  border: 2px solid #4CAF50;
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.7);
+}
+
+.animation-sprite.selected[data-is-active="false"] {
+  background: #6cf;
+  border: 2px solid #39c;
+  box-shadow: 0 0 10px rgba(102, 204, 255, 0.5);
+}
+
+/* 키프레임 선택 상태와 현재 상태 조합 */
+.keyframe.selected[data-is-current="true"] {
+  background: #ff6600 !important;
+  border: 3px solid #fff !important;
+  box-shadow: 0 0 20px rgba(255, 102, 0, 1);
+  transform: scale(1.5);
+}
+
+.keyframe.selected:not([data-is-current="true"]) {
+  background: #f90 !important;
+  /* border: 2px solid #fff !important; */
+  box-shadow: 0 0 10px rgba(255, 153, 0, 0.8);
+  transform: scale(1.2);
+}
+
+/* 애니메이션 루프 표시 */
+.timeline-container[data-current-time="0"] .timeline-header {
+  border-left: 3px solid #9c27b0;
+}
+
+/* 성능 최적화를 위한 will-change 속성 */
+.animation-sprite[data-is-active="true"],
+.keyframe[data-is-current="true"] {
+  will-change: transform, box-shadow;
+}
+
+/* 반응형 디자인을 위한 미디어 쿼리 */
+@media (max-width: 768px) {
+
+  .timeline-container[data-animation-time]::before,
+  .timeline-container[data-animation-frame]::after,
+  .timeline-container[data-frame-rate]::before {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+
+  .keyframe[data-is-current="true"]::after {
+    font-size: 7px;
+    padding: 1px 3px;
+  }
+}
+
+/* 다크 테마 대응 */
+@media (prefers-color-scheme: dark) {
+
+  .keyframe[data-is-current="true"]::after,
+  .keyframe:hover::after,
+  .animation-sprite:hover::after {
+    background: rgba(255, 255, 255, 0.9);
+    color: #000;
+  }
+}
+
+/* 고대비 모드 대응 */
+@media (prefers-contrast: high) {
+  .animation-sprite[data-is-active="true"] {
+    border: 3px solid #fff;
+  }
+
+  .keyframe[data-is-current="true"] {
+    border: 3px solid #fff !important;
+  }
+}
+
+/* 애니메이션 상태 전환 효과 */
+.animation-sprite,
+.keyframe {
+  transition: all 0.2s ease-in-out;
+}
+
+/* 애니메이션 재생 중 부드러운 전환 */
+.timeline-container[data-is-playing="true"] .animation-sprite,
+.timeline-container[data-is-playing="true"] .keyframe {
+  transition: all 0.1s ease-in-out;
 }

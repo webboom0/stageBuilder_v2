@@ -186,9 +186,6 @@ export class MotionTimeline extends BaseTimeline {
     // 타임라인 컨테이너에 애니메이션 상태 업데이트
     this.updateTimelineAnimationState(currentTime);
 
-    // 키프레임 강조 상태 업데이트
-    this.updateKeyframeStates(currentTime);
-
     const precomputedData = this.timelineData.precomputedData;
     if (!precomputedData) {
       console.log("precomputedData가 없어서 생성합니다.");
@@ -388,35 +385,13 @@ export class MotionTimeline extends BaseTimeline {
       const keyframes = track.element.querySelectorAll('.keyframe');
       keyframes.forEach(keyframe => {
         const keyframeTime = parseFloat(keyframe.dataset.time) || 0;
-
-        // 클립 기준으로 상대 시간 계산
-        const sprite = keyframe.closest('.animation-sprite');
-        let timeDiff = Infinity;
-        let isCurrent = false;
-
-        if (sprite) {
-          const clipLeft = parseFloat(sprite.style.left) || 0;
-          const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
-          const clipDuration = parseFloat(sprite.dataset.duration) || 5;
-
-          // 현재 시간이 클립 범위에 있는지 확인
-          if (currentTime >= clipStartTime && currentTime <= clipStartTime + clipDuration) {
-            // 클립 내에서의 상대 시간 계산
-            const relativeTime = currentTime - clipStartTime;
-            // 키프레임의 상대 시간과 비교 (keyframeTime은 이미 클립 내 상대 시간)
-            timeDiff = Math.abs(keyframeTime - relativeTime);
-            isCurrent = timeDiff < 0.1; // 0.1초 이내면 현재 키프레임으로 간주
-          }
-        }
-
-        // 기존 current 클래스 제거
-        keyframe.classList.remove('current');
+        const timeDiff = Math.abs(currentTime - keyframeTime);
+        const isCurrent = timeDiff < 0.1; // 0.1초 이내면 현재 키프레임으로 간주
 
         keyframe.dataset.isCurrent = isCurrent.toString();
         keyframe.dataset.timeDiff = timeDiff.toFixed(3);
 
         if (isCurrent) {
-          keyframe.classList.add('current');
           keyframe.dataset.currentTime = currentTime.toFixed(3);
         } else {
           delete keyframe.dataset.currentTime;
@@ -1801,22 +1776,8 @@ export class MotionTimeline extends BaseTimeline {
       keyframeElement.dataset.pixelPosition = relativePosition.toString();
 
       // 현재 시간과 일치하는 키프레임 강조
-      // 클립의 시작 시간을 기준으로 상대적인 위치 계산
-      const sprite = keyframeElement.closest('.animation-sprite');
-      if (sprite) {
-        const clipLeft = parseFloat(sprite.style.left) || 0;
-        const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
-        const clipDuration = parseFloat(sprite.dataset.duration) || 5;
-
-        // 현재 시간이 클립 범위에 있는지 확인
-        if (keyframeTime >= clipStartTime && keyframeTime <= clipStartTime + clipDuration) {
-          // 클립 내에서의 상대 시간 계산
-          const relativeTime = keyframeTime - clipStartTime;
-          // 키프레임의 상대 시간과 비교 (keyframeTime은 이미 클립 내 상대 시간)
-          if (Math.abs(keyframeTime - relativeTime) < 0.001) {
-            keyframeElement.classList.add('current');
-          }
-        }
+      if (Math.abs(keyframeTime - time) < 0.001) {
+        keyframeElement.classList.add('current');
       }
 
       // 키프레임 데이터 저장
