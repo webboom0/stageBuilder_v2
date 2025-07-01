@@ -481,6 +481,64 @@ class Timeline {
       });
     }
 
+    // 키보드 단축키 이벤트
+    document.addEventListener("keydown", (e) => {
+      // 스페이스바로 재생/일시정지 토글
+      if (e.code === "Space") {
+        e.preventDefault(); // 기본 스크롤 동작 방지
+
+        // scene이 없거나 timeline이 초기화되지 않은 경우 처리
+        if (!this.editor.scene) {
+          this.editor.scene = {
+            userData: {
+              timeline: {
+                isPlaying: false,
+                currentFrame: 0,
+              },
+            },
+          };
+        } else if (!this.editor.scene.userData) {
+          this.editor.scene.userData = {
+            timeline: {
+              isPlaying: false,
+              currentFrame: 0,
+            },
+          };
+        } else if (!this.editor.scene.userData.timeline) {
+          this.editor.scene.userData.timeline = {
+            isPlaying: false,
+            currentFrame: 0,
+          };
+        }
+
+        const isPlaying = this.editor.scene.userData.timeline.isPlaying;
+        console.log("스페이스바 단축키 - 현재 재생 상태:", isPlaying);
+
+        if (!isPlaying) {
+          console.log("재생 시작");
+          this.play();
+        } else {
+          console.log("일시정지");
+          this.pause();
+        }
+      }
+
+      // ESC 키로 정지
+      if (e.code === "Escape") {
+        e.preventDefault();
+        console.log("ESC 키 - 정지");
+        this.stop();
+        // 정지 시 처음으로 돌아가기
+        this.setCurrentFrame(0);
+        this.updatePlayheadPosition(0);
+
+        const frameInput = this.container.querySelector(".frame-input");
+        if (frameInput) {
+          frameInput.value = "0.0";
+        }
+      }
+    });
+
     // Editor 시그널이 존재하는 경우에만 바인딩
     if (this.editor.signals) {
       // 씬 변경 감지
