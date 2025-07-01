@@ -193,13 +193,10 @@ function MenubarFile(editor) {
     .addClass("option")
     .setTextContent("다름이름으로 저장")
     .onClick(async function () {
-      const json = editor.toJSON();
-      const blob = new Blob([JSON.stringify(json)], {
-        type: "application/json",
-      });
-
+      // showSaveFilePicker를 사용자 제스처 내에서 즉시 실행
       if ("showSaveFilePicker" in window) {
         try {
+          // 사용자 제스처 내에서 즉시 실행
           const handle = await window.showSaveFilePicker({
             suggestedName: "project.json",
             types: [
@@ -210,14 +207,88 @@ function MenubarFile(editor) {
             ],
           });
 
+          // 파일 핸들을 얻은 후 데이터 준비
+          // MotionTimeline 데이터 저장
+          if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
+            console.log("=== MotionTimeline 데이터 저장 시작 ===");
+            console.log("this.motionTimeline:", editor.motionTimeline);
+            console.log("this.scene.userData:", editor.scene.userData);
+            editor.motionTimeline.onBeforeSave();
+            console.log("onBeforeSave 완료 후 scene.userData.motionTimeline:", editor.scene.userData.motionTimeline);
+            console.log("=== MotionTimeline 데이터 저장 완료 ===");
+          }
+
+          const json = editor.toJSON();
+          const blob = new Blob([JSON.stringify(json)], {
+            type: "application/json",
+          });
+
           const writable = await handle.createWritable();
           await writable.write(blob);
           await writable.close();
+          console.log("파일 저장 완료");
+
         } catch (error) {
           console.error("Error saving file:", error);
+
+          // showSaveFilePicker가 실패하면 대체 방법 사용
+          if (error.name === 'AbortError') {
+            // 사용자가 취소한 경우 아무것도 하지 않음
+            return;
+          } else if (error.name === 'SecurityError') {
+            console.log("showSaveFilePicker 실패, 대체 방법 사용");
+          } else {
+            console.log("기타 에러 발생, 대체 방법 사용:", error.name);
+          }
+
+          // 대체 방법 실행
+          await saveWithFallbackMethod();
         }
       } else {
-        alert("Your browser does not support the File System Access API.");
+        // File System Access API를 지원하지 않는 브라우저
+        console.log("File System Access API 미지원, 대체 방법 사용");
+        await saveWithFallbackMethod();
+      }
+
+      // 대체 저장 방법 함수
+      async function saveWithFallbackMethod() {
+        // MotionTimeline 데이터 저장
+        if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
+          console.log("=== MotionTimeline 데이터 저장 시작 ===");
+          console.log("this.motionTimeline:", editor.motionTimeline);
+          console.log("this.scene.userData:", editor.scene.userData);
+          editor.motionTimeline.onBeforeSave();
+          console.log("onBeforeSave 완료 후 scene.userData.motionTimeline:", editor.scene.userData.motionTimeline);
+          console.log("=== MotionTimeline 데이터 저장 완료 ===");
+        }
+
+        const json = editor.toJSON();
+        const blob = new Blob([JSON.stringify(json)], {
+          type: "application/json",
+        });
+
+        // 파일명 입력 받기
+        const fileName = prompt("파일 이름을 입력하세요:", "project.json");
+        if (fileName) {
+          // download 속성을 사용한 링크 생성
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.style.display = 'none';
+
+          // 링크 클릭하여 다운로드 시작
+          document.body.appendChild(link);
+          link.click();
+
+          // 정리
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }, 100);
+
+          console.log("대체 방법으로 파일 저장 완료:", fileName);
+        }
       }
     });
 
