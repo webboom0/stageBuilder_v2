@@ -42,6 +42,13 @@ function Loader(editor) {
       filesMap = filesMap || LoaderUtils.createFilesMap(files);
 
       const manager = new THREE.LoadingManager();
+
+      // 로딩 매니저에 오류 핸들러 추가
+      manager.onError = function (url) {
+        console.warn("리소스 로드 실패:", url);
+        // 오류가 발생해도 계속 진행
+      };
+
       manager.setURLModifier(function (url) {
         url = url.replace(/^(\.?\/)/, ""); // remove './'
 
@@ -842,6 +849,10 @@ function Loader(editor) {
   };
 
   function handleJSON(data) {
+    console.log("=== JSON 파일 로드 시작 ===");
+    console.log("파일 데이터:", data);
+    console.log("메타데이터:", data.metadata);
+
     if (data.metadata === undefined) {
       // 2.0
 
@@ -858,8 +869,11 @@ function Loader(editor) {
       data.metadata.version = data.metadata.formatVersion;
     }
 
+    console.log("처리할 타입:", data.metadata.type.toLowerCase());
+
     switch (data.metadata.type.toLowerCase()) {
       case "buffergeometry": {
+        console.log("BufferGeometry 처리 중...");
         const loader = new THREE.BufferGeometryLoader();
         const result = loader.parse(data);
 
@@ -871,11 +885,14 @@ function Loader(editor) {
       }
 
       case "geometry":
-        console.error('Loader: "Geometry" is no longer supported.');
-
+        console.error('Loader: "Geometry" is no longer supported. Please convert to BufferGeometry.');
+        console.log("Geometry 데이터:", data);
+        // 사용자에게 알림
+        alert('이 파일은 더 이상 지원되지 않는 Geometry 형식입니다. BufferGeometry로 변환된 파일을 사용해주세요.');
         break;
 
       case "object": {
+        console.log("Object 처리 중...");
         const loader = new THREE.ObjectLoader();
         loader.setResourcePath(scope.texturePath);
 
@@ -887,8 +904,13 @@ function Loader(editor) {
       }
 
       case "app":
+        console.log("App 처리 중...");
         editor.fromJSON(data);
 
+        break;
+
+      default:
+        console.error("알 수 없는 타입:", data.metadata.type);
         break;
     }
   }

@@ -132,46 +132,27 @@ function Editor() {
 
 Editor.prototype = {
   setScene: function (scene) {
-    try {
-      this.scene.uuid = scene.uuid;
-      this.scene.name = scene.name;
+    this.scene.uuid = scene.uuid;
+    this.scene.name = scene.name;
 
-      this.scene.background = scene.background;
-      this.scene.environment = scene.environment;
-      this.scene.fog = scene.fog;
-      this.scene.backgroundBlurriness = scene.backgroundBlurriness;
-      this.scene.backgroundIntensity = scene.backgroundIntensity;
+    this.scene.background = scene.background;
+    this.scene.environment = scene.environment;
+    this.scene.fog = scene.fog;
+    this.scene.backgroundBlurriness = scene.backgroundBlurriness;
+    this.scene.backgroundIntensity = scene.backgroundIntensity;
+    this.scene.children = scene.object.children;
+    this.scene.userData = JSON.parse(JSON.stringify(scene.userData));
 
-      // userData 복사 시 오류 방지
-      try {
-        if (scene.userData) {
-          this.scene.userData = JSON.parse(JSON.stringify(scene.userData));
-        } else {
-          this.scene.userData = {};
-        }
-      } catch (userDataError) {
-        console.warn("userData 복사 중 오류 발생, 기본값 사용:", userDataError);
-        this.scene.userData = {};
-      }
+    // avoid render per object
 
-      // avoid render per object
-      this.signals.sceneGraphChanged.active = false;
+    this.signals.sceneGraphChanged.active = false;
 
-      while (scene.children.length > 0) {
-        try {
-          this.addObject(scene.children[0]);
-        } catch (addObjectError) {
-          console.warn("객체 추가 중 오류 발생, 건너뜀:", addObjectError, scene.children[0]);
-          // 오류가 발생한 객체는 제거하고 계속 진행
-          scene.remove(scene.children[0]);
-        }
-      }
-
-      this.signals.sceneGraphChanged.active = true;
-      this.signals.sceneGraphChanged.dispatch();
-    } catch (error) {
-      console.error("Scene 설정 중 오류 발생:", error);
+    while (scene.children.length > 0) {
+      this.addObject(scene.children[0]);
     }
+
+    this.signals.sceneGraphChanged.active = true;
+    this.signals.sceneGraphChanged.dispatch();
   },
 
   //
@@ -256,17 +237,6 @@ Editor.prototype = {
 
   addMaterialToRefCounter: function (material) {
     try {
-      // 재질의 텍스처 속성들을 확인하고 오류 처리
-      if (material && typeof material === 'object') {
-        const textureProperties = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'displacementMap', 'alphaMap'];
-
-        textureProperties.forEach(prop => {
-          if (material[prop] && material[prop].isDefault) {
-            console.warn(`재질 ${material.name || material.uuid}의 ${prop}가 기본 텍스처입니다.`);
-          }
-        });
-      }
-
       var materialsRefCounter = this.materialsRefCounter;
 
       var count = materialsRefCounter.get(material);
@@ -543,68 +513,6 @@ Editor.prototype = {
   fromJSON: async function (json) {
     try {
       var loader = new THREE.ObjectLoader();
-
-      // LoadingManager 설정으로 텍스처 로드 오류 처리 강화
-      const loadingManager = new THREE.LoadingManager();
-      loadingManager.onError = function (url, itemsLoaded, itemsTotal) {
-        console.warn("텍스처 로드 실패:", url, `(${itemsLoaded}/${itemsTotal})`);
-        // 오류가 발생해도 계속 진행
-      };
-
-      // TextureLoader 오류 처리 강화
-      const originalTextureLoaderLoad = THREE.TextureLoader.prototype.load;
-      THREE.TextureLoader.prototype.load = function (url, onLoad, onProgress, onError) {
-        const safeOnError = function (error) {
-          console.warn("텍스처 로드 실패:", url, error);
-          // 오류가 발생해도 기본 텍스처 생성
-          const defaultTexture = new THREE.Texture();
-          defaultTexture.name = 'default';
-          defaultTexture.isDefault = true; // 기본 텍스처임을 표시
-          if (onLoad) onLoad(defaultTexture);
-        };
-
-        // URL이 유효하지 않은 경우 기본 텍스처 반환
-        if (!url || url === '' || url === 'undefined') {
-          console.warn("유효하지 않은 텍스처 URL:", url);
-          const defaultTexture = new THREE.Texture();
-          defaultTexture.name = 'default';
-          defaultTexture.isDefault = true;
-          if (onLoad) onLoad(defaultTexture);
-          return;
-        }
-
-        return originalTextureLoaderLoad.call(this, url, onLoad, onProgress, safeOnError);
-      };
-
-      // ImageLoader 오류 처리 강화
-      const originalImageLoaderLoad = THREE.ImageLoader.prototype.load;
-      THREE.ImageLoader.prototype.load = function (url, onLoad, onProgress, onError) {
-        const safeOnError = function (error) {
-          console.warn("이미지 로드 실패:", url, error);
-          // 오류가 발생해도 기본 이미지 생성
-          const defaultImage = new Image();
-          defaultImage.width = 1;
-          defaultImage.height = 1;
-          defaultImage.isDefault = true;
-          if (onLoad) onLoad(defaultImage);
-        };
-
-        // URL이 유효하지 않은 경우 기본 이미지 반환
-        if (!url || url === '' || url === 'undefined') {
-          console.warn("유효하지 않은 이미지 URL:", url);
-          const defaultImage = new Image();
-          defaultImage.width = 1;
-          defaultImage.height = 1;
-          defaultImage.isDefault = true;
-          if (onLoad) onLoad(defaultImage);
-          return;
-        }
-
-        return originalImageLoaderLoad.call(this, url, onLoad, onProgress, safeOnError);
-      };
-
-      loader.manager = loadingManager;
-
       var camera = await loader.parseAsync(json.camera);
 
       const existingUuid = this.camera.uuid;
@@ -621,65 +529,51 @@ Editor.prototype = {
 
       this.history.fromJSON(json.history);
       this.scripts = json.scripts;
+      this.setScene(await loader.parseAsync(json.scene));
 
-      // 씬 로드 시 오류 처리
-      try {
-        const scene = await loader.parseAsync(json.scene);
-        this.setScene(scene);
-      } catch (sceneError) {
-        console.warn("씬 로드 중 오류 발생, 기본 씬으로 대체:", sceneError);
 
-        // 기본 씬 설정
-        this.scene.name = "Scene";
-        this.scene.userData = json.scene?.userData || {};
-
-        // 씬의 기본 속성들 복원
-        if (json.scene) {
-          this.scene.uuid = json.scene.uuid || this.scene.uuid;
-          this.scene.name = json.scene.name || "Scene";
-          this.scene.userData = { ...this.scene.userData, ...json.scene.userData };
-        }
-      }
 
       if (json.environment === "ModelViewer") {
         this.signals.sceneEnvironmentChanged.dispatch(json.environment);
         this.signals.refreshSidebarEnvironment.dispatch();
       }
 
-      // MotionTimeline 데이터 복원
-      if (json.motionTimeline && this.motionTimeline) {
-        try {
-          console.log("=== MotionTimeline 데이터 복원 시작 ===");
-          console.log("json.motionTimeline:", json.motionTimeline);
-          console.log("this.motionTimeline:", this.motionTimeline);
+      // MotionTimeline 데이터 복원을 지연시켜 MotionTimeline이 초기화된 후에 실행
+      if (json.motionTimeline) {
+        // MotionTimeline이 초기화되고 씬의 객체들이 로드될 때까지 대기
+        const waitForMotionTimeline = () => {
+          console.log("=== MotionTimeline 대기 중 ===");
+          console.log("MotionTimeline 존재:", !!this.motionTimeline);
+          console.log("씬 children 수:", this.scene.children.length);
 
-          // scene.userData에 motionTimeline 데이터 저장
-          if (!this.scene.userData) {
-            this.scene.userData = {};
+          if (this.motionTimeline && this.scene.children.length > 0) {
+            try {
+              console.log("MotionTimeline 데이터 복원 중...");
+              // scene.userData에 motionTimeline 데이터 저장
+              if (!this.scene.userData) {
+                this.scene.userData = {};
+              }
+              this.scene.userData.motionTimeline = json.motionTimeline;
+
+              // MotionTimeline에서 데이터 로드
+              this.motionTimeline.onAfterLoad();
+              console.log("MotionTimeline 데이터 복원 완료");
+            } catch (error) {
+              console.error("MotionTimeline 데이터 복원 중 오류:", error);
+            }
+          } else {
+            // MotionTimeline이 아직 초기화되지 않았거나 씬의 객체들이 로드되지 않았으면 다시 시도
+            console.log("MotionTimeline 또는 씬 객체들이 아직 준비되지 않음, 200ms 후 재시도...");
+            setTimeout(waitForMotionTimeline, 200);
           }
-          this.scene.userData.motionTimeline = json.motionTimeline;
-          console.log("scene.userData.motionTimeline 설정 완료:", this.scene.userData.motionTimeline);
+        };
 
-          // MotionTimeline에서 데이터 로드
-          console.log("motionTimeline.onAfterLoad() 호출 중...");
-          this.motionTimeline.onAfterLoad();
-          console.log("=== MotionTimeline 데이터 복원 완료 ===");
-        } catch (error) {
-          console.error("MotionTimeline 데이터 복원 중 오류:", error);
-        }
-      } else {
-        console.log("MotionTimeline 데이터가 없거나 motionTimeline 인스턴스가 없습니다.");
-        console.log("json.motionTimeline 존재:", !!json.motionTimeline);
-        console.log("this.motionTimeline 존재:", !!this.motionTimeline);
-
-        // MotionTimeline 데이터가 없으면 아무것도 하지 않음
-        // scene.userData.motionTimeline에 저장된 데이터만으로 트랙을 생성해야 함
-        console.log("MotionTimeline 데이터가 없으므로 트랙을 생성하지 않습니다.");
+        // 즉시 시도
+        waitForMotionTimeline();
       }
 
-      // 원래 메서드들 복원
+      // TextureLoader 원래 메서드 복원
       THREE.TextureLoader.prototype.load = originalTextureLoaderLoad;
-      THREE.ImageLoader.prototype.load = originalImageLoaderLoad;
 
     } catch (error) {
       console.error("JSON 데이터 로드 중 전체 오류:", error);
@@ -690,6 +584,8 @@ Editor.prototype = {
   toJSON: function () {
     // scripts clean up
     console.log("Editor toJSON called"); // 디버깅용 로그
+
+
     var scene = this.scene;
     var scripts = this.scripts;
 
@@ -704,6 +600,16 @@ Editor.prototype = {
       }
     }
 
+    // MotionTimeline 데이터 저장
+    if (this.motionTimeline) {
+      try {
+        console.log("MotionTimeline 데이터 저장 중...");
+        this.motionTimeline.onBeforeSave();
+      } catch (error) {
+        console.error("MotionTimeline 데이터 저장 중 오류:", error);
+      }
+    }
+
     // honor modelviewer environment
 
     let environment = null;
@@ -714,25 +620,9 @@ Editor.prototype = {
     ) {
       environment = "ModelViewer";
     }
-
-    // MotionTimeline 데이터 저장
-    if (this.motionTimeline) {
-      try {
-        console.log("=== MotionTimeline 데이터 저장 시작 ===");
-        console.log("this.motionTimeline:", this.motionTimeline);
-        console.log("this.scene.userData:", this.scene.userData);
-
-        this.motionTimeline.onBeforeSave();
-
-        console.log("onBeforeSave 완료 후 scene.userData.motionTimeline:", this.scene.userData.motionTimeline);
-        console.log("=== MotionTimeline 데이터 저장 완료 ===");
-      } catch (error) {
-        console.error("MotionTimeline 데이터 저장 중 오류:", error);
-      }
-    } else {
-      console.log("motionTimeline 인스턴스가 없어서 저장하지 않습니다.");
-    }
-
+    console.log("this.scene.toJSON()")
+    console.log(this.scene)
+    console.log(this.scene.toJSON())
     return {
       metadata: {},
       project: {
@@ -744,11 +634,10 @@ Editor.prototype = {
         ),
       },
       camera: this.viewportCamera.toJSON(),
-      scene: this.scene.toJSON(),
+      scene: this.scene,
       scripts: this.scripts,
       history: this.history.toJSON(),
       environment: environment,
-      motionTimeline: this.scene.userData.motionTimeline || null, // MotionTimeline 데이터 저장
       music: this.music ? this.music.toJSON() : undefined, // music 정보 저장
     };
   },

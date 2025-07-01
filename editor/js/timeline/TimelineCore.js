@@ -680,25 +680,66 @@ export class TimelineData {
 
   // JSON 형식으로 부터 데이터 로드     
   fromJSON(data) {
-    this.tracks.clear();
-    this.maxTime = data.maxTime;
-    this.frameRate = data.frameRate;
+    console.log("=== TimelineCore fromJSON 시작 ===");
+    console.log("받은 데이터:", data);
 
-    Object.entries(data.tracks).forEach(([objectUuid, properties]) => {
-      Object.entries(properties).forEach(([property, trackData]) => {
+    this.tracks.clear();
+    this.maxTime = data.maxTime || 0;
+    this.frameRate = data.frameRate || 30;
+
+    // tracks가 Map인지 일반 객체인지 확인
+    let tracksData;
+    if (data.tracks instanceof Map) {
+      tracksData = data.tracks;
+    } else if (typeof data.tracks === 'object' && data.tracks !== null) {
+      // 일반 객체를 Map으로 변환
+      tracksData = new Map(Object.entries(data.tracks));
+    } else {
+      console.warn("tracks 데이터가 없거나 잘못된 형식입니다:", data.tracks);
+      tracksData = new Map();
+    }
+
+    console.log("처리할 tracks 데이터:", tracksData);
+
+    tracksData.forEach((properties, objectUuid) => {
+      console.log(`객체 ${objectUuid} 처리 중:`, properties);
+
+      // properties가 Map인지 일반 객체인지 확인
+      let propertiesData;
+      if (properties instanceof Map) {
+        propertiesData = properties;
+      } else if (typeof properties === 'object' && properties !== null) {
+        propertiesData = new Map(Object.entries(properties));
+      } else {
+        console.warn(`객체 ${objectUuid}의 properties가 잘못된 형식입니다:`, properties);
+        return;
+      }
+
+      propertiesData.forEach((trackData, property) => {
+        console.log(`속성 ${property} 처리 중:`, trackData);
+
         const track = this.addTrack(objectUuid, property);
-        trackData.times.forEach((time, index) => {
-          const value = new THREE.Vector3(
-            trackData.values[index * 3],
-            trackData.values[index * 3 + 1],
-            trackData.values[index * 3 + 2]
-          );
-          track.addKeyframe(time, value, trackData.interpolations[index]);
-        });
+
+        if (trackData.times && Array.isArray(trackData.times)) {
+          trackData.times.forEach((time, index) => {
+            if (trackData.values && trackData.values.length >= (index * 3 + 2)) {
+              const value = new THREE.Vector3(
+                trackData.values[index * 3] || 0,
+                trackData.values[index * 3 + 1] || 0,
+                trackData.values[index * 3 + 2] || 0
+              );
+              const interpolation = trackData.interpolations && trackData.interpolations[index]
+                ? trackData.interpolations[index]
+                : INTERPOLATION.LINEAR;
+              track.addKeyframe(time, value, interpolation);
+            }
+          });
+        }
       });
     });
 
     this.dirty = true;
+    console.log("=== TimelineCore fromJSON 완료 ===");
   }
 
   // 타임라인 데이터 검증
