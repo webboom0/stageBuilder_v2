@@ -3,7 +3,7 @@ import { UIPanel, UIRow, UINumber, UIText, UIElement } from "../libs/ui.js";
 import * as THREE from "three";
 // editor/timeline/AudioTimeline.js
 const AUDIO_FILE = {
-  path: "../files/music/SUJESHUN.mp3",
+  path: "https://webboom0.github.io/stageBuilder_v2/files/music/SUJESHUN.mp3",
   name: "DRAMA",
 };
 
