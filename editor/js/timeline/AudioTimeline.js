@@ -3,8 +3,8 @@ import { UIPanel, UIRow, UINumber, UIText, UIElement } from "../libs/ui.js";
 import * as THREE from "three";
 // editor/timeline/AudioTimeline.js
 const AUDIO_FILE = {
-  path: "https://webboom0.github.io/stageBuilder_v2/files/music/SUJESHUN.mp3",
-  name: "DRAMA",
+  path: "../files/music/SUJESHUN.mp3",
+  name: "SUJESHUN",
 };
 
 // 볼륨 컨트롤을 위한 커스텀 UIElement 클래스
