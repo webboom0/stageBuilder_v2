@@ -109,6 +109,7 @@
   color: #ccc;
   /* height: 200px; */
   width: 100%;
+  box-sizing: border-box;
 }
 
 .timeline-header {
@@ -300,6 +301,7 @@
   /* height: 200px; */
   /* overflow-y: auto; */
 }
+
 
 .timeline-track {
   border-bottom: 1px solid #1a1a1a;
@@ -589,8 +591,8 @@
   border: 1px solid #c60;
   border-radius: 50%;
   cursor: pointer;
-  transform: translate(-50%, -50%);
-  top: 50%;
+  transform: translate(-50%, 100%);
+  bottom: 0;
   z-index: 10;
 }
 
@@ -777,7 +779,7 @@
 .time-ruler-container .playhead .time-box {
   position: absolute;
   top: 0px;
-  left: 50%;
+  left: 0;
   height: 15px;
   background: #f00;
   transform: translateX(-50%);
@@ -795,7 +797,7 @@
   background: #f00;
   pointer-events: none;
   z-index: 1000;
-  /* transform: translateX(-4px); */
+  transform: translateX(200px) !important;
 }
 
 /* .time-ruler-container .playhead::before {
@@ -1022,7 +1024,7 @@
 
 /* data-* 속성을 활용한 애니메이션 상태 스타일 */
 
-/* 타임라인 컨테이너 애니메이션 상태 */
+/* 타임라인 컨테이너 애니메이션 상태 
 .timeline-container[data-is-playing="true"] {
   border-left: 3px solid #00ff00;
 }
@@ -1030,7 +1032,7 @@
 .timeline-container[data-is-playing="false"] {
   border-left: 3px solid #666;
 }
-
+*/
 /* 현재 재생 중인 클립 스타일 */
 .animation-sprite[data-is-active="true"] {
   background: linear-gradient(90deg, #4CAF50, #45a049);
@@ -1062,7 +1064,7 @@
   background: #ff0000 !important;
   border: 2px solid #fff !important;
   box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
-  transform: scale(1.3);
+  transform: scale(1.3) translate(-50%, 100%);
   z-index: 10;
 }
 
@@ -1078,6 +1080,7 @@
   padding: 2px 4px;
   border-radius: 2px;
   white-space: nowrap;
+  display: none;
 }
 
 /* 키프레임 시간 차이에 따른 스타일 */
@@ -1139,7 +1142,8 @@
   top: 0;
   left: 0;
   height: 100%;
-  width: attr(data-relative-progress number)%;
+  width: 0%;
+  /* 기본값으로 설정, JavaScript에서 동적으로 변경 */
   background: rgba(255, 255, 255, 0.3);
   pointer-events: none;
   transition: width 0.1s ease;
@@ -1164,6 +1168,7 @@
 /* 현재 키프레임 호버 시 추가 정보 */
 .keyframe[data-is-current="true"]:hover::after {
   content: "현재 시간: " attr(data-current-time) "s | 키프레임: " attr(data-time) "s";
+  display: none;
 }
 
 /* 클립 호버 시 시간 정보 표시 */
@@ -1193,6 +1198,7 @@
   background: rgba(0, 0, 0, 0.7);
   padding: 2px 6px;
   border-radius: 3px;
+  display: none;
 }
 
 /* 최대 시간 표시 */
@@ -1246,14 +1252,15 @@
   background: #ff6600 !important;
   border: 3px solid #fff !important;
   box-shadow: 0 0 20px rgba(255, 102, 0, 1);
-  transform: scale(1.5);
+  transform: scale(1.5) translate (-50% 100%);
 }
 
 .keyframe.selected:not([data-is-current="true"]) {
   background: #f90 !important;
   /* border: 2px solid #fff !important; */
   box-shadow: 0 0 10px rgba(255, 153, 0, 0.8);
-  transform: scale(1.2);
+  transform: scale(1.2) translate(-50%, 100%);
+  border-radius: 0;
 }
 
 /* 애니메이션 루프 표시 */

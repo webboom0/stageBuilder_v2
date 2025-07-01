@@ -216,12 +216,6 @@ export class MotionTimeline extends BaseTimeline {
                 return;
             }
 
-            // track.element가 null인 경우 안전 검사
-            if (!track.element) {
-                console.warn(`트랙 요소가 없습니다: ${objectUuid}`);
-                return;
-            }
-
             // 클립 범위 확인 및 상대 시간 계산
             const sprites = track.element.querySelectorAll('.animation-sprite');
             let isInActiveClip = false;
@@ -315,12 +309,6 @@ export class MotionTimeline extends BaseTimeline {
                 const track = this.tracksByUuid.get(uuid);
                 if (!track) return;
 
-                // track.element가 null인 경우 안전 검사
-                if (!track.element) {
-                    console.warn(`트랙 요소가 없습니다: ${uuid}`);
-                    return;
-                }
-
                 const sprites = track.element.querySelectorAll('.animation-sprite');
                 let isInActiveClip = false;
                 let clipRelativeTime = 0;
@@ -361,12 +349,6 @@ export class MotionTimeline extends BaseTimeline {
 
         // 현재 재생 중인 클립들 찾아서 상태 업데이트
         this.tracksByUuid.forEach((track, objectUuid) => {
-            // track.element가 null인 경우 안전 검사
-            if (!track || !track.element) {
-                console.warn(`트랙 또는 트랙 요소가 없습니다: ${objectUuid}`);
-                return;
-            }
-
             const sprites = track.element.querySelectorAll('.animation-sprite');
             sprites.forEach(sprite => {
                 const clipLeft = parseFloat(sprite.style.left) || 0;
@@ -403,12 +385,6 @@ export class MotionTimeline extends BaseTimeline {
     // 키프레임 상태 업데이트 (data-* 속성 활용)
     updateKeyframeStates(currentTime) {
         this.tracksByUuid.forEach((track, objectUuid) => {
-            // track.element가 null인 경우 안전 검사
-            if (!track || !track.element) {
-                console.warn(`트랙 또는 트랙 요소가 없습니다: ${objectUuid}`);
-                return;
-            }
-
             const keyframes = track.element.querySelectorAll('.keyframe');
             keyframes.forEach(keyframe => {
                 const keyframeTime = parseFloat(keyframe.dataset.time) || 0;
@@ -499,12 +475,6 @@ export class MotionTimeline extends BaseTimeline {
     getClipAnimationStates() {
         const states = {};
         this.tracksByUuid.forEach((track, objectUuid) => {
-            // track.element가 null인 경우 안전 검사
-            if (!track || !track.element) {
-                console.warn(`트랙 또는 트랙 요소가 없습니다: ${objectUuid}`);
-                return;
-            }
-
             const sprites = track.element.querySelectorAll('.animation-sprite');
             states[objectUuid] = Array.from(sprites).map(sprite => ({
                 element: sprite,
@@ -523,12 +493,6 @@ export class MotionTimeline extends BaseTimeline {
     getKeyframeAnimationStates() {
         const states = {};
         this.tracksByUuid.forEach((track, objectUuid) => {
-            // track.element가 null인 경우 안전 검사
-            if (!track || !track.element) {
-                console.warn(`트랙 또는 트랙 요소가 없습니다: ${objectUuid}`);
-                return;
-            }
-
             const keyframes = track.element.querySelectorAll('.keyframe');
             states[objectUuid] = Array.from(keyframes).map(keyframe => ({
                 element: keyframe,
@@ -1127,14 +1091,9 @@ export class MotionTimeline extends BaseTimeline {
         if (zInput) zInput.value = position.z.toString();
     }
 
-    addTrack(objectUuid, objectId, objectName, skipInitialKeyframe = false) {
-        console.log("addTrack called with:", { objectUuid, objectId, objectName, skipInitialKeyframe });
-
-        // 기존 트랙이 있는지 확인 (objectId와 objectUuid 모두 확인)
-        if (this.tracks.has(objectId) || this.tracksByUuid.has(objectUuid)) {
-            console.log("기존 트랙이 이미 존재합니다:", { objectId, objectUuid });
-            return this.tracks.get(objectId) || this.tracksByUuid.get(objectUuid);
-        }
+    addTrack(objectUuid, objectId, objectName) {
+        console.log("addTrack called with:", { objectUuid, objectId, objectName });
+        if (this.tracks.has(objectId)) return;
 
         // objectName이 객체인 경우 name 속성을 사용하거나 기본값 사용
         const displayName = typeof objectName === "object" ? (objectName.name || "Object") : (objectName || "Object");
@@ -1224,26 +1183,15 @@ export class MotionTimeline extends BaseTimeline {
             trackContent.appendChild(sprite);
             this.bindSpriteEvents(sprite, track);
 
-            // TimelineData에 기존 키프레임이 있는지 확인
-            const existingTrackData = this.timelineData.tracks.get(objectUuid)?.get('position');
-            if (existingTrackData && existingTrackData.keyframeCount > 0) {
-                console.log(`기존 키프레임 데이터가 있습니다: ${existingTrackData.keyframeCount}개`);
-                // 기존 키프레임 데이터가 있으면 UI 업데이트만 수행
-                // 약간의 지연을 두어 DOM이 완전히 생성된 후 업데이트
-                setTimeout(() => {
-                    this.updateTrackUI(track, this.currentTime);
-                }, 50);
-            } else if (!skipInitialKeyframe) {
-                // 초기 키프레임 추가 (시간 0에서 position만) - 이벤트 시스템으로 자동 처리됨
-                const position = new THREE.Vector3(
-                    object.position.x,
-                    object.position.y,
-                    object.position.z
-                );
+            // 초기 키프레임 추가 (시간 0에서 position만) - 이벤트 시스템으로 자동 처리됨
+            const position = new THREE.Vector3(
+                object.position.x,
+                object.position.y,
+                object.position.z
+            );
 
-                // position 속성에 대한 키프레임만 추가 (UI는 이벤트로 자동 생성됨)
-                this.addKeyframe(objectUuid, 'position', 0, position);
-            }
+            // position 속성에 대한 키프레임만 추가 (UI는 이벤트로 자동 생성됨)
+            this.addKeyframe(objectUuid, 'position', 0, position);
         }
 
         // 두 Map에 모두 저장
@@ -1712,90 +1660,9 @@ export class MotionTimeline extends BaseTimeline {
         return newClip;
     }
 
-    // 특정 시간으로 playhead 이동
-    movePlayheadToTime(time) {
-        console.log("=== movePlayheadToTime 시작 ===", { time });
-
-        // 시간 범위 제한
-        const clampedTime = Math.max(0, Math.min(time, this.options.totalSeconds));
-
-        // 현재 시간 업데이트
-        this.currentTime = clampedTime;
-
-        // playhead 위치 계산 (퍼센트)
-        const playheadPercent = (clampedTime / this.options.totalSeconds) * 100;
-
-        // Timeline.js의 updatePlayheadPosition 메서드 호출 (time-box 업데이트 포함)
-        if (this.editor.scene?.userData?.timeline?.updatePlayheadPosition) {
-            console.log("Timeline.js updatePlayheadPosition 호출:", playheadPercent);
-            this.editor.scene.userData.timeline.updatePlayheadPosition(playheadPercent);
-        } else {
-            // Timeline.js의 updatePlayheadPosition이 없으면 직접 업데이트
-            const playhead = document.querySelector(".playhead");
-            if (playhead) {
-                playhead.style.left = `${playheadPercent}%`;
-
-                // time-box 직접 업데이트
-                const timeBox = playhead.querySelector(".time-box");
-                if (timeBox) {
-                    timeBox.textContent = `${clampedTime.toFixed(2)}s`;
-                    console.log("time-box 직접 업데이트:", timeBox.textContent);
-                }
-
-                console.log("playhead 위치 직접 업데이트:", {
-                    time: clampedTime,
-                    percent: playheadPercent,
-                    left: playhead.style.left
-                });
-            } else {
-                console.warn("playhead 요소를 찾을 수 없습니다.");
-            }
-        }
-
-        // data-* 속성 업데이트
-        this.setAnimationProperty('currentTime', clampedTime);
-        this.setAnimationProperty('animationFrame', Math.floor(clampedTime * this.timelineData.frameRate));
-
-        // 애니메이션 업데이트
-        this.updateAnimation(clampedTime);
-
-        // Timeline.js와 동기화
-        if (this.editor.scene?.userData?.timeline) {
-            this.editor.scene.userData.timeline.currentSeconds = clampedTime;
-        }
-
-        console.log("=== movePlayheadToTime 완료 ===", {
-            originalTime: time,
-            clampedTime,
-            playheadPercent
-        });
-    }
-
     moveToAdjacentKeyframe(trackElement, direction) {
-        console.log("=== moveToAdjacentKeyframe 시작 ===", { direction, trackElement });
-
-        // 선택된 키프레임 찾기
-        let selectedKeyframe = trackElement.querySelector(".keyframe.selected");
-
-        // 선택된 키프레임이 없으면 첫 번째 키프레임을 선택
-        if (!selectedKeyframe) {
-            const keyframeElements = Array.from(trackElement.querySelectorAll(".keyframe"));
-            if (keyframeElements.length === 0) {
-                console.warn("키프레임이 없습니다.");
-                return;
-            }
-
-            // index 기반으로 정렬
-            const sortedKeyframes = keyframeElements.sort((a, b) => {
-                return parseInt(a.dataset.index || 0) - parseInt(b.dataset.index || 0);
-            });
-
-            if (direction === "prev") {
-                selectedKeyframe = sortedKeyframes[sortedKeyframes.length - 1]; // 마지막 키프레임
-            } else {
-                selectedKeyframe = sortedKeyframes[0]; // 첫 번째 키프레임
-            }
-        }
+        const selectedKeyframe = trackElement.querySelector(".keyframe.selected");
+        if (!selectedKeyframe) return;
 
         const keyframeElements = Array.from(
             trackElement.querySelectorAll(".keyframe")
@@ -1817,18 +1684,12 @@ export class MotionTimeline extends BaseTimeline {
             const objectId = trackElement.dataset.uuid;
             const time = parseFloat(prevKeyframe.dataset.time);
             const index = parseInt(prevKeyframe.dataset.index);
-            console.log("이전 키프레임으로 이동:", {
+            console.log("moveToAdjacentKeyframe", {
                 objectId,
                 time,
                 index
             });
-
-            // 키프레임 선택
             this.selectKeyframe(objectId, time, prevKeyframe, index);
-
-            // playhead 이동
-            this.movePlayheadToTime(time);
-
         } else if (
             direction === "next" &&
             currentIndex < sortedKeyframes.length - 1
@@ -1841,19 +1702,12 @@ export class MotionTimeline extends BaseTimeline {
             const objectId = trackElement.dataset.uuid;
             const time = parseFloat(nextKeyframe.dataset.time);
             const index = parseInt(nextKeyframe.dataset.index);
-            console.log("다음 키프레임으로 이동:", {
+            console.log("moveToAdjacentKeyframe2222", {
                 objectId,
                 time,
                 index
             });
-
-            // 키프레임 선택
             this.selectKeyframe(objectId, time, nextKeyframe, index);
-
-            // playhead 이동
-            this.movePlayheadToTime(time);
-        } else {
-            console.log("더 이상 이동할 키프레임이 없습니다:", { direction, currentIndex, totalKeyframes: sortedKeyframes.length });
         }
     }
 
@@ -1928,18 +1782,6 @@ export class MotionTimeline extends BaseTimeline {
         const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
         const clipDuration = parseFloat(sprite.dataset.duration) || 5;
 
-        // 스프라이트의 실제 너비를 정확히 가져오기
-        const spriteWidth = sprite.offsetWidth || sprite.getBoundingClientRect().width;
-
-        console.log("updateTrackUI - 클립 정보:", {
-            clipLeft,
-            clipStartTime,
-            clipDuration,
-            spriteWidth,
-            spriteStyleWidth: sprite.style.width,
-            spriteOffsetWidth: sprite.offsetWidth
-        });
-
         for (let i = 0; i < trackData.keyframeCount; i++) {
             const keyframeTime = trackData.times[i];
             const keyframeElement = document.createElement('div');
@@ -1949,36 +1791,32 @@ export class MotionTimeline extends BaseTimeline {
             keyframeElement.dataset.index = i;
 
             // 클립 기준의 상대적 시간 계산
-            console.log("키프레임 위치 계산:", {
-                keyframeTime,
-                clipStartTime,
-                clipDuration,
-                spriteWidth
-            });
-
+            console.log("keyframeTime", keyframeTime);
+            console.log("keyframeTime", clipStartTime);
             const relativeTime = keyframeTime - clipStartTime;
 
             // 클립 내에서의 상대적 위치 계산 (픽셀 단위)
-            const relativePosition = (relativeTime / clipDuration) * spriteWidth;
+            const relativePosition = (relativeTime / clipDuration) * sprite.offsetWidth;
             keyframeElement.style.left = `${relativePosition}px`;
             keyframeElement.dataset.pixelPosition = relativePosition.toString();
 
-            console.log("키프레임 위치 계산 결과:", {
-                relativeTime,
-                relativePosition,
-                finalLeft: keyframeElement.style.left
-            });
+            // 현재 시간과 일치하는 키프레임 강조
+            // 클립의 시작 시간을 기준으로 상대적인 위치 계산
+            const sprite = keyframeElement.closest('.animation-sprite');
+            if (sprite) {
+                const clipLeft = parseFloat(sprite.style.left) || 0;
+                const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
+                const clipDuration = parseFloat(sprite.dataset.duration) || 5;
 
-            // 현재 시간과 일치하는 키프레임 강조 (data-is-current 속성 사용)
-            const timeDiff = Math.abs(keyframeTime - time);
-            const isCurrent = timeDiff < 0.1; // 0.1초 이내면 현재 키프레임으로 간주
-
-            keyframeElement.dataset.isCurrent = isCurrent.toString();
-            keyframeElement.dataset.timeDiff = timeDiff.toFixed(3);
-
-            if (isCurrent) {
-                keyframeElement.classList.add('current');
-                keyframeElement.dataset.currentTime = time.toFixed(3);
+                // 현재 시간이 클립 범위에 있는지 확인
+                if (keyframeTime >= clipStartTime && keyframeTime <= clipStartTime + clipDuration) {
+                    // 클립 내에서의 상대 시간 계산
+                    const relativeTime = keyframeTime - clipStartTime;
+                    // 키프레임의 상대 시간과 비교 (keyframeTime은 이미 클립 내 상대 시간)
+                    if (Math.abs(keyframeTime - relativeTime) < 0.001) {
+                        keyframeElement.classList.add('current');
+                    }
+                }
             }
 
             // 키프레임 데이터 저장
@@ -2524,38 +2362,12 @@ export class MotionTimeline extends BaseTimeline {
     }
 
     updatePlayheadPosition(percent) {
-        console.log("=== updatePlayheadPosition 시작 ===", { percent });
-
         const playhead = this.container.querySelector(".playhead");
-        if (!playhead) {
-            console.warn("playhead 요소를 찾을 수 없습니다.");
-            return;
-        }
+        if (!playhead) return;
 
-        // 퍼센트 범위 제한
-        const clampedPercent = Math.max(0, Math.min(100, percent));
-
-        playhead.style.left = `${clampedPercent}%`;
-        const currentTime = (clampedPercent / 100) * this.options.totalSeconds;
+        playhead.style.left = `${percent}%`;
+        const currentTime = (percent / 100) * this.options.totalSeconds;
         this.currentTime = currentTime;
-
-        // time-box 업데이트
-        const timeBox = playhead.querySelector(".time-box");
-        if (timeBox) {
-            timeBox.textContent = `${currentTime.toFixed(2)}s`;
-            console.log("time-box 업데이트:", timeBox.textContent);
-        }
-
-        console.log("playhead 위치 업데이트:", {
-            originalPercent: percent,
-            clampedPercent,
-            currentTime,
-            left: playhead.style.left
-        });
-
-        // data-* 속성 업데이트
-        this.setAnimationProperty('currentTime', currentTime);
-        this.setAnimationProperty('animationFrame', Math.floor(currentTime * this.timelineData.frameRate));
 
         // FBX 애니메이션 업데이트
         this.mixers.forEach((mixer, uuid) => {
@@ -2578,20 +2390,17 @@ export class MotionTimeline extends BaseTimeline {
         });
 
         // 키프레임 애니메이션 업데이트
-        this.updateAnimation(currentTime);
-
-        // Timeline.js와 동기화
-        if (this.editor.scene?.userData?.timeline) {
-            this.editor.scene.userData.timeline.currentSeconds = currentTime;
-        }
+        this.tracksByUuid.forEach((track, uuid) => {
+            if (track && track.uuid) {
+                this.updateAnimation(track.objectId);
+            }
+        });
 
         this.updateUI();
 
         if (this.editor.signals?.timelineChanged) {
             this.editor.signals.timelineChanged.dispatch();
         }
-
-        console.log("=== updatePlayheadPosition 완료 ===");
     }
 
     bindTrackEvents(track) {
@@ -2863,91 +2672,6 @@ export class MotionTimeline extends BaseTimeline {
             if (this.editor.signals?.sceneGraphChanged) {
                 this.editor.signals.sceneGraphChanged.dispatch();
             }
-        }
-    }
-
-    // JSON 로드 후 호출되는 메서드 (Editor.js에서 호출됨)
-    onAfterLoad() {
-        try {
-            console.log("=== MotionTimeline onAfterLoad 시작 ===");
-
-            // scene.userData에서 motionTimeline 데이터 확인
-            if (this.editor.scene && this.editor.scene.userData && this.editor.scene.userData.motionTimeline) {
-                console.log("scene.userData.motionTimeline:", this.editor.scene.userData.motionTimeline);
-
-                // timelineData가 비어있고 scene.userData에 데이터가 있으면 복원
-                if (!this.timelineData || this.timelineData.tracks.size === 0) {
-                    console.log("scene.userData에서 timelineData 복원 중...");
-                    this.timelineData.fromJSON(this.editor.scene.userData.motionTimeline);
-                    console.log("복원된 timelineData:", this.timelineData);
-                }
-            }
-
-            // timelineData가 여전히 비어있으면 아무것도 하지 않음
-            if (!this.timelineData || this.timelineData.tracks.size === 0) {
-                console.log("timelineData가 비어있으므로 아무것도 하지 않습니다.");
-                return;
-            }
-
-            // TimelineData에서 UI 트랙 생성
-            console.log("TimelineData에서 UI 트랙 생성 중...");
-            this.timelineData.tracks.forEach((objectTracks, objectUuid) => {
-                console.log(`객체 ${objectUuid}의 트랙 생성 중:`, objectTracks);
-
-                // 씬에서 해당 객체 찾기
-                const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
-                if (object) {
-                    console.log(`객체를 찾았습니다: ${object.name} (${objectUuid})`);
-
-                    // objectId 생성 (UUID의 일부 사용)
-                    const objectId = objectUuid.split('-')[0] || objectUuid;
-
-                    // addTrack 메서드로 UI 트랙 생성 (기존 키프레임 스킵)
-                    const track = this.addTrack(objectUuid, objectId, object.name, true);
-                    console.log(`UI 트랙 생성 완료:`, track);
-                } else {
-                    console.warn(`객체를 찾을 수 없습니다: ${objectUuid}`);
-                }
-            });
-
-            // 애니메이션 상태 복원
-            console.log("precomputeAnimationData 실행 중...");
-            this.timelineData.precomputeAnimationData();
-
-            // UI가 완전히 로드되었는지 확인 후 애니메이션 업데이트
-            setTimeout(() => {
-                console.log("updateAnimation 실행 중...");
-                this.updateAnimation();
-
-                // 모든 트랙의 UI 업데이트 강제 실행
-                this.tracksByUuid.forEach((track, objectUuid) => {
-                    if (track && track.element) {
-                        console.log(`트랙 UI 업데이트: ${objectUuid}`);
-                        this.updateTrackUI(track, this.currentTime);
-                    }
-                });
-            }, 100); // 100ms 지연으로 UI 로드 완료 보장
-
-            console.log("=== MotionTimeline onAfterLoad 완료 ===");
-        } catch (error) {
-            console.error("타임라인 데이터 로드 중 오류:", error);
-        }
-    }
-
-    // JSON 저장 전 호출되는 메서드 (Editor.js에서 호출될 수 있음)
-    onBeforeSave() {
-        try {
-            console.log("=== MotionTimeline onBeforeSave 시작 ===");
-
-            // scene.userData에 현재 상태 저장
-            if (this.editor.scene && this.timelineData) {
-                this.editor.scene.userData.motionTimeline = this.timelineData.toJSON();
-                console.log("scene.userData.motionTimeline 저장 완료");
-            }
-
-            console.log("=== MotionTimeline onBeforeSave 완료 ===");
-        } catch (error) {
-            console.error("타임라인 데이터 저장 중 오류:", error);
         }
     }
 

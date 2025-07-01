@@ -124,9 +124,15 @@ function MenubarFile(editor) {
 
     try {
       const json = JSON.parse(await file.text());
+      console.log("Loading project:", json); // 불러오는 데이터 확인
 
       async function onEditorCleared() {
-        await editor.fromJSON(json);
+        try {
+          await editor.fromJSON(json);
+        } catch (error) {
+          console.error("JSON 데이터 로드 중 오류:", error);
+          alert("파일 로드 중 오류가 발생했습니다: " + error.message);
+        }
 
         editor.signals.editorCleared.remove(onEditorCleared);
       }
@@ -136,11 +142,13 @@ function MenubarFile(editor) {
       editor.clear();
     } catch (e) {
       alert(strings.getKey("prompt/file/failedToOpenProject"));
-      console.error(e);
+      console.error("파일 파싱 오류:", e);
     } finally {
-      form.reset();
+      //form.reset();
+      openProjectForm.reset();
     }
   });
+
 
   openProjectForm.appendChild(openProjectInput);
 
@@ -162,6 +170,13 @@ function MenubarFile(editor) {
     .setTextContent(strings.getKey("menubar/file/save"))
     .onClick(function () {
       const json = editor.toJSON();
+      console.log("Saving project:", json); // 저장되는 전체 데이터 확인
+      // 특히 music 데이터가 있는지 확인
+      if (json.music) {
+        console.log("Music data being saved:", json.music);
+      } else {
+        console.log("No music data to save");
+      }
       const blob = new Blob([JSON.stringify(json)], {
         type: "application/json",
       });

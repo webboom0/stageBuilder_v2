@@ -873,16 +873,24 @@ class Timeline {
     const ph = document.createElement("div");
     ph.className = "playhead";
     ph.style.left = "0%";
-    ph.style.height = document.querySelector(".timelineWrapper").clientHeight + "px";
     ph.innerHTML = '<span class="time-box"></span>';
     ruler.appendChild(ph);
 
+    // 타임라인 뷰포트에도 플레이헤드 추가
+    const viewport = this.container.querySelector(".timeline-viewport");
+    const viewportPh = document.createElement("div");
+    viewportPh.className = "playhead";
+    viewportPh.style.left = "0%";
+    viewport.appendChild(viewportPh);
     // 플레이헤드 위치 업데이트 함수
     const updatePlayheadPosition = (percent) => {
       console.log("Timeline.js updatePlayheadPosition", percent);
 
       // 룰러의 플레이헤드 위치 업데이트
       ph.style.left = `${percent}%`;
+
+      // 뷰포트의 플레이헤드 위치 업데이트 (동일한 퍼센트 사용)
+      viewportPh.style.left = `${percent}%`;
 
       // 현재 시간을 초 단위로 계산하여 time-box에 업데이트
       const totalFrames =
