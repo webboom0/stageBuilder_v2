@@ -668,67 +668,6 @@ Editor.prototype = {
           this.scene.name = json.scene.name || "Scene";
           this.scene.userData = { ...this.scene.userData, ...json.scene.userData };
         }
-
-        // 씬 로드 실패 시 objects 배열에서 객체들을 수동으로 생성
-        if (json.objects && Array.isArray(json.objects)) {
-          console.log("objects 배열에서 객체들을 수동으로 생성 중...");
-
-          for (const objData of json.objects) {
-            try {
-              // 기본 객체 생성
-              const object = new THREE.Object3D();
-
-              // 기본 속성 설정
-              if (objData.uuid) object.uuid = objData.uuid;
-              if (objData.name) object.name = objData.name;
-              if (objData.position) object.position.set(objData.position[0] || 0, objData.position[1] || 0, objData.position[2] || 0);
-              if (objData.rotation) object.rotation.set(objData.rotation[0] || 0, objData.rotation[1] || 0, objData.rotation[2] || 0);
-              if (objData.scale) object.scale.set(objData.scale[0] || 1, objData.scale[1] || 1, objData.scale[2] || 1);
-              if (objData.userData) object.userData = { ...object.userData, ...objData.userData };
-
-              // 씬에 추가
-              this.addObject(object);
-              console.log(`객체 생성 완료: ${object.name} (${object.uuid})`);
-            } catch (objError) {
-              console.warn("객체 수동 생성 실패:", objError, objData);
-            }
-          }
-        }
-
-        // scene.children에서도 객체들을 수동으로 생성
-        if (json.scene && json.scene.children && Array.isArray(json.scene.children)) {
-          console.log("scene.children에서 객체들을 수동으로 생성 중...");
-
-          for (const childData of json.scene.children) {
-            try {
-              // 이미 생성된 객체인지 확인
-              const existingObject = this.scene.getObjectByProperty('uuid', childData.uuid);
-              if (existingObject) {
-                console.log(`이미 존재하는 객체 건너뜀: ${childData.name} (${childData.uuid})`);
-                continue;
-              }
-
-              // 기본 객체 생성
-              const object = new THREE.Object3D();
-
-              // 기본 속성 설정
-              if (childData.uuid) object.uuid = childData.uuid;
-              if (childData.name) object.name = childData.name;
-              if (childData.position) object.position.set(childData.position[0] || 0, childData.position[1] || 0, childData.position[2] || 0);
-              if (childData.rotation) object.rotation.set(childData.rotation[0] || 0, childData.rotation[1] || 0, childData.rotation[2] || 0);
-              if (childData.scale) object.scale.set(childData.scale[0] || 1, childData.scale[1] || 1, childData.scale[2] || 1);
-              if (childData.userData) object.userData = { ...object.userData, ...childData.userData };
-
-              // 씬에 추가
-              this.addObject(object);
-              console.log(`scene.children 객체 생성 완료: ${object.name} (${object.uuid})`);
-            } catch (childError) {
-              console.warn("scene.children 객체 수동 생성 실패:", childError, childData);
-            }
-          }
-        }
-
-        console.log("씬 로드 실패 후 수동 복구 완료. 현재 씬 객체 수:", this.scene.children.length);
       }
 
       if (json.environment === "ModelViewer") {
@@ -783,76 +722,121 @@ Editor.prototype = {
 
     console.log("Editor.js JSON 데이터 검증 시작:", data);
 
-    // 모든 객체를 재귀적으로 검증하는 함수
-    function validateObjectRecursively(obj, path = '') {
-      if (!obj || typeof obj !== 'object') {
-        return obj;
-      }
-
-      // 배열인 경우 각 요소를 검증
-      if (Array.isArray(obj)) {
-        return obj.map((item, index) => validateObjectRecursively(item, `${path}[${index}]`));
-      }
-
-      // 객체인 경우 검증
-      const validated = { ...obj };
-
-      // type 속성이 없으면 기본값 설정 (THREE.js 객체인 경우)
-      if (!validated.type && (validated.uuid || validated.name || validated.position || validated.rotation || validated.scale)) {
-        console.warn(`${path}: type 속성이 없어 기본값 설정:`, validated);
-        validated.type = 'Object3D';
-      }
-
-      // uuid가 없으면 생성 (THREE.js 객체인 경우)
-      if (!validated.uuid && validated.type) {
-        console.warn(`${path}: uuid가 없어 생성:`, validated);
-        validated.uuid = crypto.randomUUID();
-      }
-
-      // 필수 속성들이 없으면 기본값 설정
-      if (validated.type) {
-        if (!validated.name) validated.name = 'Object';
-        if (!validated.position) validated.position = [0, 0, 0];
-        if (!validated.rotation) validated.rotation = [0, 0, 0];
-        if (!validated.scale) validated.scale = [1, 1, 1];
-        if (!validated.matrix) validated.matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-        if (!validated.userData) validated.userData = {};
-        if (!validated.children) validated.children = [];
-        if (!validated.animations) validated.animations = [];
-      }
-
-      // 모든 속성을 재귀적으로 검증
-      for (const [key, value] of Object.entries(validated)) {
-        if (value && typeof value === 'object') {
-          validated[key] = validateObjectRecursively(value, `${path}.${key}`);
-        }
-      }
-
-      return validated;
+    // animations 속성이 없으면 빈 배열로 초기화
+    if (!data.animations) {
+      data.animations = [];
     }
 
-    // 전체 데이터를 재귀적으로 검증
-    const validatedData = validateObjectRecursively(data);
-
-    // 특별한 속성들 추가 검증
-    if (!validatedData.animations) {
-      validatedData.animations = [];
-    }
-
-    if (!validatedData.scene) {
-      validatedData.scene = {
+    // scene 속성이 없으면 기본 scene 구조 생성
+    if (!data.scene) {
+      data.scene = {
         type: 'Scene',
-        uuid: crypto.randomUUID(),
-        name: 'Scene',
         children: [],
-        animations: [],
-        userData: {},
-        matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        animations: []
       };
     }
 
-    if (!validatedData.camera) {
-      validatedData.camera = {
+    // scene의 animations 속성도 확인
+    if (data.scene && !data.scene.animations) {
+      data.scene.animations = [];
+    }
+
+    // scene이 THREE.js 형식이 아니면 기본 형식으로 변환
+    if (data.scene && (!data.scene.type || data.scene.type !== 'Scene')) {
+      console.warn("scene이 THREE.js 형식이 아니므로 기본 형식으로 변환");
+      data.scene = {
+        type: 'Scene',
+        uuid: data.scene.uuid || crypto.randomUUID(),
+        name: data.scene.name || 'Scene',
+        children: data.scene.children || [],
+        animations: data.scene.animations || [],
+        userData: data.scene.userData || {},
+        matrix: data.scene.matrix || [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+      };
+    }
+
+    // scene의 children이 올바른 형식인지 확인하고 복구
+    if (data.scene && data.scene.children) {
+      if (!Array.isArray(data.scene.children)) {
+        console.warn("scene.children가 배열이 아니므로 빈 배열로 초기화");
+        data.scene.children = [];
+      } else {
+        // children의 각 객체를 검증하고 복구
+        data.scene.children = data.scene.children.filter(child => {
+          if (!child || typeof child !== 'object') {
+            console.warn("유효하지 않은 child 객체 제거:", child);
+            return false;
+          }
+
+          // type 속성이 없으면 기본값 설정
+          if (!child.type) {
+            console.warn("child에 type 속성이 없어 기본값 설정:", child);
+            child.type = 'Object3D'; // 기본 타입
+          }
+
+          // uuid가 없으면 생성
+          if (!child.uuid) {
+            console.warn("child에 uuid가 없어 생성:", child);
+            child.uuid = crypto.randomUUID();
+          }
+
+          // 필수 속성들이 없으면 기본값 설정
+          if (!child.name) child.name = 'Object';
+          if (!child.position) child.position = [0, 0, 0];
+          if (!child.rotation) child.rotation = [0, 0, 0];
+          if (!child.scale) child.scale = [1, 1, 1];
+          if (!child.matrix) child.matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+          if (!child.userData) child.userData = {};
+          if (!child.children) child.children = [];
+          if (!child.animations) child.animations = [];
+
+          return true;
+        });
+      }
+    }
+
+    // objects 배열이 없으면 빈 배열로 초기화
+    if (!data.objects) {
+      data.objects = [];
+    }
+
+    // objects 배열의 각 객체를 검증하고 복구
+    if (data.objects && Array.isArray(data.objects)) {
+      data.objects = data.objects.filter(obj => {
+        if (!obj || typeof obj !== 'object') {
+          console.warn("유효하지 않은 object 제거:", obj);
+          return false;
+        }
+
+        // type 속성이 없으면 기본값 설정
+        if (!obj.type) {
+          console.warn("object에 type 속성이 없어 기본값 설정:", obj);
+          obj.type = 'Object3D';
+        }
+
+        // uuid가 없으면 생성
+        if (!obj.uuid) {
+          console.warn("object에 uuid가 없어 생성:", obj);
+          obj.uuid = crypto.randomUUID();
+        }
+
+        // 필수 속성들이 없으면 기본값 설정
+        if (!obj.name) obj.name = 'Object';
+        if (!obj.position) obj.position = [0, 0, 0];
+        if (!obj.rotation) obj.rotation = [0, 0, 0];
+        if (!obj.scale) obj.scale = [1, 1, 1];
+        if (!obj.matrix) obj.matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+        if (!obj.userData) obj.userData = {};
+        if (!obj.children) obj.children = [];
+        if (!obj.animations) obj.animations = [];
+
+        return true;
+      });
+    }
+
+    // camera 속성 확인
+    if (!data.camera) {
+      data.camera = {
         type: 'PerspectiveCamera',
         uuid: crypto.randomUUID(),
         name: 'Camera',
@@ -866,25 +850,84 @@ Editor.prototype = {
       };
     }
 
-    if (!validatedData.objects) {
-      validatedData.objects = [];
+    // camera가 THREE.js 형식이 아니면 기본 형식으로 변환
+    if (data.camera && (!data.camera.type || !data.camera.uuid)) {
+      console.warn("camera가 THREE.js 형식이 아니므로 기본 형식으로 변환");
+      data.camera = {
+        type: 'PerspectiveCamera',
+        uuid: data.camera.uuid || crypto.randomUUID(),
+        name: data.camera.name || 'Camera',
+        fov: data.camera.fov || 50,
+        aspect: data.camera.aspect || 1,
+        near: data.camera.near || 0.1,
+        far: data.camera.far || 2000,
+        position: data.camera.position || [0, 0, 5],
+        rotation: data.camera.rotation || [0, 0, 0],
+        scale: data.camera.scale || [1, 1, 1]
+      };
     }
 
-    if (!validatedData.scripts) {
-      validatedData.scripts = {};
+    // 재귀적으로 모든 객체의 children을 검증하고 복구
+    function validateChildrenRecursively(children) {
+      if (!Array.isArray(children)) return [];
+
+      return children.filter(child => {
+        if (!child || typeof child !== 'object') {
+          console.warn("재귀 검증: 유효하지 않은 child 객체 제거:", child);
+          return false;
+        }
+
+        // type 속성이 없으면 기본값 설정
+        if (!child.type) {
+          console.warn("재귀 검증: child에 type 속성이 없어 기본값 설정:", child);
+          child.type = 'Object3D';
+        }
+
+        // uuid가 없으면 생성
+        if (!child.uuid) {
+          console.warn("재귀 검증: child에 uuid가 없어 생성:", child);
+          child.uuid = crypto.randomUUID();
+        }
+
+        // 필수 속성들이 없으면 기본값 설정
+        if (!child.name) child.name = 'Object';
+        if (!child.position) child.position = [0, 0, 0];
+        if (!child.rotation) child.rotation = [0, 0, 0];
+        if (!child.scale) child.scale = [1, 1, 1];
+        if (!child.matrix) child.matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+        if (!child.userData) child.userData = {};
+        if (!child.children) child.children = [];
+        if (!child.animations) child.animations = [];
+
+        // 재귀적으로 children 검증
+        if (child.children) {
+          child.children = validateChildrenRecursively(child.children);
+        }
+
+        return true;
+      });
     }
 
-    if (!validatedData.history) {
-      validatedData.history = {};
+    // scene의 children을 재귀적으로 검증
+    if (data.scene && data.scene.children) {
+      data.scene.children = validateChildrenRecursively(data.scene.children);
     }
 
-    console.log("Editor.js JSON 데이터 검증 및 복구 완료:", validatedData);
-    return validatedData;
+    // objects의 children을 재귀적으로 검증
+    if (data.objects && Array.isArray(data.objects)) {
+      data.objects.forEach(obj => {
+        if (obj.children) {
+          obj.children = validateChildrenRecursively(obj.children);
+        }
+      });
+    }
+
+    console.log("Editor.js JSON 데이터 검증 및 복구 완료:", data);
+    return data;
   },
 
   toJSON: function () {
     // scripts clean up
-    console.log("=== Editor toJSON 시작 ===");
     console.log("Editor toJSON called"); // 디버깅용 로그
     var scene = this.scene;
     var scripts = this.scripts;

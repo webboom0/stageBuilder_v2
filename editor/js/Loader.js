@@ -9,6 +9,22 @@ import { LoaderUtils } from "./LoaderUtils.js";
 import { unzipSync, strFromU8 } from "three/addons/libs/fflate.module.js";
 
 function Loader(editor) {
+  // pako 라이브러리 로드 함수
+  async function loadPako() {
+    return new Promise((resolve, reject) => {
+      if (typeof pako !== 'undefined') {
+        resolve(pako);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
+      script.onload = () => resolve(pako);
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
   // 객체를 scene에 추가하기 전에 처리하는 함수 추가
   function processObject(object) {
     object.traverse((child) => {
@@ -379,7 +395,7 @@ function Loader(editor) {
       case "json": {
         reader.addEventListener(
           "load",
-          function (event) {
+          async function (event) {
             const contents = event.target.result;
 
             // 2.0
@@ -390,9 +406,9 @@ function Loader(editor) {
 
               const worker = new Worker(url);
 
-              worker.onmessage = function (event) {
+              worker.onmessage = async function (event) {
                 event.data.metadata = { version: 2 };
-                handleJSON(event.data);
+                await handleJSON(event.data);
               };
 
               worker.postMessage(Date.now());
@@ -411,7 +427,7 @@ function Loader(editor) {
               return;
             }
 
-            handleJSON(data);
+            await handleJSON(data);
           },
           false,
         );
@@ -831,7 +847,7 @@ function Loader(editor) {
       case "zip": {
         reader.addEventListener(
           "load",
-          function (event) {
+          async function (event) {
             handleZIP(event.target.result);
           },
           false,
@@ -848,8 +864,44 @@ function Loader(editor) {
     }
   };
 
-  function handleJSON(data) {
+  async function handleJSON(data) {
     console.log("=== JSON 파일 로드 시작 ===");
+
+    // 압축된 데이터인지 확인
+    if (data.compressed === true) {
+      console.log("압축된 JSON 파일 감지, 압축 해제 중...");
+      console.log("원본 크기:", data.originalSize, "압축 크기:", data.compressedSize);
+
+      try {
+        // pako 라이브러리 로드
+        if (typeof pako === 'undefined') {
+          try {
+            await loadPako();
+          } catch (error) {
+            console.warn("pako 라이브러리 로드 실패:", error);
+            alert("압축 해제를 위한 라이브러리를 로드할 수 없습니다.");
+            return;
+          }
+        }
+
+        // 압축 해제
+        const compressedData = atob(data.data);
+        const compressedArray = new Uint8Array(compressedData.length);
+        for (let i = 0; i < compressedData.length; i++) {
+          compressedArray[i] = compressedData.charCodeAt(i);
+        }
+
+        const decompressed = pako.inflate(compressedArray, { to: 'string' });
+        data = JSON.parse(decompressed);
+
+        console.log("압축 해제 완료, 원본 데이터 복원됨");
+      } catch (error) {
+        console.error("압축 해제 실패:", error);
+        alert("압축된 파일을 해제하는 중 오류가 발생했습니다.");
+        return;
+      }
+    }
+
     console.log("파일 데이터:", data);
     console.log("메타데이터:", data.metadata);
 

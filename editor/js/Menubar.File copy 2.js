@@ -123,8 +123,59 @@ function MenubarFile(editor) {
     if (file === undefined) return;
 
     try {
-      const json = JSON.parse(await file.text());
-      console.log("Loading project:", json); // 불러오는 데이터 확인
+      let json;
+      try {
+        const fileText = await file.text();
+        json = JSON.parse(fileText);
+        console.log("Loading project:", json); // 불러오는 데이터 확인
+      } catch (parseError) {
+        console.error("JSON 파싱 실패:", parseError);
+
+        // JSON 파싱 실패 시 복구 시도
+        try {
+          const fileText = await file.text();
+          // JSON 복구 시도: 불완전한 JSON 문자열 정리
+          let cleanedText = fileText.trim();
+
+          // 불완전한 객체나 배열 닫기
+          let openBraces = (cleanedText.match(/\{/g) || []).length;
+          let closeBraces = (cleanedText.match(/\}/g) || []).length;
+          let openBrackets = (cleanedText.match(/\[/g) || []).length;
+          let closeBrackets = (cleanedText.match(/\]/g) || []).length;
+
+          // 닫는 괄호 추가
+          while (openBraces > closeBraces) {
+            cleanedText += '}';
+            closeBraces++;
+          }
+          while (openBrackets > closeBrackets) {
+            cleanedText += ']';
+            closeBrackets++;
+          }
+
+          console.log("JSON 복구 시도:", cleanedText);
+          json = JSON.parse(cleanedText);
+          console.log("JSON 복구 성공:", json);
+        } catch (recoveryError) {
+          console.error("JSON 복구도 실패:", recoveryError);
+          // 최후의 수단: 기본 구조 생성
+          json = {
+            scene: {
+              type: 'Scene',
+              children: [],
+              animations: []
+            },
+            camera: {
+              type: 'PerspectiveCamera',
+              position: [0, 0, 5],
+              rotation: [0, 0, 0]
+            },
+            objects: [],
+            animations: []
+          };
+          console.log("기본 JSON 구조 생성:", json);
+        }
+      }
 
       async function onEditorCleared() {
         try {
@@ -153,7 +204,48 @@ function MenubarFile(editor) {
               editor.motionTimeline.onAfterLoad();
             }
 
-            console.log("대체 방법으로 데이터 복원 완료");
+            // 추가적인 데이터 복원 시도
+            try {
+              // scene의 기본 구조만 복원
+              if (validatedJson.scene) {
+                // 기본 scene 속성만 설정
+                if (validatedJson.scene.name) {
+                  editor.scene.name = validatedJson.scene.name;
+                }
+                if (validatedJson.scene.userData) {
+                  editor.scene.userData = { ...editor.scene.userData, ...validatedJson.scene.userData };
+                }
+              }
+
+              // camera 복원 시도
+              if (validatedJson.camera && editor.camera) {
+                try {
+                  if (validatedJson.camera.position) {
+                    editor.camera.position.set(
+                      validatedJson.camera.position[0] || 0,
+                      validatedJson.camera.position[1] || 0,
+                      validatedJson.camera.position[2] || 5
+                    );
+                  }
+                  if (validatedJson.camera.rotation) {
+                    editor.camera.rotation.set(
+                      validatedJson.camera.rotation[0] || 0,
+                      validatedJson.camera.rotation[1] || 0,
+                      validatedJson.camera.rotation[2] || 0
+                    );
+                  }
+                } catch (cameraError) {
+                  console.warn("카메라 복원 실패:", cameraError);
+                }
+              }
+
+              console.log("대체 방법으로 데이터 복원 완료");
+            } catch (fallbackError) {
+              console.error("대체 방법도 실패:", fallbackError);
+              // 최후의 수단: 완전히 새로운 씬으로 시작
+              editor.clear();
+              alert("파일 로드에 실패했습니다. 새로운 씬으로 시작합니다.");
+            }
           }
         } catch (error) {
           console.error("JSON 데이터 로드 중 전체 오류:", error);
@@ -167,6 +259,8 @@ function MenubarFile(editor) {
       // JSON 데이터 검증 및 복구 함수
       function validateAndRepairJSON(data) {
         if (!data) return data;
+
+        console.log("JSON 데이터 검증 시작:", data);
 
         // animations 속성이 없으면 빈 배열로 초기화
         if (!data.animations) {
@@ -201,22 +295,41 @@ function MenubarFile(editor) {
           };
         }
 
-        // scene의 children이 올바른 형식인지 확인
+        // scene의 children이 올바른 형식인지 확인하고 복구
         if (data.scene && data.scene.children) {
           if (!Array.isArray(data.scene.children)) {
             console.warn("scene.children가 배열이 아니므로 빈 배열로 초기화");
             data.scene.children = [];
           } else {
-            // children의 각 객체가 올바른 형식인지 확인
+            // children의 각 객체를 검증하고 복구
             data.scene.children = data.scene.children.filter(child => {
               if (!child || typeof child !== 'object') {
                 console.warn("유효하지 않은 child 객체 제거:", child);
                 return false;
               }
-              if (!child.type || !child.uuid) {
-                console.warn("child에 필수 필드가 없어 제거:", child);
-                return false;
+
+              // type 속성이 없으면 기본값 설정
+              if (!child.type) {
+                console.warn("child에 type 속성이 없어 기본값 설정:", child);
+                child.type = 'Object3D'; // 기본 타입
               }
+
+              // uuid가 없으면 생성
+              if (!child.uuid) {
+                console.warn("child에 uuid가 없어 생성:", child);
+                child.uuid = crypto.randomUUID();
+              }
+
+              // 필수 속성들이 없으면 기본값 설정
+              if (!child.name) child.name = 'Object';
+              if (!child.position) child.position = [0, 0, 0];
+              if (!child.rotation) child.rotation = [0, 0, 0];
+              if (!child.scale) child.scale = [1, 1, 1];
+              if (!child.matrix) child.matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+              if (!child.userData) child.userData = {};
+              if (!child.children) child.children = [];
+              if (!child.animations) child.animations = [];
+
               return true;
             });
           }
@@ -227,12 +340,37 @@ function MenubarFile(editor) {
           data.objects = [];
         }
 
-        // 각 객체의 animations 속성 확인
+        // objects 배열의 각 객체를 검증하고 복구
         if (data.objects && Array.isArray(data.objects)) {
-          data.objects.forEach(obj => {
-            if (obj && !obj.animations) {
-              obj.animations = [];
+          data.objects = data.objects.filter(obj => {
+            if (!obj || typeof obj !== 'object') {
+              console.warn("유효하지 않은 object 제거:", obj);
+              return false;
             }
+
+            // type 속성이 없으면 기본값 설정
+            if (!obj.type) {
+              console.warn("object에 type 속성이 없어 기본값 설정:", obj);
+              obj.type = 'Object3D';
+            }
+
+            // uuid가 없으면 생성
+            if (!obj.uuid) {
+              console.warn("object에 uuid가 없어 생성:", obj);
+              obj.uuid = crypto.randomUUID();
+            }
+
+            // 필수 속성들이 없으면 기본값 설정
+            if (!obj.name) obj.name = 'Object';
+            if (!obj.position) obj.position = [0, 0, 0];
+            if (!obj.rotation) obj.rotation = [0, 0, 0];
+            if (!obj.scale) obj.scale = [1, 1, 1];
+            if (!obj.matrix) obj.matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+            if (!obj.userData) obj.userData = {};
+            if (!obj.children) obj.children = [];
+            if (!obj.animations) obj.animations = [];
+
+            return true;
           });
         }
 
@@ -267,6 +405,61 @@ function MenubarFile(editor) {
             rotation: data.camera.rotation || [0, 0, 0],
             scale: data.camera.scale || [1, 1, 1]
           };
+        }
+
+        // 재귀적으로 모든 객체의 children을 검증하고 복구
+        function validateChildrenRecursively(children) {
+          if (!Array.isArray(children)) return [];
+
+          return children.filter(child => {
+            if (!child || typeof child !== 'object') {
+              console.warn("재귀 검증: 유효하지 않은 child 객체 제거:", child);
+              return false;
+            }
+
+            // type 속성이 없으면 기본값 설정
+            if (!child.type) {
+              console.warn("재귀 검증: child에 type 속성이 없어 기본값 설정:", child);
+              child.type = 'Object3D';
+            }
+
+            // uuid가 없으면 생성
+            if (!child.uuid) {
+              console.warn("재귀 검증: child에 uuid가 없어 생성:", child);
+              child.uuid = crypto.randomUUID();
+            }
+
+            // 필수 속성들이 없으면 기본값 설정
+            if (!child.name) child.name = 'Object';
+            if (!child.position) child.position = [0, 0, 0];
+            if (!child.rotation) child.rotation = [0, 0, 0];
+            if (!child.scale) child.scale = [1, 1, 1];
+            if (!child.matrix) child.matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+            if (!child.userData) child.userData = {};
+            if (!child.children) child.children = [];
+            if (!child.animations) child.animations = [];
+
+            // 재귀적으로 children 검증
+            if (child.children) {
+              child.children = validateChildrenRecursively(child.children);
+            }
+
+            return true;
+          });
+        }
+
+        // scene의 children을 재귀적으로 검증
+        if (data.scene && data.scene.children) {
+          data.scene.children = validateChildrenRecursively(data.scene.children);
+        }
+
+        // objects의 children을 재귀적으로 검증
+        if (data.objects && Array.isArray(data.objects)) {
+          data.objects.forEach(obj => {
+            if (obj.children) {
+              obj.children = validateChildrenRecursively(obj.children);
+            }
+          });
         }
 
         console.log("JSON 데이터 검증 및 복구 완료:", data);
@@ -311,7 +504,8 @@ function MenubarFile(editor) {
       }
 
       // 저장 전 데이터 정리
-      const cleanJson = cleanDataForSaving(editor.toJSON());
+      const rawJson = editor.toJSON();
+      const cleanJson = cleanDataForSaving(validateAndRepairJSON(rawJson));
 
       console.log("Saving project:", cleanJson); // 저장되는 전체 데이터 확인
       // 특히 music 데이터가 있는지 확인
@@ -378,6 +572,9 @@ function MenubarFile(editor) {
 
           // 저장 전 데이터 정리 함수 (내부에 정의)
           function cleanDataForSaving(data) {
+            // 먼저 데이터 검증 및 복구 수행
+            data = validateAndRepairJSON(data);
+
             if (data === null || data === undefined) {
               return data;
             }
@@ -443,16 +640,12 @@ function MenubarFile(editor) {
                   // 특별한 객체들은 추가 속성 보존
                   if (obj.isScene) {
                     // children을 완전한 객체로 저장 (UUID만이 아닌)
-                    basicProps.children = obj.children ? obj.children
-                      .filter(child => {
-                        // userData.sceneHide가 true면 저장하지 않음
-                        if (child && child.userData && child.userData.sceneHide === true) return false;
-                        // type이 Light 계열이거나 background면 저장하지 않음
-                        const type = child.type || '';
-                        if (type.toLowerCase().includes('light') || type.toLowerCase().includes('background')) return false;
-                        return true;
-                      })
-                      .map(child => cleanObject(child, depth + 1)) : [];
+                    basicProps.children = obj.children ? obj.children.map(child => {
+                      if (child && typeof child === 'object') {
+                        return cleanObject(child, depth + 1);
+                      }
+                      return child.uuid || '';
+                    }) : [];
                     basicProps.animations = obj.animations ? obj.animations.map(anim => ({
                       name: anim.name,
                       duration: anim.duration,
@@ -554,7 +747,7 @@ function MenubarFile(editor) {
               for (const [key, value] of Object.entries(obj)) {
                 // 특정 키는 건너뛰기
                 if (key === 'mixer' || key === 'animationMixer' ||
-                  key === 'renderer' || key === 'camera' || /*key === 'scene' ||*/
+                  key === 'renderer' || key === 'camera' || key === 'scene' ||
                   key === 'geometry' || key === 'material' || key === 'texture' ||
                   key === 'userData' && typeof value === 'object' && value !== null) {
                   // userData는 motionTimeline만 유지하고 나머지는 제거
@@ -618,13 +811,11 @@ function MenubarFile(editor) {
 
           // 저장 전 데이터 정리
           const cleanJson = cleanDataForSaving(editor.toJSON());
-          console.log("[다름이름으로 저장] cleanJson:", cleanJson);
 
           // JSON.stringify에 안전장치 추가
           let jsonString;
           try {
             jsonString = JSON.stringify(cleanJson);
-            console.log("[다름이름으로 저장] jsonString:", jsonString);
             console.log("JSON 문자열 생성 성공, 길이:", jsonString.length);
           } catch (error) {
             console.error("JSON.stringify 실패:", error);
@@ -672,6 +863,9 @@ function MenubarFile(editor) {
       async function saveWithFallbackMethod() {
         // 저장 전 데이터 정리 함수 (내부에 정의)
         function cleanDataForSaving(data) {
+          // 먼저 데이터 검증 및 복구 수행
+          data = validateAndRepairJSON(data);
+
           if (data === null || data === undefined) {
             return data;
           }
@@ -737,16 +931,12 @@ function MenubarFile(editor) {
                 // 특별한 객체들은 추가 속성 보존
                 if (obj.isScene) {
                   // children을 완전한 객체로 저장 (UUID만이 아닌)
-                  basicProps.children = obj.children ? obj.children
-                    .filter(child => {
-                      // userData.sceneHide가 true면 저장하지 않음
-                      if (child && child.userData && child.userData.sceneHide === true) return false;
-                      // type이 Light 계열이거나 background면 저장하지 않음
-                      const type = child.type || '';
-                      if (type.toLowerCase().includes('light') || type.toLowerCase().includes('background')) return false;
-                      return true;
-                    })
-                    .map(child => cleanObject(child, depth + 1)) : [];
+                  basicProps.children = obj.children ? obj.children.map(child => {
+                    if (child && typeof child === 'object') {
+                      return cleanObject(child, depth + 1);
+                    }
+                    return child.uuid || '';
+                  }) : [];
                   basicProps.animations = obj.animations ? obj.animations.map(anim => ({
                     name: anim.name,
                     duration: anim.duration,
@@ -848,7 +1038,7 @@ function MenubarFile(editor) {
             for (const [key, value] of Object.entries(obj)) {
               // 특정 키는 건너뛰기
               if (key === 'mixer' || key === 'animationMixer' ||
-                key === 'renderer' || key === 'camera' || /*key === 'scene' ||*/
+                key === 'renderer' || key === 'camera' || key === 'scene' ||
                 key === 'geometry' || key === 'material' || key === 'texture' ||
                 key === 'userData' && typeof value === 'object' && value !== null) {
                 // userData는 motionTimeline만 유지하고 나머지는 제거
@@ -922,13 +1112,11 @@ function MenubarFile(editor) {
 
         // 저장 전 데이터 정리
         const cleanJson = cleanDataForSaving(editor.toJSON());
-        console.log("[다름이름으로 저장] cleanJson:", cleanJson);
 
         // JSON.stringify에 안전장치 추가
         let jsonString;
         try {
           jsonString = JSON.stringify(cleanJson);
-          console.log("[다름이름으로 저장] jsonString:", jsonString);
           console.log("JSON 문자열 생성 성공, 길이:", jsonString.length, "bytes");
         } catch (error) {
           console.error("JSON.stringify 실패:", error);

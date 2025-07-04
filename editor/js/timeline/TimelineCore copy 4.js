@@ -512,240 +512,12 @@ export class TrackData {
 
     return cloned;
   }
-
-  // 모든 키프레임 제거
-  clear() {
-    const removedCount = this.keyframeCount;
-    this.keyframeCount = 0;
-    this.dirty = true;
-
-    // 이벤트 발생
-    this.emit(KEYFRAME_EVENTS.REMOVED, {
-      removedCount,
-      message: 'All keyframes cleared'
-    });
-
-    return removedCount;
-  }
-
-  // 모든 키프레임 시간을 일괄적으로 업데이트
-  updateAllKeyframeTimes(timeOffset) {
-    if (Math.abs(timeOffset) < 0.001) {
-      console.log("시간 오프셋이 너무 작습니다:", timeOffset);
-      return true; // 변경 없음
-    }
-
-    console.log(`모든 키프레임 시간을 ${timeOffset}초만큼 이동`);
-    console.log("업데이트 전 키프레임 시간들:", Array.from(this.times.slice(0, this.keyframeCount)));
-
-    // 모든 키프레임의 시간을 업데이트
-    for (let i = 0; i < this.keyframeCount; i++) {
-      const oldTime = this.times[i];
-      const newTime = oldTime + timeOffset;
-
-      // 음수 시간 방지
-      if (newTime < 0) {
-        console.warn(`키프레임 ${i}의 시간이 음수가 됩니다: ${newTime}s, 0으로 조정`);
-        this.times[i] = 0;
-      } else {
-        this.times[i] = newTime;
-      }
-    }
-
-    this.dirty = true;
-    this.sortKeyframes();
-
-    console.log("업데이트 후 키프레임 시간들:", Array.from(this.times.slice(0, this.keyframeCount)));
-
-    // 이벤트 발생
-    this.emit(KEYFRAME_EVENTS.MOVED, {
-      timeOffset,
-      keyframeCount: this.keyframeCount,
-      message: 'All keyframe times updated'
-    });
-
-    return true;
-  }
-}
-
-// 키프레임 데이터 클래스 (클립 기준 상대 시간)
-export class KeyframeData {
-  constructor(options = {}) {
-    this.id = options.id || crypto.randomUUID();
-    this.clipId = options.clipId || null; // 속한 클립의 ID
-    this.relativeTime = options.relativeTime || 0; // 클립 내에서의 상대 시간 (초)
-    this.value = options.value || new THREE.Vector3();
-    this.interpolation = options.interpolation || INTERPOLATION.LINEAR;
-  }
-
-  // 절대 시간 계산 (클립 시작 시간 + 상대 시간)
-  getAbsoluteTime(clipStartTime) {
-    return clipStartTime + this.relativeTime;
-  }
-
-  // JSON 변환
-  toJSON() {
-    return {
-      id: this.id,
-      clipId: this.clipId,
-      relativeTime: this.relativeTime,
-      value: [this.value.x, this.value.y, this.value.z],
-      interpolation: this.interpolation
-    };
-  }
-
-  // JSON에서 복원
-  fromJSON(data) {
-    this.id = data.id || this.id;
-    this.clipId = data.clipId || this.clipId;
-    this.relativeTime = data.relativeTime || this.relativeTime;
-    this.value = new THREE.Vector3(
-      data.value[0] || 0,
-      data.value[1] || 0,
-      data.value[2] || 0
-    );
-    this.interpolation = data.interpolation || this.interpolation;
-  }
-}
-
-// 클립 데이터 클래스
-export class ClipData {
-  constructor(options = {}) {
-    this.id = options.id || crypto.randomUUID();
-    this.name = options.name || "Animation";
-    this.startTime = options.startTime || 0; // 클립 시작 시간 (초)
-    this.duration = options.duration || 5; // 클립 지속 시간 (초)
-    this.left = options.left || 0; // 클립의 퍼센트 위치 (0-100)
-    this.width = options.width || 100; // 클립의 퍼센트 너비 (0-100)
-    this.visible = options.visible !== undefined ? options.visible : true;
-    this.selected = options.selected || false;
-    this.keyframes = options.keyframes || []; // KeyframeData 배열
-  }
-
-  // 클립의 끝 시간 계산
-  getEndTime() {
-    return this.startTime + this.duration;
-  }
-
-  // 클립이 특정 시간에 활성화되어 있는지 확인
-  isActiveAt(time) {
-    return time >= this.startTime && time <= this.getEndTime();
-  }
-
-  // 클립 내에서의 상대 시간 계산
-  getRelativeTime(absoluteTime) {
-    return absoluteTime - this.startTime;
-  }
-
-  // JSON 변환
-  toJSON() {
-    return {
-      id: this.id,
-      name: this.name,
-      startTime: this.startTime,
-      duration: this.duration,
-      left: this.left,
-      width: this.width,
-      visible: this.visible,
-      selected: this.selected
-    };
-  }
-
-  // 키프레임 추가
-  addKeyframe(keyframeData) {
-    this.keyframes.push(keyframeData);
-    this.keyframes.sort((a, b) => a.relativeTime - b.relativeTime);
-  }
-
-  // 키프레임 제거
-  removeKeyframe(keyframeId) {
-    const index = this.keyframes.findIndex(kf => kf.id === keyframeId);
-    if (index !== -1) {
-      this.keyframes.splice(index, 1);
-      return true;
-    }
-    return false;
-  }
-
-  // 키프레임 업데이트
-  updateKeyframe(keyframeId, updates) {
-    const keyframe = this.keyframes.find(kf => kf.id === keyframeId);
-    if (keyframe) {
-      Object.assign(keyframe, updates);
-      this.keyframes.sort((a, b) => a.relativeTime - b.relativeTime);
-      return true;
-    }
-    return false;
-  }
-
-  // 특정 시간의 키프레임 찾기
-  getKeyframeAtTime(relativeTime, tolerance = 0.1) {
-    return this.keyframes.find(kf => Math.abs(kf.relativeTime - relativeTime) < tolerance);
-  }
-
-  // JSON 변환
-  toJSON() {
-    return {
-      id: this.id,
-      name: this.name,
-      startTime: this.startTime,
-      duration: this.duration,
-      left: this.left,
-      width: this.width,
-      visible: this.visible,
-      selected: this.selected,
-      keyframes: this.keyframes.map(kf => kf.toJSON())
-    };
-  }
-
-  // JSON에서 복원
-  fromJSON(data) {
-    this.id = data.id || this.id;
-    this.name = data.name || this.name;
-    this.startTime = data.startTime || this.startTime;
-    this.duration = data.duration || this.duration;
-    this.left = data.left || this.left;
-    this.width = data.width || this.width;
-    this.visible = data.visible !== undefined ? data.visible : this.visible;
-    this.selected = data.selected || this.selected;
-
-    // 키프레임 데이터 복원 (하위 호환성 지원)
-    this.keyframes = [];
-    if (data.keyframes && Array.isArray(data.keyframes)) {
-      data.keyframes.forEach(kfData => {
-        // 새로운 KeyframeData 구조인지 확인
-        if (kfData.relativeTime !== undefined && kfData.clipId !== undefined) {
-          // 새로운 구조: KeyframeData 객체
-          const keyframe = new KeyframeData();
-          keyframe.fromJSON(kfData);
-          this.keyframes.push(keyframe);
-        } else {
-          // 기존 구조: 일반 객체 (하위 호환성)
-          console.log("기존 키프레임 데이터 구조 감지, 하위 호환성 모드로 처리");
-          const keyframe = new KeyframeData({
-            id: kfData.id || crypto.randomUUID(),
-            clipId: this.id, // 현재 클립의 ID
-            relativeTime: (kfData.time || kfData.absoluteTime || 0) - this.startTime,
-            value: new THREE.Vector3(
-              kfData.value[0] || kfData.x || 0,
-              kfData.value[1] || kfData.y || 0,
-              kfData.value[2] || kfData.z || 0
-            ),
-            interpolation: kfData.interpolation || INTERPOLATION.LINEAR
-          });
-          this.keyframes.push(keyframe);
-        }
-      });
-      this.keyframes.sort((a, b) => a.relativeTime - b.relativeTime);
-    }
-  }
 }
 
 // 타임라인 데이터 클래스
 export class TimelineData {
   constructor() {
     this.tracks = new Map(); // objectUuid -> Map(property -> TrackData)
-    this.clips = new Map(); // objectUuid -> ClipData[]
     this.maxTime = 0;
     this.frameRate = 30;
     this.precomputedData = null;
@@ -824,71 +596,6 @@ export class TimelineData {
     }
   }
 
-  // 클립 추가
-  addClip(objectUuid, clipOptions = {}) {
-    if (!this.clips.has(objectUuid)) {
-      this.clips.set(objectUuid, []);
-    }
-
-    // 중복 클립 확인 (ID가 있는 경우)
-    if (clipOptions.id) {
-      const existingClip = this.clips.get(objectUuid).find(clip => clip.id === clipOptions.id);
-      if (existingClip) {
-        console.log(`클립 ID ${clipOptions.id}가 이미 존재합니다. 업데이트합니다.`);
-        existingClip.fromJSON(clipOptions);
-        this.dirty = true;
-        return existingClip;
-      }
-    }
-
-    const clipData = new ClipData(clipOptions);
-    this.clips.get(objectUuid).push(clipData);
-    this.dirty = true;
-    return clipData;
-  }
-
-  // 클립 삭제
-  removeClip(objectUuid, clipId) {
-    const objectClips = this.clips.get(objectUuid);
-    if (objectClips) {
-      const index = objectClips.findIndex(clip => clip.id === clipId);
-      if (index !== -1) {
-        objectClips.splice(index, 1);
-        this.dirty = true;
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // 클립 업데이트
-  updateClip(objectUuid, clipId, updates = {}) {
-    const objectClips = this.clips.get(objectUuid);
-    if (objectClips) {
-      const clip = objectClips.find(clip => clip.id === clipId);
-      if (clip) {
-        Object.assign(clip, updates);
-        this.dirty = true;
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // 객체의 모든 클립 가져오기
-  getClips(objectUuid) {
-    return this.clips.get(objectUuid) || [];
-  }
-
-  // 특정 시간에 활성화된 클립 가져오기
-  getActiveClip(objectUuid, time) {
-    const objectClips = this.clips.get(objectUuid);
-    if (objectClips) {
-      return objectClips.find(clip => clip.isActiveAt(time));
-    }
-    return null;
-  }
-
   // 최대 시간 업데이트
   updateMaxTime(time) {
     this.maxTime = Math.max(this.maxTime, time);
@@ -897,15 +604,12 @@ export class TimelineData {
 
   // 애니메이션 데이터 사전 계산
   precomputeAnimationData() {
-    if (!this.dirty) {
-      console.log("TimelineData가 dirty가 아니므로 precomputeAnimationData를 건너뜁니다.");
-      return;
-    }
+    if (!this.dirty) return;
 
     this.precomputedData = new Map();
 
-    // 더 큰 시간 범위를 위해 여유분 추가 (20% 여유로 증가)
-    const safetyMargin = 1.2;
+    // 더 큰 시간 범위를 위해 여유분 추가 (10% 여유)
+    const safetyMargin = 1.1;
     const totalFrames = Math.ceil(this.maxTime * this.frameRate * safetyMargin);
 
     console.log("=== precomputeAnimationData 디버깅 ===");
@@ -954,12 +658,10 @@ export class TimelineData {
   toJSON() {
     const data = {
       tracks: {},
-      clips: {},
       maxTime: this.maxTime,
       frameRate: this.frameRate
     };
 
-    // 트랙 데이터 저장
     this.tracks.forEach((objectTracks, objectUuid) => {
       data.tracks[objectUuid] = {};
       objectTracks.forEach((trackData, property) => {
@@ -969,11 +671,6 @@ export class TimelineData {
           interpolations: Array.from(trackData.interpolations.slice(0, trackData.keyframeCount))
         };
       });
-    });
-
-    // 클립 데이터 저장
-    this.clips.forEach((objectClips, objectUuid) => {
-      data.clips[objectUuid] = objectClips.map(clip => clip.toJSON());
     });
 
     console.log("toJSON");
@@ -987,8 +684,6 @@ export class TimelineData {
     console.log("받은 데이터:", data);
 
     this.tracks.clear();
-    // 클립은 기존 것을 유지하고 업데이트만 함 (중복 방지)
-    // this.clips.clear(); // 이 줄을 제거하여 기존 클립 유지
     this.maxTime = data.maxTime || 0;
     this.frameRate = data.frameRate || 30;
 
@@ -1042,20 +737,6 @@ export class TimelineData {
         }
       });
     });
-
-    // 클립 데이터 로드
-    if (data.clips && typeof data.clips === 'object') {
-      console.log("클립 데이터 로드 중:", data.clips);
-
-      Object.entries(data.clips).forEach(([objectUuid, clipsArray]) => {
-        if (Array.isArray(clipsArray)) {
-          clipsArray.forEach(clipData => {
-            // addClip 메서드에서 중복 확인 및 업데이트 처리
-            this.addClip(objectUuid, clipData);
-          });
-        }
-      });
-    }
 
     this.dirty = true;
     console.log("=== TimelineCore fromJSON 완료 ===");
