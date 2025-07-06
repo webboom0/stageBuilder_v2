@@ -155,11 +155,11 @@ class Timeline {
         const objectId = parseInt(track.dataset.objectId, 10);
         console.log("트랙 삭제");
         console.log(objectId);
+        console.log(this.timelines.motion.tracks);
+        console.log(this.timelines.motion.tracks.keys());
+        console.log(this.timelines.motion.tracks.get(objectId));
 
-        // TimelineData에서 트랙 삭제
-        const wasDeleted = this.timelines.motion.timelineData.removeTrackById(objectId, 'position') ||
-                          this.timelines.motion.timelineData.removeTrackById(objectId, 'rotation') ||
-                          this.timelines.motion.timelineData.removeTrackById(objectId, 'scale');
+        const wasDeleted = this.timelines.motion.tracks.delete(objectId);
         console.log(`삭제 성공 여부: ${wasDeleted}`);
         track.remove();
         menu.remove();
@@ -285,9 +285,10 @@ class Timeline {
     });
     // 선택된 FBX 객체의 모션 타임라인 추가
     if (this.timelines.motion) {
-      // TimelineData 기반으로 이미 존재하는 트랙인지 확인
-      const existingTracks = this.timelines.motion.timelineData.getObjectTracks(selectedObject.uuid);
-      if (existingTracks.size > 0) {
+      // 이미 존재하는 트랙인지 확인
+      const existingTrack = this.timelines.motion.tracks.get(selectedObject.id);
+
+      if (existingTrack) {
         alert("이 객체트랙은 이미 타임라인에 존재합니다.");
         return;
       }
@@ -479,64 +480,6 @@ class Timeline {
         this.updatePlayheadPosition(percent * 100);
       });
     }
-
-    // 키보드 단축키 이벤트
-    document.addEventListener("keydown", (e) => {
-      // 스페이스바로 재생/일시정지 토글
-      if (e.code === "Space") {
-        e.preventDefault(); // 기본 스크롤 동작 방지
-
-        // scene이 없거나 timeline이 초기화되지 않은 경우 처리
-        if (!this.editor.scene) {
-          this.editor.scene = {
-            userData: {
-              timeline: {
-                isPlaying: false,
-                currentFrame: 0,
-              },
-            },
-          };
-        } else if (!this.editor.scene.userData) {
-          this.editor.scene.userData = {
-            timeline: {
-              isPlaying: false,
-              currentFrame: 0,
-            },
-          };
-        } else if (!this.editor.scene.userData.timeline) {
-          this.editor.scene.userData.timeline = {
-            isPlaying: false,
-            currentFrame: 0,
-          };
-        }
-
-        const isPlaying = this.editor.scene.userData.timeline.isPlaying;
-        console.log("스페이스바 단축키 - 현재 재생 상태:", isPlaying);
-
-        if (!isPlaying) {
-          console.log("재생 시작");
-          this.play();
-        } else {
-          console.log("일시정지");
-          this.pause();
-        }
-      }
-
-      // ESC 키로 정지
-      if (e.code === "Escape") {
-        e.preventDefault();
-        console.log("ESC 키 - 정지");
-        this.stop();
-        // 정지 시 처음으로 돌아가기
-        this.setCurrentFrame(0);
-        this.updatePlayheadPosition(0);
-
-        const frameInput = this.container.querySelector(".frame-input");
-        if (frameInput) {
-          frameInput.value = "0.0";
-        }
-      }
-    });
 
     // Editor 시그널이 존재하는 경우에만 바인딩
     if (this.editor.signals) {
@@ -930,16 +873,24 @@ class Timeline {
     const ph = document.createElement("div");
     ph.className = "playhead";
     ph.style.left = "0%";
-    ph.style.height = document.querySelector(".timelineWrapper").clientHeight + "px";
     ph.innerHTML = '<span class="time-box"></span>';
     ruler.appendChild(ph);
 
+    // 타임라인 뷰포트에도 플레이헤드 추가
+    const viewport = this.container.querySelector(".timeline-viewport");
+    const viewportPh = document.createElement("div");
+    viewportPh.className = "playhead";
+    viewportPh.style.left = "0%";
+    viewport.appendChild(viewportPh);
     // 플레이헤드 위치 업데이트 함수
     const updatePlayheadPosition = (percent) => {
       console.log("Timeline.js updatePlayheadPosition", percent);
 
       // 룰러의 플레이헤드 위치 업데이트
       ph.style.left = `${percent}%`;
+
+      // 뷰포트의 플레이헤드 위치 업데이트 (동일한 퍼센트 사용)
+      viewportPh.style.left = `${percent}%`;
 
       // 현재 시간을 초 단위로 계산하여 time-box에 업데이트
       const totalFrames =

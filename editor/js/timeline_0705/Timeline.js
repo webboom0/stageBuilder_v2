@@ -155,7 +155,7 @@ class Timeline {
         const objectId = parseInt(track.dataset.objectId, 10);
         console.log("트랙 삭제");
         console.log(objectId);
-
+        
         // TimelineData에서 트랙 삭제
         const wasDeleted = this.timelines.motion.timelineData.removeTrackById(objectId, 'position') ||
                           this.timelines.motion.timelineData.removeTrackById(objectId, 'rotation') ||

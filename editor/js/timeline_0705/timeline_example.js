@@ -515,7 +515,7 @@ export function runExamples() {
     trackDataExample();
     timelineDataExample();
     showUsageGuide();
-} 
+}
 
 // 트랙 데이터 정리 및 관리 예제
 export function createTracksDataManagementExample(editor) {

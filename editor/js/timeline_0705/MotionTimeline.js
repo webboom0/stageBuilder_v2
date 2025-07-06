@@ -276,11 +276,11 @@ export class MotionTimeline extends BaseTimeline {
                     }
                 });
 
-                // 클립 범위에 있지 않으면 객체를 숨김 (임시로 비활성화)
+                // 클립 범위에 있지 않으면 객체를 숨김
                 if (!isInActiveClip) {
-                    console.log(`[updateAnimation - PLAYING] ${objectUuid} 클립 범위 밖이지만 임시로 보이게 설정`);
-                    // object.visible = false; // 임시로 주석 처리
-                    // return; // 임시로 주석 처리
+                    console.log(`[updateAnimation - PLAYING] ${objectUuid} 클립 범위 밖 - 객체 숨김`);
+                    object.visible = false;
+                    return;
                 } else {
                     console.log(`[updateAnimation - PLAYING] ${objectUuid} 클립 범위 안 - 객체 보임`);
                 }
@@ -3172,134 +3172,47 @@ export class MotionTimeline extends BaseTimeline {
     onAfterLoad() {
         try {
             console.log("=== MotionTimeline onAfterLoad 시작 ===");
-            
-            // window.projectData에서 motionTimeline 데이터 확인 (우선순위 1)
-            if (window.projectData && window.projectData.motionTimeline) {
-                console.log("window.projectData.motionTimeline 데이터:", window.projectData.motionTimeline);
-                
-                // timelineData가 비어있고 projectData에 데이터가 있으면 복원
-                if (!this.timelineData || this.timelineData.tracks.size === 0) {
-                    console.log("projectData에서 timelineData 복원 중...");
-                    
-                    const timelineData = window.projectData.motionTimeline;
-                    console.log("원본 timelineData:", timelineData);
-                    
-                    if (timelineData.tracks && Object.keys(timelineData.tracks).length > 0) {
-                        console.log("tracks 데이터 발견:", timelineData.tracks);
-                        this.timelineData.fromJSON(timelineData);
-                        console.log("projectData에서 복원 완료");
-                    } else {
-                        console.warn("projectData.motionTimeline에 tracks 데이터가 없습니다:", timelineData);
-                    }
-                }
-            }
-            
-            // scene.userData에서 motionTimeline 데이터 확인 (우선순위 2)
+            console.log("현재 options:", this.options);
+
+            // scene.userData에서 motionTimeline 데이터 확인
             if (this.editor.scene && this.editor.scene.userData && this.editor.scene.userData.motionTimeline) {
-                console.log("scene.userData.motionTimeline 데이터:", this.editor.scene.userData.motionTimeline);
-                
-                // timelineData가 여전히 비어있고 scene.userData에 데이터가 있으면 복원
+                console.log("scene.userData.motionTimeline:", this.editor.scene.userData.motionTimeline);
+
+                // timelineData가 비어있고 scene.userData에 데이터가 있으면 복원
                 if (!this.timelineData || this.timelineData.tracks.size === 0) {
                     console.log("scene.userData에서 timelineData 복원 중...");
-                    
-                    const timelineData = this.editor.scene.userData.motionTimeline;
-                    console.log("원본 timelineData:", timelineData);
-                    
-                    // tracks 속성이 있는지 확인
-                    if (timelineData.tracks && Object.keys(timelineData.tracks).length > 0) {
-                        console.log("tracks 데이터 발견:", timelineData.tracks);
-                        this.timelineData.fromJSON(timelineData);
-                        console.log("scene.userData에서 복원 완료");
-                    } else {
-                        console.warn("scene.userData.motionTimeline에 tracks 데이터가 없습니다:", timelineData);
-                    }
+                    this.timelineData.fromJSON(this.editor.scene.userData.motionTimeline);
+                    console.log("복원된 timelineData:", this.timelineData);
                 }
-            } else {
-                console.warn("scene.userData.motionTimeline이 없습니다");
             }
-            
-            console.log("복원할 MotionTimeline 데이터를 찾을 수 없습니다");
 
             // timelineData가 여전히 비어있으면 아무것도 하지 않음
             if (!this.timelineData || this.timelineData.tracks.size === 0) {
-                console.log("timelineData가 비어있어서 UI 트랙 생성을 건너뜁니다.");
+                console.log("timelineData가 비어있으므로 아무것도 하지 않습니다.");
                 return;
             }
 
-            console.log("=== UI 트랙 생성 시작 ===");
-            console.log("timelineData.tracks.size:", this.timelineData.tracks.size);
-
             // TimelineData에서 UI 트랙 생성
+            console.log("TimelineData에서 UI 트랙 생성 중...");
             this.timelineData.tracks.forEach((objectTracks, objectUuid) => {
-                console.log(`트랙 생성 중: ${objectUuid}`);
-                console.log(`objectTracks:`, objectTracks);
-                
+                console.log(`객체 ${objectUuid}의 트랙 생성 중:`, objectTracks);
+
                 // 씬에서 해당 객체 찾기
-                let object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
-                
-                // UUID가 일치하지 않는 경우, 이름으로 찾기 시도
-                if (!object) {
-                    console.log(`UUID로 객체를 찾을 수 없음: ${objectUuid}, 이름으로 찾기 시도`);
-                    
-                    // scene의 모든 children을 순회하며 이름이 일치하는 객체 찾기
-                    const findObjectByName = (parent) => {
-                        for (const child of parent.children) {
-                            if (child.name && child.name.length > 0) {
-                                console.log(`검색 중: ${child.name} (${child.uuid})`);
-                            }
-                            // MotionTimeline 데이터의 UUID와 일치하는 객체 찾기
-                            if (child.uuid === objectUuid) {
-                                return child;
-                            }
-                            const found = findObjectByName(child);
-                            if (found) return found;
-                        }
-                        return null;
-                    };
-                    
-                    object = findObjectByName(this.editor.scene);
-                    
-                    if (object) {
-                        console.log(`이름으로 객체 발견: ${object.name} (${object.uuid})`);
-                        
-                        // UUID를 실제 객체의 UUID로 업데이트
-                        const oldUuid = objectUuid;
-                        const newUuid = object.uuid;
-                        
-                        // TimelineData에서 UUID 업데이트
-                        const oldTracks = this.timelineData.tracks.get(oldUuid);
-                        if (oldTracks) {
-                            this.timelineData.tracks.delete(oldUuid);
-                            this.timelineData.tracks.set(newUuid, oldTracks);
-                            console.log(`UUID 업데이트: ${oldUuid} -> ${newUuid}`);
-                            objectUuid = newUuid; // 현재 반복에서 사용할 UUID 업데이트
-                        }
-                    } else {
-                        // UUID로도 찾을 수 없는 경우, scene의 첫 번째 객체를 사용
-                        console.log(`UUID ${objectUuid}로 객체를 찾을 수 없습니다. scene의 첫 번째 객체를 사용합니다.`);
-                        if (this.editor.scene.children.length > 0) {
-                            object = this.editor.scene.children[0];
-                            console.log(`첫 번째 객체 사용: ${object.name} (${object.uuid})`);
-                            
-                            // UUID를 실제 객체의 UUID로 업데이트
-                            const oldUuid = objectUuid;
-                            const newUuid = object.uuid;
-                            
-                            // TimelineData에서 UUID 업데이트
-                            const oldTracks = this.timelineData.tracks.get(oldUuid);
-                            if (oldTracks) {
-                                this.timelineData.tracks.delete(oldUuid);
-                                this.timelineData.tracks.set(newUuid, oldTracks);
-                                console.log(`UUID 업데이트: ${oldUuid} -> ${newUuid}`);
-                                objectUuid = newUuid; // 현재 반복에서 사용할 UUID 업데이트
-                            }
-                        }
-                    }
-                }
-                
+                const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
                 if (object) {
-                    console.log(`객체 발견: ${object.name} (${objectUuid})`);
-                    
+                    console.log(`객체를 찾았습니다: ${object.name} (${objectUuid})`);
+                    console.log(`객체 상태 확인:`, {
+                        name: object.name,
+                        type: object.type,
+                        visible: object.visible,
+                        position: object.position,
+                        scale: object.scale,
+                        parent: object.parent?.name,
+                        parentVisible: object.parent?.visible,
+                        isInScene: this.editor.scene.children.includes(object) || this.editor.scene.getObjectByProperty('uuid', objectUuid) !== null,
+                        sceneChildrenCount: this.editor.scene.children.length
+                    });
+
                     // objectId 생성 (UUID의 일부 사용)
                     const objectId = objectUuid.split('-')[0] || objectUuid;
 
@@ -3310,19 +3223,25 @@ export class MotionTimeline extends BaseTimeline {
                     // 저장된 클립 정보 확인
                     const savedClipData = this.editor.scene.userData.motionTimeline?.clips?.[objectUuid];
                     if (savedClipData) {
-                        console.log(`클립 정보 발견:`, savedClipData);
-                        // 클립 정보 복원 로직
+                        console.log(`저장된 클립 정보 복원: ${objectUuid}`, savedClipData);
                     }
                 } else {
                     console.warn(`객체를 찾을 수 없습니다: ${objectUuid}`);
+                    console.log(`씬의 모든 객체들:`, this.editor.scene.children.map(child => ({
+                        name: child.name,
+                        uuid: child.uuid,
+                        type: child.type
+                    })));
                 }
             });
 
             // 애니메이션 상태 복원
+            console.log("precomputeAnimationData 실행 중...");
             this.timelineData.precomputeAnimationData();
 
             // UI가 완전히 로드되었는지 확인 후 애니메이션 업데이트
             setTimeout(() => {
+                console.log("updateAnimation 실행 중...");
                 this.updateAnimation();
 
                 // 모든 트랙의 UI 업데이트 강제 실행
@@ -3330,6 +3249,7 @@ export class MotionTimeline extends BaseTimeline {
                     const { uuid: objectUuid } = trackInfo;
                     const trackElement = this.container.querySelector(`[data-uuid="${objectUuid}"]`);
                     if (trackElement) {
+                        console.log(`트랙 UI 업데이트: ${objectUuid}`);
                         this.updateTrackUI(trackElement, this.currentTime);
                     }
                 });
@@ -3338,13 +3258,17 @@ export class MotionTimeline extends BaseTimeline {
                 this.timelineData.tracks.forEach((objectTracks, objectUuid) => {
                     objectTracks.forEach((trackData, property) => {
                         if (property !== 'position') { // position은 이미 처리됨
+                            console.log(`속성 트랙 복원: ${objectUuid}.${property}`);
                             this.createPropertyTrack(objectUuid, property);
                         }
                     });
                 });
             }, 100); // 100ms 지연으로 UI 로드 완료 보장
+
+            console.log("=== MotionTimeline onAfterLoad 완료 ===");
             
             // 모든 객체의 최종 상태 확인 및 가시성 설정
+            console.log("=== 모든 객체 상태 확인 및 가시성 설정 ===");
             this.timelineData.tracks.forEach((objectTracks, objectUuid) => {
                 const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
                 if (object) {
@@ -3357,6 +3281,15 @@ export class MotionTimeline extends BaseTimeline {
                         parent.visible = true;
                         parent = parent.parent;
                     }
+                    
+                    console.log(`최종 객체 상태 - ${object.name}:`, {
+                        visible: object.visible,
+                        position: object.position,
+                        scale: object.scale,
+                        parent: object.parent?.name,
+                        parentVisible: object.parent?.visible,
+                        isInScene: this.editor.scene.children.includes(object)
+                    });
                 }
             });
         } catch (error) {
@@ -3367,6 +3300,8 @@ export class MotionTimeline extends BaseTimeline {
     // JSON 저장 전 호출되는 메서드 (Editor.js에서 호출될 수 있음)
     onBeforeSave() {
         try {
+            console.log("=== MotionTimeline onBeforeSave 시작 ===");
+
             // scene.userData에 현재 상태 저장
             if (this.editor.scene && this.timelineData) {
                 const timelineData = this.timelineData.toJSON();
@@ -3392,7 +3327,10 @@ export class MotionTimeline extends BaseTimeline {
                 timelineData.clips = clipsData;
                 
                 this.editor.scene.userData.motionTimeline = timelineData;
+                console.log("scene.userData.motionTimeline 저장 완료 (클립 정보 포함)");
             }
+
+            console.log("=== MotionTimeline onBeforeSave 완료 ===");
         } catch (error) {
             console.error("타임라인 데이터 저장 중 오류:", error);
         }
@@ -4029,7 +3967,7 @@ export class MotionTimeline extends BaseTimeline {
 
     // 트랙 데이터 내보내기 (JSON)
     exportTracksData() {
-        if (!this.timelineData) {ㄹ
+        if (!this.timelineData) {
             console.warn('TimelineData가 초기화되지 않았습니다.');
             return null;
         }

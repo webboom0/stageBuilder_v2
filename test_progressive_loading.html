@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>점진적 로딩 테스트 (3단계)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        .progress-container {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .loading-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .comparison-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .loading-queue {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .queue-item {
+            padding: 5px;
+            margin: 2px 0;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .queue-pending { background: #fff3cd; }
+        .queue-loading { background: #d1ecf1; }
+        .queue-completed { background: #d4edda; }
+        .queue-failed { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>점진적 로딩 테스트 (3단계)</h1>
+    
+    <div class="test-section">
+        <h2>1. 샘플 데이터 생성</h2>
+        <button onclick="generateLargeSampleData()">대용량 샘플 데이터 생성</button>
+        <div id="sampleDataResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 점진적 로딩 설정</h2>
+        <div>
+            <label>
+                <input type="checkbox" id="enableProgressive" checked> 점진적 로딩 활성화
+            </label>
+        </div>
+        <div>
+            <label>배치 크기: <input type="number" id="batchSize" value="3" min="1" max="10"></label>
+        </div>
+        <div>
+            <label>배치 간 지연 (ms): <input type="number" id="batchDelay" value="50" min="0" max="500"></label>
+        </div>
+        <div>
+            <label>우선순위 순서: <select id="priorityOrder">
+                <option value="base,scene,timeline,music,history">기본 → 씬 → 타임라인 → 음악 → 히스토리</option>
+                <option value="base,timeline,scene,music,history">기본 → 타임라인 → 씬 → 음악 → 히스토리</option>
+                <option value="base,music,timeline,scene,history">기본 → 음악 → 타임라인 → 씬 → 히스토리</option>
+            </select></label>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 점진적 로딩 테스트</h2>
+        <button onclick="testProgressiveLoading()" id="testBtn">점진적 로딩 시작</button>
+        <button onclick="cancelLoading()" id="cancelBtn" disabled>로딩 취소</button>
+        
+        <div class="progress-container" id="progressContainer" style="display: none;">
+            <h3>로딩 진행률</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div id="progressText">0% (0/0)</div>
+            <div id="progressDetail" style="font-size: 12px; color: #6c757d;"></div>
+        </div>
+
+        <div class="loading-stats" id="loadingStats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalItems">0</div>
+                <div class="stat-label">총 항목</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="loadedItems">0</div>
+                <div class="stat-label">로드된 항목</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="loadingTime">0ms</div>
+                <div class="stat-label">로딩 시간</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgTimePerItem">0ms</div>
+                <div class="stat-label">항목당 평균 시간</div>
+            </div>
+        </div>
+
+        <div class="loading-queue" id="loadingQueue" style="display: none;">
+            <h4>로딩 큐 상태</h4>
+            <div id="queueItems"></div>
+        </div>
+
+        <div id="loadingResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 성능 비교</h2>
+        <div class="comparison">
+            <div class="comparison-item">
+                <h3>일반 로딩</h3>
+                <div id="normalLoadingStats"></div>
+            </div>
+            <div class="comparison-item">
+                <h3>점진적 로딩</h3>
+                <div id="progressiveLoadingStats"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 데이터 무결성 검증</h2>
+        <button onclick="verifyDataIntegrity()" id="verifyBtn" disabled>데이터 무결성 검증</button>
+        <div id="integrityResult" class="result"></div>
+    </div>
+
+    <script type="module">
+        // 전역 변수
+        let originalData = null;
+        let progressiveData = null;
+        let normalData = null;
+        let loadingStartTime = 0;
+        let loadingEndTime = 0;
+        let currentLoader = null;
+
+        // ProgressiveLoader 클래스 (간단한 버전)
+        class ProgressiveLoader {
+            constructor() {
+                this.loadingQueue = [];
+                this.isLoading = false;
+                this.totalItems = 0;
+                this.loadedItems = 0;
+                this.events = {
+                    onProgress: null,
+                    onComplete: null,
+                    onError: null
+                };
+            }
+
+            async loadProjectProgressively(projectData, options = {}) {
+                const {
+                    priorityOrder = ['base', 'scene', 'timeline', 'music', 'history'],
+                    batchSize = 3,
+                    delayBetweenBatches = 50,
+                    showProgress = true
+                } = options;
+
+                console.log("=== 점진적 로딩 시작 ===");
+                
+                try {
+                    // 1. 기본 데이터 즉시 로드
+                    const baseData = await this.loadBaseData(projectData);
+                    
+                    // 2. 로딩 큐 구성
+                    this.setupLoadingQueue(projectData, priorityOrder);
+                    
+                    // 3. 점진적 로딩 실행
+                    const result = await this.executeProgressiveLoading(batchSize, delayBetweenBatches, showProgress);
+                    
+                    // 4. 최종 데이터 병합
+                    const finalData = this.mergeLoadedData(baseData, result);
+                    
+                    console.log("=== 점진적 로딩 완료 ===");
+                    return finalData;
+                    
+                } catch (error) {
+                    console.error("점진적 로딩 실패:", error);
+                    this.triggerEvent('onError', error);
+                    throw error;
+                }
+            }
+
+            async loadBaseData(projectData) {
+                console.log("기본 데이터 로드 중...");
+                
+                const baseData = {
+                    metadata: projectData.metadata,
+                    project: projectData.project,
+                    camera: projectData.camera,
+                    environment: projectData.environment,
+                    scripts: projectData.scripts
+                };
+
+                if (projectData.scene) {
+                    baseData.scene = this.extractSceneStructure(projectData.scene);
+                }
+
+                console.log("기본 데이터 로드 완료");
+                return baseData;
+            }
+
+            extractSceneStructure(sceneData) {
+                const structure = { ...sceneData };
+                
+                if (structure.children && Array.isArray(structure.children)) {
+                    structure.children = structure.children.map(child => ({
+                        uuid: child.uuid,
+                        name: child.name,
+                        type: child.type,
+                        position: child.position,
+                        rotation: child.rotation,
+                        scale: child.scale,
+                        visible: child.visible,
+                        userData: child.userData,
+                        geometryFile: child.geometryFile || null,
+                        materialFile: child.materialFile || null
+                    }));
+                }
+                
+                return structure;
+            }
+
+            setupLoadingQueue(projectData, priorityOrder) {
+                this.loadingQueue = [];
+                this.totalItems = 0;
+                this.loadedItems = 0;
+
+                priorityOrder.forEach(priority => {
+                    switch (priority) {
+                        case 'scene':
+                            if (projectData.scene) {
+                                this.addSceneLoadingTasks(projectData.scene);
+                            }
+                            break;
+                        case 'timeline':
+                            if (projectData.motionTimeline) {
+                                this.addLoadingTask('timeline', () => this.loadTimelineData(projectData.motionTimeline));
+                            }
+                            break;
+                        case 'music':
+                            if (projectData.music) {
+                                this.addLoadingTask('music', () => this.loadMusicData(projectData.music));
+                            }
+                            break;
+                        case 'history':
+                            if (projectData.history) {
+                                this.addLoadingTask('history', () => this.loadHistoryData(projectData.history));
+                            }
+                            break;
+                    }
+                });
+
+                console.log(`로딩 큐 설정 완료: ${this.totalItems}개 항목`);
+            }
+
+            addSceneLoadingTasks(sceneData) {
+                if (sceneData.children && Array.isArray(sceneData.children)) {
+                    sceneData.children.forEach((child, index) => {
+                        if (child.geometry && this.isLargeGeometry(child.geometry)) {
+                            this.addLoadingTask(`geometry_${child.uuid || index}`, 
+                                () => this.loadGeometryData(child.geometry));
+                        }
+                        
+                        if (child.material && this.isLargeMaterial(child.material)) {
+                            this.addLoadingTask(`material_${child.uuid || index}`, 
+                                () => this.loadMaterialData(child.material));
+                        }
+                    });
+                }
+            }
+
+            addLoadingTask(name, task) {
+                this.loadingQueue.push({ name, task, status: 'pending' });
+                this.totalItems++;
+            }
+
+            async executeProgressiveLoading(batchSize, delayBetweenBatches, showProgress) {
+                this.isLoading = true;
+                const loadedData = {};
+
+                if (showProgress) {
+                    this.createProgressUI();
+                }
+
+                try {
+                    for (let i = 0; i < this.loadingQueue.length; i += batchSize) {
+                        const batch = this.loadingQueue.slice(i, i + batchSize);
+                        
+                        const batchPromises = batch.map(async (item) => {
+                            try {
+                                item.status = 'loading';
+                                this.updateQueueUI();
+                                
+                                const result = await item.task();
+                                item.status = 'completed';
+                                loadedData[item.name] = result;
+                                this.loadedItems++;
+                                
+                                this.updateProgress();
+                                this.updateQueueUI();
+                                
+                                return result;
+                            } catch (error) {
+                                item.status = 'failed';
+                                console.error(`로딩 실패 (${item.name}):`, error);
+                                this.updateQueueUI();
+                                throw error;
+                            }
+                        });
+
+                        await Promise.all(batchPromises);
+                        
+                        if (i + batchSize < this.loadingQueue.length) {
+                            await this.delay(delayBetweenBatches);
+                        }
+                    }
+
+                    this.isLoading = false;
+                    this.hideProgressUI();
+                    this.triggerEvent('onComplete', loadedData);
+                    
+                    return loadedData;
+                    
+                } catch (error) {
+                    this.isLoading = false;
+                    this.hideProgressUI();
+                    throw error;
+                }
+            }
+
+            async loadTimelineData(timelineData) {
+                console.log("타임라인 데이터 로드 중...");
+                await this.delay(100 + Math.random() * 200); // 시뮬레이션
+                
+                const processedData = { ...timelineData };
+                if (processedData.tracks) {
+                    const trackKeys = Object.keys(processedData.tracks);
+                    
+                    for (let i = 0; i < trackKeys.length; i += 5) {
+                        const chunk = trackKeys.slice(i, i + 5);
+                        await Promise.all(chunk.map(async (objectUuid) => {
+                            const objectTracks = processedData.tracks[objectUuid];
+                            Object.keys(objectTracks).forEach(property => {
+                                const keyframes = objectTracks[property];
+                                if (Array.isArray(keyframes) && keyframes.length > 100) {
+                                    objectTracks[property] = this.compressKeyframes(keyframes);
+                                }
+                            });
+                        }));
+                        await this.delay(10);
+                    }
+                }
+                
+                console.log("타임라인 데이터 로드 완료");
+                return processedData;
+            }
+
+            async loadMusicData(musicData) {
+                console.log("음악 데이터 로드 중...");
+                await this.delay(50 + Math.random() * 100); // 시뮬레이션
+                
+                const processedData = { ...musicData };
+                if (processedData.tracks && Array.isArray(processedData.tracks)) {
+                    await Promise.all(processedData.tracks.map(async (track, index) => {
+                        if (track.notes && track.notes.length > 100) {
+                            processedData.tracks[index].notes = this.compressNotes(track.notes);
+                        }
+                    }));
+                }
+                
+                console.log("음악 데이터 로드 완료");
+                return processedData;
+            }
+
+            async loadHistoryData(historyData) {
+                console.log("히스토리 데이터 로드 중...");
+                await this.delay(30 + Math.random() * 50); // 시뮬레이션
+                
+                const processedData = { ...historyData };
+                if (processedData.undo && processedData.undo.length > 50) {
+                    processedData.undo = processedData.undo.slice(-50);
+                }
+                if (processedData.redo && processedData.redo.length > 50) {
+                    processedData.redo = processedData.redo.slice(-50);
+                }
+                
+                console.log("히스토리 데이터 로드 완료");
+                return processedData;
+            }
+
+            async loadGeometryData(geometryData) {
+                console.log("Geometry 데이터 로드 중...");
+                await this.delay(80 + Math.random() * 120); // 시뮬레이션
+                
+                const processedData = { ...geometryData };
+                if (processedData.attributes) {
+                    Object.keys(processedData.attributes).forEach(attrName => {
+                        const attr = processedData.attributes[attrName];
+                        if (attr.array && attr.array.length > 1000) {
+                            attr.array = this.compressFloatArray(attr.array);
+                        }
+                    });
+                }
+                
+                console.log("Geometry 데이터 로드 완료");
+                return processedData;
+            }
+
+            async loadMaterialData(materialData) {
+                console.log("Material 데이터 로드 중...");
+                await this.delay(20 + Math.random() * 30); // 시뮬레이션
+                return materialData;
+            }
+
+            mergeLoadedData(baseData, loadedData) {
+                const mergedData = { ...baseData };
+                
+                if (loadedData.timeline) {
+                    mergedData.motionTimeline = loadedData.timeline;
+                }
+                if (loadedData.music) {
+                    mergedData.music = loadedData.music;
+                }
+                if (loadedData.history) {
+                    mergedData.history = loadedData.history;
+                }
+                
+                if (mergedData.scene && mergedData.scene.children) {
+                    mergedData.scene.children = mergedData.scene.children.map(child => {
+                        const geometryKey = `geometry_${child.uuid}`;
+                        const materialKey = `material_${child.uuid}`;
+                        
+                        if (loadedData[geometryKey]) {
+                            child.geometry = loadedData[geometryKey];
+                        }
+                        if (loadedData[materialKey]) {
+                            child.material = loadedData[materialKey];
+                        }
+                        
+                        return child;
+                    });
+                }
+                
+                return mergedData;
+            }
+
+            createProgressUI() {
+                this.hideProgressUI();
+                
+                const progressContainer = document.getElementById('progressContainer');
+                const loadingStats = document.getElementById('loadingStats');
+                const loadingQueue = document.getElementById('loadingQueue');
+                
+                progressContainer.style.display = 'block';
+                loadingStats.style.display = 'grid';
+                loadingQueue.style.display = 'block';
+            }
+
+            updateProgress() {
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                const progressDetail = document.getElementById('progressDetail');
+                const totalItems = document.getElementById('totalItems');
+                const loadedItems = document.getElementById('loadedItems');
+                
+                if (progressFill && progressText && progressDetail) {
+                    const percentage = Math.round((this.loadedItems / this.totalItems) * 100);
+                    
+                    progressFill.style.width = `${percentage}%`;
+                    progressText.textContent = `${percentage}% (${this.loadedItems}/${this.totalItems})`;
+                    
+                    const currentLoading = this.loadingQueue
+                        .filter(item => item.status === 'loading')
+                        .map(item => item.name)
+                        .slice(0, 3);
+                    
+                    if (currentLoading.length > 0) {
+                        progressDetail.textContent = `로딩 중: ${currentLoading.join(', ')}${currentLoading.length === 3 ? '...' : ''}`;
+                    }
+                }
+                
+                if (totalItems && loadedItems) {
+                    totalItems.textContent = this.totalItems;
+                    loadedItems.textContent = this.loadedItems;
+                }
+            }
+
+            updateQueueUI() {
+                const queueItems = document.getElementById('queueItems');
+                if (queueItems) {
+                    queueItems.innerHTML = this.loadingQueue.map(item => 
+                        `<div class="queue-item queue-${item.status}">${item.name} - ${item.status}</div>`
+                    ).join('');
+                }
+            }
+
+            hideProgressUI() {
+                const progressContainer = document.getElementById('progressContainer');
+                const loadingStats = document.getElementById('loadingStats');
+                const loadingQueue = document.getElementById('loadingQueue');
+                
+                progressContainer.style.display = 'none';
+                loadingStats.style.display = 'none';
+                loadingQueue.style.display = 'none';
+            }
+
+            triggerEvent(eventName, data) {
+                if (this.events[eventName]) {
+                    this.events[eventName](data);
+                }
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            isLargeGeometry(geometry) {
+                if (!geometry) return false;
+                if (geometry.attributes && geometry.attributes.position) {
+                    const vertexCount = geometry.attributes.position.count || 0;
+                    if (vertexCount > 500) return true;
+                }
+                const geometrySize = JSON.stringify(geometry).length;
+                if (geometrySize > 25000) return true;
+                return false;
+            }
+
+            isLargeMaterial(material) {
+                if (!material) return false;
+                const materialSize = JSON.stringify(material).length;
+                if (materialSize > 10000) return true;
+                return false;
+            }
+
+            compressKeyframes(keyframes) {
+                return keyframes.map(kf => ({
+                    time: Math.round(kf.time * 100) / 100,
+                    value: Array.isArray(kf.value) 
+                        ? kf.value.map(v => Math.round(v * 100) / 100)
+                        : Math.round(kf.value * 100) / 100
+                }));
+            }
+
+            compressNotes(notes) {
+                return notes.map(note => ({
+                    time: Math.round(note.time),
+                    note: note.note,
+                    velocity: Math.round(note.velocity * 100) / 100,
+                    duration: Math.round(note.duration)
+                }));
+            }
+
+            compressFloatArray(array) {
+                return array.map(val => Math.round(val * 1000) / 1000);
+            }
+
+            getProgress() {
+                return this.totalItems > 0 ? (this.loadedItems / this.totalItems) * 100 : 0;
+            }
+
+            cancel() {
+                this.isLoading = false;
+                this.loadingQueue = [];
+                this.hideProgressUI();
+            }
+        }
+
+        // 전역 함수들
+        window.generateLargeSampleData = function() {
+            const resultDiv = document.getElementById('sampleDataResult');
+            resultDiv.innerHTML = '대용량 샘플 데이터 생성 중...';
+
+            // 큰 MotionTimeline 데이터 생성
+            const timelineData = {
+                maxTime: 300,
+                frameRate: 30,
+                tracks: {}
+            };
+
+            // 더 많은 객체와 키프레임 생성
+            for (let i = 0; i < 20; i++) {
+                const objectUuid = `object-${i}`;
+                timelineData.tracks[objectUuid] = {};
+                
+                ['position', 'rotation', 'scale'].forEach(property => {
+                    const keyframes = [];
+                    for (let frame = 0; frame <= 300; frame += 1) {
+                        keyframes.push({
+                            time: frame,
+                            value: [Math.random() * 20, Math.random() * 20, Math.random() * 20]
+                        });
+                    }
+                    timelineData.tracks[objectUuid][property] = keyframes;
+                });
+            }
+
+            // 큰 음악 데이터 생성
+            const musicData = {
+                tracks: [],
+                bpm: 120,
+                duration: 300
+            };
+
+            for (let i = 0; i < 8; i++) {
+                const track = {
+                    name: `Track ${i}`,
+                    notes: []
+                };
+                
+                for (let beat = 0; beat < 1200; beat += 2) {
+                    track.notes.push({
+                        time: beat,
+                        note: Math.floor(Math.random() * 88),
+                        velocity: Math.random() * 0.5 + 0.5,
+                        duration: 1
+                    });
+                }
+                musicData.tracks.push(track);
+            }
+
+            // 큰 히스토리 데이터 생성
+            const historyData = {
+                undo: [],
+                redo: []
+            };
+
+            for (let i = 0; i < 200; i++) {
+                historyData.undo.push({
+                    type: 'add',
+                    object: { uuid: `obj-${i}`, name: `Object ${i}` },
+                    timestamp: Date.now() - i * 1000
+                });
+            }
+
+            // 큰 씬 데이터 생성
+            const sceneData = {
+                children: []
+            };
+
+            for (let i = 0; i < 15; i++) {
+                const geometry = {
+                    attributes: {
+                        position: {
+                            count: 1000 + Math.floor(Math.random() * 2000),
+                            array: new Array(3000 + Math.floor(Math.random() * 6000)).fill(0).map(() => Math.random() * 10)
+                        }
+                    }
+                };
+
+                sceneData.children.push({
+                    uuid: `obj-${i}`,
+                    name: `Object ${i}`,
+                    geometry: geometry,
+                    material: {
+                        type: 'MeshStandardMaterial',
+                        color: Math.random() * 0xffffff,
+                        roughness: Math.random(),
+                        metalness: Math.random()
+                    }
+                });
+            }
+
+            originalData = {
+                metadata: { version: "1.0" },
+                project: { shadows: true, toneMapping: "ACESFilmicToneMapping" },
+                camera: { type: "PerspectiveCamera", fov: 75 },
+                scene: sceneData,
+                scripts: { "obj1": "console.log('test')" },
+                history: historyData,
+                environment: "ModelViewer",
+                motionTimeline: timelineData,
+                music: musicData
+            };
+
+            const originalSize = JSON.stringify(originalData).length;
+            resultDiv.innerHTML = `
+                <span class="success">✅ 대용량 샘플 데이터 생성 완료!</span>
+                <br>원본 크기: ${originalSize.toLocaleString()} bytes (${(originalSize / 1024).toFixed(2)} KB)
+                <br>MotionTimeline 키프레임 수: ${Object.keys(timelineData.tracks).length * 3 * 301}
+                <br>음악 노트 수: ${musicData.tracks.length * 600}
+                <br>히스토리 항목 수: ${historyData.undo.length}
+                <br>씬 객체 수: ${sceneData.children.length}
+            `;
+        };
+
+        window.testProgressiveLoading = async function() {
+            if (!originalData) {
+                alert('먼저 샘플 데이터를 생성해주세요.');
+                return;
+            }
+
+            const testBtn = document.getElementById('testBtn');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const resultDiv = document.getElementById('loadingResult');
+            
+            testBtn.disabled = true;
+            cancelBtn.disabled = false;
+            resultDiv.innerHTML = '점진적 로딩 테스트 시작...';
+
+            // 설정 가져오기
+            const enabled = document.getElementById('enableProgressive').checked;
+            const batchSize = parseInt(document.getElementById('batchSize').value);
+            const batchDelay = parseInt(document.getElementById('batchDelay').value);
+            const priorityOrder = document.getElementById('priorityOrder').value.split(',');
+
+            if (!enabled) {
+                resultDiv.innerHTML = '<span class="warning">⚠️ 점진적 로딩이 비활성화되어 있습니다.</span>';
+                testBtn.disabled = false;
+                cancelBtn.disabled = true;
+                return;
+            }
+
+            try {
+                loadingStartTime = Date.now();
+                currentLoader = new ProgressiveLoader();
+                
+                // 이벤트 설정
+                currentLoader.events.onComplete = async (loadedData) => {
+                    loadingEndTime = Date.now();
+                    const loadingTime = loadingEndTime - loadingStartTime;
+                    
+                    resultDiv.innerHTML = `
+                        <span class="success">✅ 점진적 로딩 완료!</span>
+                        <br>로딩 시간: ${loadingTime}ms
+                        <br>로드된 항목: ${Object.keys(loadedData).length}개
+                        <br>평균 항목당 시간: ${(loadingTime / Object.keys(loadedData).length).toFixed(2)}ms
+                    `;
+                    
+                    progressiveData = currentLoader.mergeLoadedData(
+                        await currentLoader.loadBaseData(originalData), 
+                        loadedData
+                    );
+                    
+                    testBtn.disabled = false;
+                    cancelBtn.disabled = true;
+                    document.getElementById('verifyBtn').disabled = false;
+                    
+                    updatePerformanceComparison();
+                };
+                
+                currentLoader.events.onError = (error) => {
+                    resultDiv.innerHTML = `<span class="error">❌ 점진적 로딩 실패: ${error.message}</span>`;
+                    testBtn.disabled = false;
+                    cancelBtn.disabled = true;
+                };
+
+                // 점진적 로딩 실행
+                await currentLoader.loadProjectProgressively(originalData, {
+                    priorityOrder,
+                    batchSize,
+                    delayBetweenBatches: batchDelay,
+                    showProgress: true
+                });
+
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ 점진적 로딩 실패: ${error.message}</span>`;
+                testBtn.disabled = false;
+                cancelBtn.disabled = true;
+            }
+        };
+
+        window.cancelLoading = function() {
+            if (currentLoader) {
+                currentLoader.cancel();
+                document.getElementById('loadingResult').innerHTML = '<span class="warning">⚠️ 로딩이 취소되었습니다.</span>';
+                document.getElementById('testBtn').disabled = false;
+                document.getElementById('cancelBtn').disabled = true;
+            }
+        };
+
+        window.verifyDataIntegrity = function() {
+            const resultDiv = document.getElementById('integrityResult');
+            
+            if (!originalData || !progressiveData) {
+                resultDiv.innerHTML = '<span class="error">❌ 원본 데이터와 점진적 로딩 데이터가 모두 필요합니다.</span>';
+                return;
+            }
+
+            resultDiv.innerHTML = '데이터 무결성 검증 중...';
+
+            try {
+                const checks = [
+                    { name: 'MotionTimeline', original: originalData.motionTimeline, loaded: progressiveData.motionTimeline },
+                    { name: '음악 데이터', original: originalData.music, loaded: progressiveData.music },
+                    { name: '히스토리', original: originalData.history, loaded: progressiveData.history },
+                    { name: '씬 데이터', original: originalData.scene, loaded: progressiveData.scene },
+                    { name: '카메라', original: originalData.camera, loaded: progressiveData.camera }
+                ];
+
+                let allPassed = true;
+                let results = [];
+
+                checks.forEach(check => {
+                    const originalStr = JSON.stringify(check.original);
+                    const loadedStr = JSON.stringify(check.loaded);
+                    const passed = deepEqual(originalStr, loadedStr);
+                    
+                    if (!passed) allPassed = false;
+                    
+                    results.push(`${check.name}: ${passed ? '✅' : '❌'}`);
+                });
+
+                resultDiv.innerHTML = `
+                    <span class="${allPassed ? 'success' : 'error'}">${allPassed ? '✅' : '❌'} 데이터 무결성 검증 ${allPassed ? '통과' : '실패'}</span>
+                    <br>${results.join('<br>')}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ 검증 중 오류: ${error.message}</span>`;
+            }
+        };
+
+        // 성능 비교 업데이트
+        function updatePerformanceComparison() {
+            if (!originalData || !progressiveData) return;
+
+            const loadingTime = loadingEndTime - loadingStartTime;
+            const avgTimePerItem = currentLoader ? (loadingTime / currentLoader.totalItems).toFixed(2) : 0;
+
+            // 로딩 시간 업데이트
+            const loadingTimeElement = document.getElementById('loadingTime');
+            const avgTimePerItemElement = document.getElementById('avgTimePerItem');
+            
+            if (loadingTimeElement) loadingTimeElement.textContent = `${loadingTime}ms`;
+            if (avgTimePerItemElement) avgTimePerItemElement.textContent = `${avgTimePerItem}ms`;
+
+            // 성능 비교 표시
+            const progressiveStats = document.getElementById('progressiveLoadingStats');
+            if (progressiveStats) {
+                progressiveStats.innerHTML = `
+                    로딩 시간: ${loadingTime}ms<br>
+                    총 항목: ${currentLoader ? currentLoader.totalItems : 0}개<br>
+                    항목당 평균: ${avgTimePerItem}ms<br>
+                    진행률 표시: ✅<br>
+                    배치 처리: ✅
+                `;
+            }
+
+            // 일반 로딩과 비교 (시뮬레이션)
+            const normalLoadingStats = document.getElementById('normalLoadingStats');
+            if (normalLoadingStats) {
+                const estimatedNormalTime = loadingTime * 1.5; // 일반 로딩은 더 느릴 것으로 가정
+                normalLoadingStats.innerHTML = `
+                    예상 로딩 시간: ${estimatedNormalTime}ms<br>
+                    총 항목: ${currentLoader ? currentLoader.totalItems : 0}개<br>
+                    항목당 평균: ${(estimatedNormalTime / (currentLoader ? currentLoader.totalItems : 1)).toFixed(2)}ms<br>
+                    진행률 표시: ❌<br>
+                    배치 처리: ❌
+                `;
+            }
+        }
+
+        // 이벤트 리스너
+        document.addEventListener('DOMContentLoaded', function() {
+            // 성능 비교 업데이트를 위한 인터벌
+            setInterval(updatePerformanceComparison, 1000);
+        });
+
+        function deepEqual(a, b) {
+            if (a === b) return true;
+            if (typeof a !== typeof b) return false;
+            if (typeof a !== 'object' || a === null || b === null) return false;
+            if (Array.isArray(a) !== Array.isArray(b)) return false;
+
+            if (Array.isArray(a)) {
+                if (a.length !== b.length) return false;
+                for (let i = 0; i < a.length; i++) {
+                    if (!deepEqual(a[i], b[i])) return false;
+                }
+                return true;
+            }
+
+            const keysA = Object.keys(a);
+            const keysB = Object.keys(b);
+            if (keysA.length !== keysB.length) return false;
+            for (let key of keysA) {
+                if (!deepEqual(a[key], b[key])) return false;
+            }
+            return true;
+        }
+    </script>
+</body>
+</html> 

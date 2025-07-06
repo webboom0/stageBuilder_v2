@@ -1164,8 +1164,8 @@ export class TimelineData {
   // JSON 형식으로 부터 데이터 로드     
   fromJSON(data) {
     console.log("=== TimelineCore fromJSON 시작 ===");
-    console.log("입력 데이터:", data);
-    
+    console.log("받은 데이터:", data);
+
     this.tracks.clear();
     this.maxTime = data.maxTime || 0;
     this.frameRate = data.frameRate || 30;
@@ -1174,32 +1174,25 @@ export class TimelineData {
     let tracksData;
     if (data.tracks instanceof Map) {
       tracksData = data.tracks;
-      console.log("tracks가 Map입니다");
     } else if (typeof data.tracks === 'object' && data.tracks !== null) {
       // 일반 객체를 Map으로 변환
-      console.log("tracks를 Map으로 변환합니다");
-      console.log("tracks 객체:", data.tracks);
-      console.log("tracks 키들:", Object.keys(data.tracks));
-      
       tracksData = new Map(Object.entries(data.tracks));
-      console.log("변환된 tracksData:", tracksData);
     } else {
       console.warn("tracks 데이터가 없거나 잘못된 형식입니다:", data.tracks);
       tracksData = new Map();
     }
 
+    console.log("처리할 tracks 데이터:", tracksData);
+
     tracksData.forEach((properties, objectUuid) => {
       console.log(`객체 ${objectUuid} 처리 중:`, properties);
-      
+
       // properties가 Map인지 일반 객체인지 확인
       let propertiesData;
       if (properties instanceof Map) {
         propertiesData = properties;
-        console.log(`객체 ${objectUuid}의 properties가 Map입니다`);
       } else if (typeof properties === 'object' && properties !== null) {
-        console.log(`객체 ${objectUuid}의 properties를 Map으로 변환합니다:`, properties);
         propertiesData = new Map(Object.entries(properties));
-        console.log(`변환된 propertiesData:`, propertiesData);
       } else {
         console.warn(`객체 ${objectUuid}의 properties가 잘못된 형식입니다:`, properties);
         return;
@@ -1207,12 +1200,10 @@ export class TimelineData {
 
       propertiesData.forEach((trackData, property) => {
         console.log(`속성 ${property} 처리 중:`, trackData);
-        
+
         const track = this.addTrack(objectUuid, property);
-        console.log(`트랙 생성됨:`, track);
 
         if (trackData.times && Array.isArray(trackData.times)) {
-          console.log(`키프레임 개수: ${trackData.times.length}`);
           trackData.times.forEach((time, index) => {
             if (trackData.values && trackData.values.length >= (index * 3 + 2)) {
               const value = new THREE.Vector3(
@@ -1224,18 +1215,14 @@ export class TimelineData {
                 ? trackData.interpolations[index]
                 : INTERPOLATION.LINEAR;
               track.addKeyframe(time, value, interpolation);
-              console.log(`키프레임 ${index} 추가됨: 시간=${time}, 값=${value}`);
             }
           });
-        } else {
-          console.warn(`트랙 데이터에 times 배열이 없습니다:`, trackData);
         }
       });
     });
 
-    console.log("=== TimelineCore fromJSON 완료 ===");
-    console.log("최종 tracks 크기:", this.tracks.size);
     this.dirty = true;
+    console.log("=== TimelineCore fromJSON 완료 ===");
   }
 
   // 타임라인 데이터 검증

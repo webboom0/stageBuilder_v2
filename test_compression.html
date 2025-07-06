@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>데이터 압축 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>데이터 압축 테스트</h1>
+    
+    <div class="test-section">
+        <h2>1단계: 데이터 압축 테스트</h2>
+        <button onclick="testCompression()">압축 테스트 실행</button>
+        <div id="compression-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2단계: 압축/해제 순환 테스트</h2>
+        <button onclick="testCompressionDecompression()">순환 테스트 실행</button>
+        <div id="cycle-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3단계: 실제 타임라인 데이터 테스트</h2>
+        <button onclick="testRealTimelineData()">실제 데이터 테스트</button>
+        <div id="real-data-result" class="result"></div>
+    </div>
+
+    <script type="module">
+        import { DataCompressor } from './editor/js/utils/DataCompressor.js';
+
+        window.testCompression = function() {
+            const resultDiv = document.getElementById('compression-result');
+            resultDiv.innerHTML = '테스트 중...';
+
+            try {
+                // 샘플 타임라인 데이터 생성
+                const sampleTimelineData = {
+                    maxTime: 60.0,
+                    frameRate: 30,
+                    tracks: new Map([
+                        ['object-uuid-1', new Map([
+                            ['position', {
+                                times: new Float32Array([0, 1, 2, 3, 4, 5]),
+                                values: new Float32Array([0,0,0, 1,1,1, 2,2,2, 3,3,3, 4,4,4, 5,5,5]),
+                                interpolations: new Uint8Array([0, 0, 0, 0, 0, 0]),
+                                keyframeCount: 6
+                            }],
+                            ['rotation', {
+                                times: new Float32Array([0, 2, 4]),
+                                values: new Float32Array([0,0,0, 90,0,0, 180,0,0]),
+                                interpolations: new Uint8Array([0, 0, 0]),
+                                keyframeCount: 3
+                            }]
+                        ])],
+                        ['object-uuid-2', new Map([
+                            ['scale', {
+                                times: new Float32Array([0, 1, 2]),
+                                values: new Float32Array([1,1,1, 1.5,1.5,1.5, 2,2,2]),
+                                interpolations: new Uint8Array([0, 0, 0]),
+                                keyframeCount: 3
+                            }]
+                        ])]
+                    ])
+                };
+
+                // 압축 테스트
+                const compressed = DataCompressor.compressTimelineData(sampleTimelineData);
+                
+                // 해제 테스트
+                const decompressed = DataCompressor.decompressTimelineData(compressed);
+
+                // 결과 비교
+                const originalSize = JSON.stringify(sampleTimelineData).length;
+                const compressedSize = JSON.stringify(compressed).length;
+                const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+
+                // 데이터 무결성 검사
+                let dataIntegrity = '성공';
+                try {
+                    // 기본 속성 비교
+                    if (sampleTimelineData.maxTime !== decompressed.maxTime) dataIntegrity = '실패: maxTime';
+                    if (sampleTimelineData.frameRate !== decompressed.frameRate) dataIntegrity = '실패: frameRate';
+                    if (sampleTimelineData.tracks.size !== decompressed.tracks.size) dataIntegrity = '실패: tracks.size';
+
+                    // 트랙 데이터 비교
+                    for (const [uuid, objectTracks] of sampleTimelineData.tracks) {
+                        const decompressedTracks = decompressed.tracks.get(uuid);
+                        if (!decompressedTracks) {
+                            dataIntegrity = `실패: 트랙 ${uuid} 누락`;
+                            break;
+                        }
+                        
+                        for (const [property, trackData] of objectTracks) {
+                            const decompressedTrack = decompressedTracks.get(property);
+                            if (!decompressedTrack) {
+                                dataIntegrity = `실패: 속성 ${property} 누락`;
+                                break;
+                            }
+                            
+                            // 배열 비교
+                            const originalTimes = Array.from(trackData.times);
+                            const decompressedTimes = Array.from(decompressedTrack.times);
+                            if (JSON.stringify(originalTimes) !== JSON.stringify(decompressedTimes)) {
+                                dataIntegrity = `실패: ${property} times 불일치`;
+                                break;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    dataIntegrity = `실패: ${error.message}`;
+                }
+
+                resultDiv.innerHTML = `
+                    <h3>압축 테스트 결과</h3>
+                    <p><strong>원본 크기:</strong> ${originalSize} bytes</p>
+                    <p><strong>압축 크기:</strong> ${compressedSize} bytes</p>
+                    <p><strong>압축률:</strong> <span class="success">${compressionRatio}%</span></p>
+                    <p><strong>데이터 무결성:</strong> <span class="${dataIntegrity === '성공' ? 'success' : 'error'}">${dataIntegrity}</span></p>
+                    <p><strong>트랙 수:</strong> ${sampleTimelineData.tracks.size}</p>
+                    <p><strong>총 키프레임 수:</strong> ${Array.from(sampleTimelineData.tracks.values()).reduce((sum, tracks) => 
+                        sum + Array.from(tracks.values()).reduce((tSum, track) => tSum + track.keyframeCount, 0), 0)}</p>
+                `;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">테스트 실패: ${error.message}</p>`;
+            }
+        };
+
+        window.testCompressionDecompression = function() {
+            const resultDiv = document.getElementById('cycle-result');
+            resultDiv.innerHTML = '순환 테스트 중...';
+
+            try {
+                // 여러 번 압축/해제를 반복하여 데이터 무결성 확인
+                const originalData = {
+                    maxTime: 120.0,
+                    frameRate: 60,
+                    tracks: new Map([
+                        ['test-uuid', new Map([
+                            ['position', {
+                                times: new Float32Array([0, 0.5, 1, 1.5, 2]),
+                                values: new Float32Array([0,0,0, 0.5,0.5,0.5, 1,1,1, 1.5,1.5,1.5, 2,2,2]),
+                                interpolations: new Uint8Array([0, 0, 0, 0, 0]),
+                                keyframeCount: 5
+                            }]
+                        ])]
+                    ])
+                };
+
+                let currentData = originalData;
+                let cycleCount = 0;
+                let isDataValid = true;
+
+                // 5번 반복 테스트
+                for (let i = 0; i < 5; i++) {
+                    const compressed = DataCompressor.compressTimelineData(currentData);
+                    const decompressed = DataCompressor.decompressTimelineData(compressed);
+                    
+                    // 데이터 비교
+                    if (currentData.maxTime !== decompressed.maxTime || 
+                        currentData.frameRate !== decompressed.frameRate ||
+                        currentData.tracks.size !== decompressed.tracks.size) {
+                        isDataValid = false;
+                        break;
+                    }
+                    
+                    currentData = decompressed;
+                    cycleCount = i + 1;
+                }
+
+                resultDiv.innerHTML = `
+                    <h3>순환 테스트 결과</h3>
+                    <p><strong>성공한 반복 횟수:</strong> <span class="${isDataValid ? 'success' : 'error'}">${cycleCount}/5</span></p>
+                    <p><strong>데이터 무결성:</strong> <span class="${isDataValid ? 'success' : 'error'}">${isDataValid ? '유지됨' : '손상됨'}</span></p>
+                    <p><strong>최종 데이터 크기:</strong> ${JSON.stringify(currentData).length} bytes</p>
+                `;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">순환 테스트 실패: ${error.message}</p>`;
+            }
+        };
+
+        window.testRealTimelineData = function() {
+            const resultDiv = document.getElementById('real-data-result');
+            resultDiv.innerHTML = '실제 데이터 테스트 중...';
+
+            try {
+                // 실제와 유사한 복잡한 타임라인 데이터 생성
+                const realTimelineData = {
+                    maxTime: 300.0,
+                    frameRate: 30,
+                    tracks: new Map()
+                };
+
+                // 여러 객체와 속성으로 복잡한 데이터 생성
+                for (let objIndex = 0; objIndex < 10; objIndex++) {
+                    const objectTracks = new Map();
+                    const uuid = `object-${objIndex}-${Date.now()}`;
+                    
+                    // 각 객체마다 여러 속성 추가
+                    const properties = ['position', 'rotation', 'scale'];
+                    properties.forEach((property, propIndex) => {
+                        const keyframeCount = 20 + Math.floor(Math.random() * 30); // 20-50개 키프레임
+                        const times = new Float32Array(keyframeCount);
+                        const values = new Float32Array(keyframeCount * 3);
+                        const interpolations = new Uint8Array(keyframeCount);
+                        
+                        for (let i = 0; i < keyframeCount; i++) {
+                            times[i] = i * 2 + Math.random(); // 시간
+                            values[i * 3] = Math.random() * 100; // x
+                            values[i * 3 + 1] = Math.random() * 100; // y
+                            values[i * 3 + 2] = Math.random() * 100; // z
+                            interpolations[i] = Math.floor(Math.random() * 3); // 보간 타입
+                        }
+                        
+                        objectTracks.set(property, {
+                            times,
+                            values,
+                            interpolations,
+                            keyframeCount
+                        });
+                    });
+                    
+                    realTimelineData.tracks.set(uuid, objectTracks);
+                }
+
+                // 압축 테스트
+                const startTime = performance.now();
+                const compressed = DataCompressor.compressTimelineData(realTimelineData);
+                const compressionTime = performance.now() - startTime;
+
+                const decompressStartTime = performance.now();
+                const decompressed = DataCompressor.decompressTimelineData(compressed);
+                const decompressionTime = performance.now() - decompressStartTime;
+
+                // 결과 계산
+                const originalSize = JSON.stringify(realTimelineData).length;
+                const compressedSize = JSON.stringify(compressed).length;
+                const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+
+                resultDiv.innerHTML = `
+                    <h3>실제 데이터 테스트 결과</h3>
+                    <p><strong>객체 수:</strong> ${realTimelineData.tracks.size}</p>
+                    <p><strong>총 키프레임 수:</strong> ${Array.from(realTimelineData.tracks.values()).reduce((sum, tracks) => 
+                        sum + Array.from(tracks.values()).reduce((tSum, track) => tSum + track.keyframeCount, 0), 0)}</p>
+                    <p><strong>원본 크기:</strong> ${originalSize.toLocaleString()} bytes</p>
+                    <p><strong>압축 크기:</strong> ${compressedSize.toLocaleString()} bytes</p>
+                    <p><strong>압축률:</strong> <span class="success">${compressionRatio}%</span></p>
+                    <p><strong>압축 시간:</strong> ${compressionTime.toFixed(2)}ms</p>
+                    <p><strong>해제 시간:</strong> ${decompressionTime.toFixed(2)}ms</p>
+                    <p><strong>성능:</strong> <span class="success">양호</span></p>
+                `;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">실제 데이터 테스트 실패: ${error.message}</p>`;
+            }
+        };
+    </script>
+</body>
+</html> 

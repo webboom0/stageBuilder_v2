@@ -116,21 +116,29 @@ function MenubarFile(editor) {
   const openProjectInput = document.createElement("input");
   openProjectInput.multiple = false;
   openProjectInput.type = "file";
-  openProjectInput.accept = ".json";
+  openProjectInput.accept = ".json,.zip";
   openProjectInput.addEventListener("change", async function () {
     const file = openProjectInput.files[0];
 
     if (file === undefined) return;
 
     try {
-      const json = JSON.parse(await file.text());
-      console.log("Loading project:", json); // 불러오는 데이터 확인
+      console.log("파일 로드 시작:", file.name, file.type);
 
       async function onEditorCleared() {
         try {
-          await editor.fromJSON(json);
+                  if (file.name.endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed') {
+          // ZIP 파일 처리
+          console.log("ZIP 파일 감지, 압축 해제 중...");
+          await editor.fromJSON(file); // Blob으로 전달
+        } else {
+            // JSON 파일 처리
+            const json = JSON.parse(await file.text());
+            console.log("Loading project:", json); // 불러오는 데이터 확인
+            await editor.fromJSON(json);
+          }
         } catch (error) {
-          console.error("JSON 데이터 로드 중 오류:", error);
+          console.error("파일 로드 중 오류:", error);
           alert("파일 로드 중 오류가 발생했습니다: " + error.message);
         }
 
@@ -168,19 +176,24 @@ function MenubarFile(editor) {
   option = new UIRow()
     .addClass("option")
     .setTextContent(strings.getKey("menubar/file/save"))
-    .onClick(function () {
-      const json = editor.toJSON();
-      console.log("Saving project:", json); // 저장되는 전체 데이터 확인
-      // 특히 music 데이터가 있는지 확인
-      if (json.music) {
-        console.log("Music data being saved:", json.music);
-      } else {
-        console.log("No music data to save");
+    .onClick(async function () {
+      try {
+        const json = await editor.toJSON(); // async 호출
+        console.log("Saving project:", json); // 저장되는 전체 데이터 확인
+        // 특히 music 데이터가 있는지 확인
+        if (json.music) {
+          console.log("Music data being saved:", json.music);
+        } else {
+          console.log("No music data to save");
+        }
+        const blob = new Blob([JSON.stringify(json)], {
+          type: "application/json",
+        });
+        editor.utils.save(blob, "project.json");
+      } catch (error) {
+        console.error("프로젝트 저장 중 오류:", error);
+        alert("프로젝트 저장 중 오류가 발생했습니다: " + error.message);
       }
-      const blob = new Blob([JSON.stringify(json)], {
-        type: "application/json",
-      });
-      editor.utils.save(blob, "project.json");
     });
 
   options.add(option);
@@ -193,65 +206,90 @@ function MenubarFile(editor) {
     .addClass("option")
     .setTextContent("다름이름으로 저장")
     .onClick(async function () {
+      // 저장 방식 선택
+      const saveMethod = confirm("ZIP 파일로 저장하시겠습니까?\n\n확인: ZIP 파일 (권장)\n취소: JSON 파일");
+      
+      if (saveMethod) {
+        // ZIP 파일로 저장 (2단계)
+        await saveAsZip();
+      } else {
+        // JSON 파일로 저장 (1단계)
+        await saveAsJson();
+      }
+    });
+
+  // ZIP 파일로 저장하는 함수
+  async function saveAsZip() {
+    try {
       // showSaveFilePicker를 사용자 제스처 내에서 즉시 실행
       if ("showSaveFilePicker" in window) {
-        try {
-          // 사용자 제스처 내에서 즉시 실행
-          const handle = await window.showSaveFilePicker({
-            suggestedName: "project.json",
-            types: [
-              {
-                description: "JSON Files",
-                accept: { "application/json": [".json"] },
-              },
-            ],
-          });
+        const handle = await window.showSaveFilePicker({
+          suggestedName: "project.zip",
+          types: [
+            {
+              description: "ZIP Files",
+              accept: { "application/zip": [".zip"] },
+            },
+          ],
+        });
 
-          // 파일 핸들을 얻은 후 데이터 준비
-          // MotionTimeline 데이터 저장
-          if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
-            console.log("=== MotionTimeline 데이터 저장 시작 ===");
-            console.log("this.motionTimeline:", editor.motionTimeline);
-            console.log("this.scene.userData:", editor.scene.userData);
-            editor.motionTimeline.onBeforeSave();
-            console.log("onBeforeSave 완료 후 scene.userData.motionTimeline:", editor.scene.userData.motionTimeline);
-            console.log("=== MotionTimeline 데이터 저장 완료 ===");
-          }
+        // ZIP 파일 생성
+        const zipBlob = await editor.toProjectZip("project", {
+          splitTimeline: true,
+          splitMusic: true,
+          splitHistory: false
+        });
 
-          const json = editor.toJSON();
-          const blob = new Blob([JSON.stringify(json)], {
-            type: "application/json",
-          });
+        const writable = await handle.createWritable();
+        await writable.write(zipBlob);
+        await writable.close();
+        console.log("ZIP 파일 저장 완료");
 
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          console.log("파일 저장 완료");
-
-        } catch (error) {
-          console.error("Error saving file:", error);
-
-          // showSaveFilePicker가 실패하면 대체 방법 사용
-          if (error.name === 'AbortError') {
-            // 사용자가 취소한 경우 아무것도 하지 않음
-            return;
-          } else if (error.name === 'SecurityError') {
-            console.log("showSaveFilePicker 실패, 대체 방법 사용");
-          } else {
-            console.log("기타 에러 발생, 대체 방법 사용:", error.name);
-          }
-
-          // 대체 방법 실행
-          await saveWithFallbackMethod();
-        }
       } else {
-        // File System Access API를 지원하지 않는 브라우저
-        console.log("File System Access API 미지원, 대체 방법 사용");
-        await saveWithFallbackMethod();
-      }
+        // 대체 방법
+        const zipBlob = await editor.toProjectZip("project", {
+          splitTimeline: true,
+          splitMusic: true,
+          splitHistory: false
+        });
 
-      // 대체 저장 방법 함수
-      async function saveWithFallbackMethod() {
+        const fileName = prompt("파일 이름을 입력하세요:", "project.zip");
+        if (fileName) {
+          const url = URL.createObjectURL(zipBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }, 100);
+          console.log("ZIP 파일 저장 완료:", fileName);
+        }
+      }
+    } catch (error) {
+      console.error("ZIP 파일 저장 실패:", error);
+      alert("ZIP 파일 저장 중 오류가 발생했습니다: " + error.message);
+    }
+  }
+
+  // JSON 파일로 저장하는 함수
+  async function saveAsJson() {
+    try {
+      // showSaveFilePicker를 사용자 제스처 내에서 즉시 실행
+      if ("showSaveFilePicker" in window) {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: "project.json",
+          types: [
+            {
+              description: "JSON Files",
+              accept: { "application/json": [".json"] },
+            },
+          ],
+        });
+
         // MotionTimeline 데이터 저장
         if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
           console.log("=== MotionTimeline 데이터 저장 시작 ===");
@@ -262,35 +300,48 @@ function MenubarFile(editor) {
           console.log("=== MotionTimeline 데이터 저장 완료 ===");
         }
 
-        const json = editor.toJSON();
+        const json = await editor.toJSON(); // async 호출
         const blob = new Blob([JSON.stringify(json)], {
           type: "application/json",
         });
 
-        // 파일명 입력 받기
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        console.log("JSON 파일 저장 완료");
+
+      } else {
+        // 대체 방법
+        if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
+          editor.motionTimeline.onBeforeSave();
+        }
+
+        const json = await editor.toJSON(); // async 호출
+        const blob = new Blob([JSON.stringify(json)], {
+          type: "application/json",
+        });
+
         const fileName = prompt("파일 이름을 입력하세요:", "project.json");
         if (fileName) {
-          // download 속성을 사용한 링크 생성
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
           link.download = fileName;
           link.style.display = 'none';
-
-          // 링크 클릭하여 다운로드 시작
           document.body.appendChild(link);
           link.click();
-
-          // 정리
           setTimeout(() => {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
           }, 100);
-
-          console.log("대체 방법으로 파일 저장 완료:", fileName);
+          console.log("JSON 파일 저장 완료:", fileName);
         }
       }
-    });
+    } catch (error) {
+      console.error("JSON 파일 저장 실패:", error);
+      alert("JSON 파일 저장 중 오류가 발생했습니다: " + error.message);
+    }
+  }
 
   options.add(option);
 
