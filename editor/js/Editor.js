@@ -1040,22 +1040,18 @@ Editor.prototype = {
     let childrenFile = null;
     
     try {
-      // scene.toJSON() 호출 전에 children을 임시로 제거
+      // scene.toJSON() 호출 전에 children 전체를 임시로 제거
       const originalChildren = this.scene.children;
       this.scene.children = [];
-      
       // 기본 씬 데이터 생성
       sceneData = this.scene.toJSON();
       console.log("기본 씬 데이터 생성 완료");
-      
       // children을 별도 파일로 저장 (안전한 처리)
       if (originalChildren.length > 0) {
         console.log("children 개수:", originalChildren.length);
-        
         // children을 개별적으로 처리하여 오류 발생 시에도 일부 데이터는 저장
         const childrenData = [];
         const failedChildren = [];
-        
         for (let i = 0; i < originalChildren.length; i++) {
           try {
             const childData = originalChildren[i].toJSON();
@@ -1074,21 +1070,17 @@ Editor.prototype = {
             });
           }
         }
-        
         if (failedChildren.length > 0) {
           console.warn("처리 실패한 children:", failedChildren);
         }
-        
         try {
           // 각 child를 개별 파일로 저장
           const childrenFiles = [];
           const timestamp = Date.now();
-          
           for (let i = 0; i < childrenData.length; i++) {
             try {
               const childSize = JSON.stringify(childrenData[i]).length;
               console.log(`child ${i} 크기:`, childSize, "bytes");
-              
               if (childSize > 100000) { // 100KB 이상이면 개별 파일로 저장
                 const fileName = `scene_child_${timestamp}_${i}.json`;
                 childrenFiles.push({
@@ -1115,17 +1107,14 @@ Editor.prototype = {
               });
             }
           }
-          
           // 작은 children들을 하나의 배열로 모음
           const smallChildren = childrenFiles
             .filter(item => item.fileName === null)
             .map(item => item.data);
-          
           // 큰 children들은 개별 파일로 저장
           const largeChildrenFiles = childrenFiles
             .filter(item => item.fileName !== null)
             .map(item => item.fileName);
-          
           if (largeChildrenFiles.length > 0) {
             childrenFile = {
               smallChildren: smallChildren,
@@ -1133,7 +1122,6 @@ Editor.prototype = {
               childrenFiles: childrenFiles
             };
             console.log(`children 데이터 분리 완료: ${smallChildren.length}개 작은 children, ${largeChildrenFiles.length}개 큰 children 파일`);
-            
             // sceneData에 children 참조만 추가
             sceneData.object.children = smallChildren;
             sceneData.object.largeChildrenFiles = largeChildrenFiles;
@@ -1146,7 +1134,6 @@ Editor.prototype = {
           // 오류 발생 시 모든 children을 개별 파일로 저장
           const childrenFiles = [];
           const timestamp = Date.now();
-          
           for (let i = 0; i < childrenData.length; i++) {
             const fileName = `scene_child_${timestamp}_${i}.json`;
             childrenFiles.push({
@@ -1155,13 +1142,11 @@ Editor.prototype = {
               data: childrenData[i]
             });
           }
-          
           childrenFile = {
             smallChildren: [],
             largeChildrenFiles: childrenFiles.map(item => item.fileName),
             childrenFiles: childrenFiles
           };
-          
           console.log("오류로 인한 모든 children 개별 파일 저장:", childrenFiles.length, "개 파일");
           sceneData.object.children = [];
           sceneData.object.largeChildrenFiles = childrenFiles.map(item => item.fileName);
@@ -1169,7 +1154,6 @@ Editor.prototype = {
       } else {
         sceneData.object.children = [];
       }
-      
       // 원래 children 복원
       this.scene.children = originalChildren;
       
