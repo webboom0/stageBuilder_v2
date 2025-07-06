@@ -120,7 +120,7 @@ function MenubarFile(editor) {
   openProjectInput.accept = ".json,.zip";
   openProjectInput.addEventListener("change", async function () {
      // 파일 선택 즉시 오버레이 UI 띄우기
-     if (editor.progressiveLoader && typeof editor.progressiveLoader.createProgressUI === 'function') {
+    if (editor.progressiveLoader && typeof editor.progressiveLoader.createProgressUI === 'function') {
       editor.progressiveLoader.createProgressUI();
     } else {
       // ProgressiveLoader 인스턴스가 아직 없으면 임시로 생성해서라도 UI 띄움
@@ -206,7 +206,7 @@ function MenubarFile(editor) {
       }
     });
 
-  options.add(option);
+  // options.add(option);
 
   //
 
@@ -214,19 +214,20 @@ function MenubarFile(editor) {
 
   option = new UIRow()
     .addClass("option")
-    .setTextContent("다름이름으로 저장")
+    .setTextContent("저장하기(ZIP)")
     .onClick(async function () {
-      // 저장 방식 선택
-      const saveMethod = confirm("ZIP 파일로 저장하시겠습니까?\n\n확인: ZIP 파일 (권장)\n취소: JSON 파일");
-      
+      // ZIP 저장만 허용, 취소 시 아무 동작 없음
+      const saveMethod = confirm("ZIP 파일로 저장하시겠습니까?");
       if (saveMethod) {
-        // ZIP 파일로 저장 (2단계)
+        // ZIP 파일로 저장
         await saveAsZip();
       } else {
-        // JSON 파일로 저장 (1단계)
-        await saveAsJson();
+        // 취소
+        return;
       }
     });
+
+  options.add(option);
 
   // ZIP 파일로 저장하는 함수
   async function saveAsZip() {
@@ -311,99 +312,6 @@ function MenubarFile(editor) {
       alert("ZIP 파일 저장 중 오류가 발생했습니다: " + error.message);
     }
   }
-
-  // JSON 파일로 저장하는 함수
-  async function saveAsJson() {
-    const loader = new ProgressiveLoader(editor);
-    try {
-      loader.createProgressUI();
-      loader.totalItems = 3;
-      loader.loadedItems = 0;
-      document.querySelector('#progressive-loader-progress h3').textContent = '프로젝트 저장 중...';
-      loader.updateProgress();
-      
-      // 1단계: 데이터 준비
-      loader.loadedItems = 1;
-      loader.updateProgress();
-      document.getElementById('progress-detail').textContent = '데이터 준비 중...';
-
-      // showSaveFilePicker를 사용자 제스처 내에서 즉시 실행
-      if ("showSaveFilePicker" in window) {
-        const handle = await window.showSaveFilePicker({
-          suggestedName: "project.json",
-          types: [
-            {
-              description: "JSON Files",
-              accept: { "application/json": [".json"] },
-            },
-          ],
-        });
-
-        // MotionTimeline 데이터 저장
-        if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
-          editor.motionTimeline.onBeforeSave();
-        }
-
-        // 2단계: JSON 데이터 생성
-        loader.loadedItems = 2;
-        loader.updateProgress();
-        document.getElementById('progress-detail').textContent = 'JSON 데이터 생성 중...';
-        const json = await editor.toJSON(); // async 호출
-        const blob = new Blob([JSON.stringify(json)], {
-          type: "application/json",
-        });
-
-        // 3단계: 파일 저장
-        loader.loadedItems = 3;
-        loader.updateProgress();
-        document.getElementById('progress-detail').textContent = '파일 저장 중...';
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        console.log("JSON 파일 저장 완료");
-
-      } else {
-        // 대체 방법
-        if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
-          editor.motionTimeline.onBeforeSave();
-        }
-
-        loader.loadedItems = 2;
-        loader.updateProgress();
-        document.getElementById('progress-detail').textContent = 'JSON 데이터 생성 중...';
-        const json = await editor.toJSON(); // async 호출
-        const blob = new Blob([JSON.stringify(json)], {
-          type: "application/json",
-        });
-
-        loader.loadedItems = 3;
-        loader.updateProgress();
-        document.getElementById('progress-detail').textContent = '파일 저장 중...';
-        const fileName = prompt("파일 이름을 입력하세요:", "project.json");
-        if (fileName) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-          }, 100);
-          console.log("JSON 파일 저장 완료:", fileName);
-        }
-      }
-      setTimeout(() => loader.hideProgressUI(), 700);
-    } catch (error) {
-      loader.hideProgressUI();
-      console.error("JSON 파일 저장 실패:", error);
-      alert("JSON 파일 저장 중 오류가 발생했습니다: " + error.message);
-    }
-  }
-
-  options.add(option);
 
   // Save As
   // option = new UIRow()
