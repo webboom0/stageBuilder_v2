@@ -643,20 +643,19 @@ Editor.prototype = {
       // 점진적 로딩 적용 (3단계)
       try {
         const { ProgressiveLoader } = await import('./utils/ProgressiveLoader.js');
-        this.progressiveLoader = new ProgressiveLoader(this);
-        
-        // 로딩 이벤트 설정
+        // 이미 인스턴스가 있으면 재사용, 없으면 새로 생성
+        if (!this.progressiveLoader) {
+          this.progressiveLoader = new ProgressiveLoader(this);
+        }
+        // 로딩 이벤트 설정 (중복 방지)
         this.progressiveLoader.events.onComplete = (loadedData) => {
           console.log("점진적 로딩 완료:", Object.keys(loadedData));
           this.signals.progressiveLoadingComplete.dispatch(loadedData);
         };
-        
         this.progressiveLoader.events.onError = (error) => {
           console.error("점진적 로딩 오류:", error);
           this.signals.progressiveLoadingError.dispatch(error);
         };
-
-        // 점진적 로딩 옵션 가져오기
         const options = this.progressiveLoadingOptions || {
           enabled: true,
           priorityOrder: ['base', 'scene', 'timeline', 'music', 'history'],
@@ -664,10 +663,9 @@ Editor.prototype = {
           delayBetweenBatches: 50,
           showProgress: true
         };
-
         if (options.enabled) {
-          // 점진적 로딩 실행
-          projectData = await this.progressiveLoader.loadProjectProgressively(projectData, options);
+          // showProgress: true로 두고, 내부에서 중복 생성만 방지
+          projectData = await this.progressiveLoader.loadProjectProgressively(projectData, { ...options, showProgress: true });
           console.log("점진적 로딩 완료");
         } else {
           console.log("점진적 로딩 비활성화됨");

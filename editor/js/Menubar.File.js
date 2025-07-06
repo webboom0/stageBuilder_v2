@@ -1,4 +1,5 @@
 import { UIPanel, UIRow, UIHorizontalRule } from "./libs/ui.js";
+import { ProgressiveLoader } from './utils/ProgressiveLoader.js';
 
 function MenubarFile(editor) {
   const strings = editor.strings;
@@ -118,6 +119,15 @@ function MenubarFile(editor) {
   openProjectInput.type = "file";
   openProjectInput.accept = ".json,.zip";
   openProjectInput.addEventListener("change", async function () {
+     // 파일 선택 즉시 오버레이 UI 띄우기
+     if (editor.progressiveLoader && typeof editor.progressiveLoader.createProgressUI === 'function') {
+      editor.progressiveLoader.createProgressUI();
+    } else {
+      // ProgressiveLoader 인스턴스가 아직 없으면 임시로 생성해서라도 UI 띄움
+      import('./utils/ProgressiveLoader.js').then(({ ProgressiveLoader }) => {
+        (new ProgressiveLoader(editor)).createProgressUI();
+      });
+    }
     const file = openProjectInput.files[0];
 
     if (file === undefined) return;
@@ -220,7 +230,19 @@ function MenubarFile(editor) {
 
   // ZIP 파일로 저장하는 함수
   async function saveAsZip() {
+    const loader = new ProgressiveLoader(editor);
     try {
+      loader.createProgressUI();
+      loader.totalItems = 3;
+      loader.loadedItems = 0;
+      document.querySelector('#progressive-loader-progress h3').textContent = '프로젝트 저장 중...';
+      loader.updateProgress();
+      
+      // 1단계: 데이터 준비
+      loader.loadedItems = 1;
+      loader.updateProgress();
+      document.getElementById('progress-detail').textContent = '데이터 준비 중...';
+
       // showSaveFilePicker를 사용자 제스처 내에서 즉시 실행
       if ("showSaveFilePicker" in window) {
         const handle = await window.showSaveFilePicker({
@@ -233,13 +255,20 @@ function MenubarFile(editor) {
           ],
         });
 
-        // ZIP 파일 생성
+        // 2단계: ZIP 파일 생성
+        loader.loadedItems = 2;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = 'ZIP 파일 생성 중...';
         const zipBlob = await editor.toProjectZip("project", {
           splitTimeline: true,
           splitMusic: true,
           splitHistory: false
         });
 
+        // 3단계: 파일 저장
+        loader.loadedItems = 3;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = '파일 저장 중...';
         const writable = await handle.createWritable();
         await writable.write(zipBlob);
         await writable.close();
@@ -247,12 +276,18 @@ function MenubarFile(editor) {
 
       } else {
         // 대체 방법
+        loader.loadedItems = 2;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = 'ZIP 파일 생성 중...';
         const zipBlob = await editor.toProjectZip("project", {
           splitTimeline: true,
           splitMusic: true,
           splitHistory: false
         });
 
+        loader.loadedItems = 3;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = '파일 저장 중...';
         const fileName = prompt("파일 이름을 입력하세요:", "project.zip");
         if (fileName) {
           const url = URL.createObjectURL(zipBlob);
@@ -269,7 +304,9 @@ function MenubarFile(editor) {
           console.log("ZIP 파일 저장 완료:", fileName);
         }
       }
+      setTimeout(() => loader.hideProgressUI(), 700);
     } catch (error) {
+      loader.hideProgressUI();
       console.error("ZIP 파일 저장 실패:", error);
       alert("ZIP 파일 저장 중 오류가 발생했습니다: " + error.message);
     }
@@ -277,7 +314,19 @@ function MenubarFile(editor) {
 
   // JSON 파일로 저장하는 함수
   async function saveAsJson() {
+    const loader = new ProgressiveLoader(editor);
     try {
+      loader.createProgressUI();
+      loader.totalItems = 3;
+      loader.loadedItems = 0;
+      document.querySelector('#progressive-loader-progress h3').textContent = '프로젝트 저장 중...';
+      loader.updateProgress();
+      
+      // 1단계: 데이터 준비
+      loader.loadedItems = 1;
+      loader.updateProgress();
+      document.getElementById('progress-detail').textContent = '데이터 준비 중...';
+
       // showSaveFilePicker를 사용자 제스처 내에서 즉시 실행
       if ("showSaveFilePicker" in window) {
         const handle = await window.showSaveFilePicker({
@@ -292,19 +341,22 @@ function MenubarFile(editor) {
 
         // MotionTimeline 데이터 저장
         if (editor.motionTimeline && editor.motionTimeline.onBeforeSave) {
-          console.log("=== MotionTimeline 데이터 저장 시작 ===");
-          console.log("this.motionTimeline:", editor.motionTimeline);
-          console.log("this.scene.userData:", editor.scene.userData);
           editor.motionTimeline.onBeforeSave();
-          console.log("onBeforeSave 완료 후 scene.userData.motionTimeline:", editor.scene.userData.motionTimeline);
-          console.log("=== MotionTimeline 데이터 저장 완료 ===");
         }
 
+        // 2단계: JSON 데이터 생성
+        loader.loadedItems = 2;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = 'JSON 데이터 생성 중...';
         const json = await editor.toJSON(); // async 호출
         const blob = new Blob([JSON.stringify(json)], {
           type: "application/json",
         });
 
+        // 3단계: 파일 저장
+        loader.loadedItems = 3;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = '파일 저장 중...';
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
@@ -316,11 +368,17 @@ function MenubarFile(editor) {
           editor.motionTimeline.onBeforeSave();
         }
 
+        loader.loadedItems = 2;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = 'JSON 데이터 생성 중...';
         const json = await editor.toJSON(); // async 호출
         const blob = new Blob([JSON.stringify(json)], {
           type: "application/json",
         });
 
+        loader.loadedItems = 3;
+        loader.updateProgress();
+        document.getElementById('progress-detail').textContent = '파일 저장 중...';
         const fileName = prompt("파일 이름을 입력하세요:", "project.json");
         if (fileName) {
           const url = URL.createObjectURL(blob);
@@ -337,7 +395,9 @@ function MenubarFile(editor) {
           console.log("JSON 파일 저장 완료:", fileName);
         }
       }
+      setTimeout(() => loader.hideProgressUI(), 700);
     } catch (error) {
+      loader.hideProgressUI();
       console.error("JSON 파일 저장 실패:", error);
       alert("JSON 파일 저장 중 오류가 발생했습니다: " + error.message);
     }
