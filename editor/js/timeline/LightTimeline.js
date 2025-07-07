@@ -494,6 +494,34 @@ export class LightTimeline extends BaseTimeline {
     };
     return names[propertyType] || propertyType;
   }
+
+  // 다른 타임라인에서 선택된 키프레임 정보 가져오기
+  getSelectedKeyframe() {
+    if (this.editor.scene?.userData?.timeline?.selectedKeyframe) {
+      return this.editor.scene.userData.timeline.selectedKeyframe;
+    }
+    return null;
+  }
+
+  // 선택된 키프레임이 현재 타임라인의 것인지 확인
+  isSelectedKeyframeFromThisTimeline() {
+    const selectedKeyframe = this.getSelectedKeyframe();
+    if (!selectedKeyframe) return false;
+    
+    // LightTimeline의 트랙들과 비교
+    return this.lightTracks.some(track => track.objectId === selectedKeyframe.objectId);
+  }
+
+  // 선택된 키프레임 정보 출력 (디버깅용)
+  logSelectedKeyframe() {
+    const selectedKeyframe = this.getSelectedKeyframe();
+    if (selectedKeyframe) {
+      console.log("현재 선택된 키프레임:", selectedKeyframe);
+      console.log("이 타임라인의 키프레임인가?", this.isSelectedKeyframeFromThisTimeline());
+    } else {
+      console.log("선택된 키프레임이 없습니다.");
+    }
+  }
 }
 
 export default LightTimeline;

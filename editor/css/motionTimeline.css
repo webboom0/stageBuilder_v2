@@ -475,8 +475,8 @@
 
 .property-edit-panel {
   /* position: absolute;
-  right: 10px;
-  top: 10px; */
+right: 10px;
+top: 10px; */
   background: #2b2b2b;
   /* border: 1px solid #1a1a1a; */
   padding: 10px;
@@ -520,7 +520,7 @@
   top: 3px;
   overflow: visible;
   /* top: 50%;
-  transform: translateY(-50%); */
+transform: translateY(-50%); */
   display: flex;
   box-sizing: border-box;
 }
@@ -574,26 +574,27 @@
 }
 
 /* .keyframe {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: transparent;
-  border: solid 1px #dcdcdc;
-  top: 50%;
-  transform: translate(-50%, -50%) rotate(45deg);
-  cursor: pointer;
+position: absolute;
+width: 6px;
+height: 6px;
+background: transparent;
+border: solid 1px #dcdcdc;
+top: 50%;
+transform: translate(-50%, -50%) rotate(45deg);
+cursor: pointer;
 } */
 .keyframe {
   position: absolute;
   width: 8px;
   height: 8px;
-  background-color: #f90;
-  border: 1px solid #c60;
+  background-color: transparent;
+  border: 2px solid #fff;
   border-radius: 50%;
   cursor: pointer;
   transform: translate(-50%, 100%);
   bottom: 0;
   z-index: 10;
+  border-radius: 50%;
 }
 
 .keyframe.selected {
@@ -801,14 +802,14 @@
 }
 
 /* .time-ruler-container .playhead::before {
-  content: "";
-  position: absolute;
-  top: -10px;
-  left: -4px;
-  width: 10px;
-  height: 10px;
-  background: #f00;
-  border-radius: 5px 5px 2px 2px;
+content: "";
+position: absolute;
+top: -10px;
+left: -4px;
+width: 10px;
+height: 10px;
+background: #f00;
+border-radius: 5px 5px 2px 2px;
 } */
 
 /* 타임라인 뷰포트 */
@@ -873,8 +874,8 @@
   overflow: hidden;
   position: relative;
   height: calc(100% -
-      /* 헤더 높이 */
-      30px);
+          /* 헤더 높이 */
+          30px);
 }
 
 /* 2) 레이블 컬럼 */
@@ -961,8 +962,8 @@
 }
 
 /* #keyframe-property-panel {
-  padding: 5px;
-  color: #fff;
+padding: 5px;
+color: #fff;
 } */
 
 .keyframe.delete-preview {
@@ -1026,11 +1027,11 @@
 
 /* 타임라인 컨테이너 애니메이션 상태 
 .timeline-container[data-is-playing="true"] {
-  border-left: 3px solid #00ff00;
+border-left: 3px solid #00ff00;
 }
 
 .timeline-container[data-is-playing="false"] {
-  border-left: 3px solid #666;
+border-left: 3px solid #666;
 }
 */
 /* 현재 재생 중인 클립 스타일 */
@@ -1090,7 +1091,7 @@
 
 /* 애니메이션 시간 표시 */
 .timeline-container[data-animation-time]::before {
-  content: "시간: " attr(data-animation-time) "s";
+  content: "시간: "attr(data-animation-time) "s";
   position: absolute;
   top: 5px;
   right: 10px;
@@ -1103,7 +1104,7 @@
 
 /* 프레임 번호 표시 */
 .timeline-container[data-animation-frame]::after {
-  content: "프레임: " attr(data-animation-frame);
+  content: "프레임: "attr(data-animation-frame);
   position: absolute;
   top: 5px;
   right: 80px;
@@ -1123,15 +1124,15 @@
 
 @keyframes playing-indicator {
   0% {
-    background-position: 0% 50%;
+      background-position: 0% 50%;
   }
 
   50% {
-    background-position: 100% 50%;
+      background-position: 100% 50%;
   }
 
   100% {
-    background-position: 0% 50%;
+      background-position: 0% 50%;
   }
 }
 
@@ -1151,7 +1152,7 @@
 
 /* 키프레임 호버 시 시간 정보 표시 */
 .keyframe:hover::after {
-  content: "시간: " attr(data-time) "s";
+  content: "시간: "attr(data-time) "s";
   position: absolute;
   top: -25px;
   left: 50%;
@@ -1167,13 +1168,13 @@
 
 /* 현재 키프레임 호버 시 추가 정보 */
 .keyframe[data-is-current="true"]:hover::after {
-  content: "현재 시간: " attr(data-current-time) "s | 키프레임: " attr(data-time) "s";
+  content: "현재 시간: "attr(data-current-time) "s | 키프레임: "attr(data-time) "s";
   display: none;
 }
 
 /* 클립 호버 시 시간 정보 표시 */
 .animation-sprite:hover::after {
-  content: "시작: " attr(data-clip-start-time) "s | 끝: " attr(data-clip-end-time) "s | 길이: " attr(data-duration) "s";
+  content: "시작: "attr(data-clip-start-time) "s | 끝: "attr(data-clip-end-time) "s | 길이: "attr(data-duration) "s";
   position: absolute;
   top: -30px;
   left: 50%;
@@ -1189,7 +1190,7 @@
 
 /* 애니메이션 속도 표시 */
 .timeline-container[data-frame-rate]::before {
-  content: "FPS: " attr(data-frame-rate);
+  content: "FPS: "attr(data-frame-rate);
   position: absolute;
   top: 5px;
   left: 10px;
@@ -1203,7 +1204,7 @@
 
 /* 최대 시간 표시 */
 .timeline-container[data-max-time]::after {
-  content: "최대: " attr(data-max-time) "s";
+  content: "최대: "attr(data-max-time) "s";
   position: absolute;
   top: 25px;
   right: 10px;
@@ -1280,13 +1281,13 @@
   .timeline-container[data-animation-time]::before,
   .timeline-container[data-animation-frame]::after,
   .timeline-container[data-frame-rate]::before {
-    font-size: 10px;
-    padding: 1px 4px;
+      font-size: 10px;
+      padding: 1px 4px;
   }
 
   .keyframe[data-is-current="true"]::after {
-    font-size: 7px;
-    padding: 1px 3px;
+      font-size: 7px;
+      padding: 1px 3px;
   }
 }
 
@@ -1296,19 +1297,19 @@
   .keyframe[data-is-current="true"]::after,
   .keyframe:hover::after,
   .animation-sprite:hover::after {
-    background: rgba(255, 255, 255, 0.9);
-    color: #000;
+      background: rgba(255, 255, 255, 0.9);
+      color: #000;
   }
 }
 
 /* 고대비 모드 대응 */
 @media (prefers-contrast: high) {
   .animation-sprite[data-is-active="true"] {
-    border: 3px solid #fff;
+      border: 3px solid #fff;
   }
 
   .keyframe[data-is-current="true"] {
-    border: 3px solid #fff !important;
+      border: 3px solid #fff !important;
   }
 }
 
