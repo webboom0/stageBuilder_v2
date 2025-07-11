@@ -966,11 +966,12 @@ padding: 5px;
 color: #fff;
 } */
 
-.keyframe.delete-preview {
-  background: #ff4444 !important;
-  opacity: 0.5;
-  transform: scale(1.2);
-  box-shadow: 0 0 10px #ff4444;
+.property-panel{
+  color: #fff;
+}
+
+.property-panel .input.Number{
+  background-color: #000 !important;
 }
 
 .track-controls {

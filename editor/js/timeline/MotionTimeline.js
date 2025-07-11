@@ -940,10 +940,19 @@ export class MotionTimeline extends BaseTimeline {
         console.log("키프레임 선택으로 인한 playhead 이동:", time);
 
         // 애니메이션 재생 중이면 객체를 해당 키프레임의 값으로 강제 설정
-        if (this.isPlaying) {
-            console.log("애니메이션 재생 중 - 객체를 키프레임 값으로 강제 설정");
-            this.setPropertyValue(object, property, value);
-        }
+        // if (this.isPlaying) {
+        //     console.log("애니메이션 재생 중 - 객체를 키프레임 값으로 강제 설정");
+        //     this.setPropertyValue(object, property, value);
+        // }
+
+         // 키프레임 선택 시 항상 객체를 해당 키프레임의 값으로 설정 (재생 상태와 관계없이)
+         console.log("키프레임 선택으로 인한 객체 위치 업데이트:", {
+            objectName: object?.name,
+            property: property,
+            value: value,
+            isPlaying: this.isPlaying
+        });
+        this.setPropertyValue(object, property, value);
 
         // 속성 패널 업데이트
         this.updatePropertyPanel();
@@ -1003,6 +1012,10 @@ export class MotionTimeline extends BaseTimeline {
             case "scale":
                 object.scale.set(value.x, value.y, value.z);
                 break;
+        }
+
+        if (this.editor.signals?.objectChanged) {
+            this.editor.signals.objectChanged.dispatch(object, { fromTimeline: true });
         }
     }
 
@@ -2286,6 +2299,20 @@ export class MotionTimeline extends BaseTimeline {
                 trackData.values[i * 3 + 2]
             );
             keyframeElement.dataset.value = JSON.stringify([value.x, value.y, value.z]);
+
+            // 현재 선택된 키프레임인지 확인하여 selected 클래스 추가
+            if (this.selectedKeyframe && 
+                this.selectedKeyframe.objectId === objectUuid && 
+                this.selectedKeyframe.property === property && 
+                this.selectedKeyframe.index === i) {
+                keyframeElement.classList.add('selected');
+                console.log("키프레임에 selected 클래스 추가:", {
+                    objectUuid,
+                    property,
+                    index: i,
+                    time: keyframeTime
+                });
+            }
 
             keyframeLayer.appendChild(keyframeElement);
             this.makeKeyframeDraggable(keyframeElement, { uuid: objectUuid }, keyframeTime, property);
