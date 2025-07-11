@@ -970,8 +970,9 @@ color: #fff;
   color: #fff;
 }
 
-.property-panel .input.Number{
+.property-panel input.Number{
   background-color: #000 !important;
+  margin-right: 3px;
 }
 
 .track-controls {

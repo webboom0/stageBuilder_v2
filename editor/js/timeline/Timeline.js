@@ -646,7 +646,32 @@ class Timeline {
     this.isPlaying = true;
     this.editor.scene.userData.timeline.isPlaying = true;
 
-    let currentFrame = this.editor.scene.userData.timeline.currentFrame || 0;
+    // 현재 playhead 위치에서 시작하도록 currentFrame 설정
+    let currentFrame = 0;
+    
+    // 1. DOM에서 playhead 위치 가져오기
+    const playhead = document.querySelector('.playhead');
+    if (playhead) {
+      const playheadLeft = parseFloat(playhead.style.left) || 0;
+      const playheadPercent = playheadLeft / 100;
+      currentFrame = Math.floor(playheadPercent * this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond);
+      console.log("DOM에서 playhead 위치로 currentFrame 설정:", {
+        playheadLeft,
+        playheadPercent,
+        currentFrame,
+        totalFrames: this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond
+      });
+    }
+    
+    // 2. Timeline.js의 currentSeconds가 있으면 사용
+    if (this.editor.scene?.userData?.timeline?.currentSeconds !== undefined) {
+      const currentSeconds = this.editor.scene.userData.timeline.currentSeconds;
+      currentFrame = Math.floor(currentSeconds * this.timelineSettings.framesPerSecond);
+      console.log("Timeline.js currentSeconds로 currentFrame 설정:", {
+        currentSeconds,
+        currentFrame
+      });
+    }
     const totalFrames =
       this.timelineSettings.totalSeconds *
       this.timelineSettings.framesPerSecond;
@@ -692,8 +717,9 @@ class Timeline {
     // MotionTimeline의 play() 메서드 호출
     if (this.timelines.motion) {
       console.log("MotionTimeline play() 호출");
-      // MotionTimeline의 현재 시간을 Timeline의 현재 시간과 동기화
-      this.timelines.motion.currentTime = currentFrame / this.timelineSettings.framesPerSecond;
+      // MotionTimeline의 play() 메서드에서 현재 playhead 위치를 자동으로 가져가도록 함
+      // currentTime을 강제로 설정하지 않음
+      //this.timelines.motion.currentTime = currentFrame / this.timelineSettings.framesPerSecond;
       this.timelines.motion.play();
     }
 
