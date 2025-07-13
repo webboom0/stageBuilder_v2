@@ -587,14 +587,25 @@ cursor: pointer;
   position: absolute;
   width: 8px;
   height: 8px;
-  background-color: transparent;
+  background-color: #f90;
   border: 2px solid #fff;
   border-radius: 50%;
-  cursor: pointer;
+  cursor: grab;
   transform: translate(-50%, 100%);
   bottom: 0;
   z-index: 10;
   border-radius: 50%;
+  transition: all 0.1s ease;
+}
+
+.keyframe:hover {
+  background-color: #ffb366;
+  transform: translate(-50%, 100%) scale(1.2);
+  box-shadow: 0 0 8px rgba(255, 153, 0, 0.6);
+}
+
+.keyframe:active {
+  cursor: grabbing;
 }
 
 .keyframe.selected {
@@ -1325,4 +1336,48 @@ border-left: 3px solid #666;
 .timeline-container[data-is-playing="true"] .animation-sprite,
 .timeline-container[data-is-playing="true"] .keyframe {
   transition: all 0.1s ease-in-out;
+}
+
+/* 키프레임 삭제 관련 스타일 */
+.keyframe.delete-preview {
+  background: #ff4444 !important;
+  opacity: 0.5;
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+}
+
+.keyframe-context-menu {
+  position: fixed;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 4px 0;
+  z-index: 10000;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  min-width: 120px;
+}
+
+.keyframe-context-menu div {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.keyframe-context-menu div:hover {
+  background-color: #444;
+}
+
+/* 키프레임 선택 상태 강화 */
+.keyframe.selected {
+  border: 2px solid #00ff00;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+}
+
+/* 키프레임 드래그 중 상태 */
+.keyframe.dragging {
+  z-index: 1000;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }

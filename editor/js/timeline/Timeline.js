@@ -717,9 +717,10 @@ class Timeline {
     // MotionTimeline의 play() 메서드 호출
     if (this.timelines.motion) {
       console.log("MotionTimeline play() 호출");
-      // MotionTimeline의 play() 메서드에서 현재 playhead 위치를 자동으로 가져가도록 함
-      // currentTime을 강제로 설정하지 않음
-      //this.timelines.motion.currentTime = currentFrame / this.timelineSettings.framesPerSecond;
+      // 현재 playhead 위치를 MotionTimeline에 전달
+      const currentTimeInSeconds = currentFrame / this.timelineSettings.framesPerSecond;
+      this.timelines.motion.currentTime = currentTimeInSeconds;
+      console.log("MotionTimeline currentTime 설정:", currentTimeInSeconds);
       this.timelines.motion.play();
     }
 
