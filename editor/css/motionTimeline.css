@@ -356,6 +356,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 .property-selector {
@@ -587,7 +588,7 @@ cursor: pointer;
   position: absolute;
   width: 8px;
   height: 8px;
-  background-color: #f90;
+  /* background-color: #f90; */
   border: 2px solid #fff;
   border-radius: 50%;
   cursor: grab;
