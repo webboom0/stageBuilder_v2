@@ -4182,7 +4182,7 @@ export class MotionTimeline extends BaseTimeline {
         keyframeElement.style.position = "absolute";
         keyframeElement.style.width = "8px";
         keyframeElement.style.height = "8px";
-        keyframeElement.style.backgroundColor = "#ff6b6b";
+        // keyframeElement.style.backgroundColor = "#ff6b6b";
         keyframeElement.style.border = "2px solid #fff";
         keyframeElement.style.borderRadius = "50%";
         keyframeElement.style.cursor = "pointer";
