@@ -834,7 +834,7 @@ export class MotionTimeline extends BaseTimeline {
         return start + (end - start) * alpha;
     }
 
-    selectKeyframe(objectId, time, keyframeElement, index = null) {
+    selectKeyframe(objectId, time, keyframeElement, index = null, options = {}) {
         console.log("selectKeyframe");
         console.log(objectId);
         console.log(time);
@@ -935,9 +935,13 @@ export class MotionTimeline extends BaseTimeline {
             console.log("키프레임 선택으로 인한 객체 선택:", object.name);
         }
 
-        // playhead를 키프레임 시간 위치로 이동
-        this.movePlayheadToTime(time);
-        console.log("키프레임 선택으로 인한 playhead 이동:", time);
+        // playhead를 키프레임 시간 위치로 이동 (옵션으로 제어 가능)
+        if (!options.skipPlayheadMove) {
+            this.movePlayheadToTime(time);
+            console.log("키프레임 선택으로 인한 playhead 이동:", time);
+        } else {
+            console.log("playhead 이동 건너뜀 (옵션에 의해)");
+        }
 
         // 키프레임 선택 시 항상 캔버스 뷰 업데이트 (재생 중이든 아니든)
         console.log("키프레임 선택으로 인한 캔버스 뷰 업데이트:", { property, value });
@@ -2121,7 +2125,7 @@ export class MotionTimeline extends BaseTimeline {
             });
 
             // 키프레임 선택
-            this.selectKeyframe(objectId, time, prevKeyframe, index);
+            this.selectKeyframe(objectId, time, prevKeyframe, index, {});
 
             // playhead 이동
             this.movePlayheadToTime(time);
@@ -2145,7 +2149,7 @@ export class MotionTimeline extends BaseTimeline {
             });
 
             // 키프레임 선택
-            this.selectKeyframe(objectId, time, nextKeyframe, index);
+            this.selectKeyframe(objectId, time, nextKeyframe, index, {});
 
             // playhead 이동
             this.movePlayheadToTime(time);
@@ -2327,7 +2331,7 @@ export class MotionTimeline extends BaseTimeline {
                 
                 const time = parseFloat(keyframeElement.dataset.time);
                 const index = parseInt(keyframeElement.dataset.index);
-                this.selectKeyframe(objectUuid, time, keyframeElement, index);
+                this.selectKeyframe(objectUuid, time, keyframeElement, index, {});
             });
             
                          keyframeElement.addEventListener("mousedown", (e) => {
@@ -2510,7 +2514,7 @@ export class MotionTimeline extends BaseTimeline {
                     keyframeElement,
                     keyframeIndex
                 });
-                this.selectKeyframe(track.uuid, time, keyframeElement, keyframeIndex);
+                this.selectKeyframe(track.uuid, time, keyframeElement, keyframeIndex, {});
             }
         };
 
@@ -2541,7 +2545,7 @@ export class MotionTimeline extends BaseTimeline {
 
             // 키프레임 선택
             if (track.uuid) {
-                this.selectKeyframe(track.uuid, dragStartTime, keyframeElement, dragStartIndex);
+                this.selectKeyframe(track.uuid, dragStartTime, keyframeElement, dragStartIndex, {});
             }
 
             const handleMouseMove = (e) => {
@@ -2741,7 +2745,7 @@ export class MotionTimeline extends BaseTimeline {
             e.stopPropagation();
             if (track.uuid) {
                 const time = parseFloat(keyframeElement.dataset.time);
-                this.selectKeyframe(track.uuid, time, keyframeElement);
+                this.selectKeyframe(track.uuid, time, keyframeElement, null, {});
             }
         });
 
@@ -2918,7 +2922,7 @@ export class MotionTimeline extends BaseTimeline {
                 }
             }
             if (track.uuid) {
-                this.selectKeyframe(track.uuid, dragStartTime, keyframeElement, dragStartIndex);
+                this.selectKeyframe(track.uuid, dragStartTime, keyframeElement, dragStartIndex, {});
             }
             document.addEventListener("mousemove", handleMouseMove);
             document.addEventListener("mouseup", handleMouseUp);
@@ -3991,33 +3995,13 @@ export class MotionTimeline extends BaseTimeline {
                 keyframeElement
             });
             
-            // 키프레임만 선택하고 playhead는 이동하지 않음
-            this.container.querySelectorAll('.keyframe.selected').forEach(el => el.classList.remove('selected'));
-            if (keyframeElement) {
-                keyframeElement.classList.add('selected');
-            }
+            // selectKeyframe 메서드를 호출하여 키프레임 선택과 객체 선택을 함께 처리
+            // playhead 이동은 하지 않도록 skipPlayheadMove 옵션 전달
+            this.selectKeyframe(objectUuid, time, keyframeElement, index, { skipPlayheadMove: true });
             
-            // 선택된 키프레임 정보 저장 (playhead 이동 없이)
-            const trackData = this.timelineData.tracks.get(objectUuid)?.get(property);
-            if (trackData && index >= 0 && index < trackData.keyframeCount) {
-                const value = {
-                    x: trackData.values[index * 3],
-                    y: trackData.values[index * 3 + 1],
-                    z: trackData.values[index * 3 + 2]
-                };
-                
-                this.selectedKeyframe = {
-                    objectId: objectUuid,
-                    index: index,
-                    time,
-                    property,
-                    value,
-                    element: keyframeElement
-                };
-                
-                // 속성 패널 업데이트
-                this.updatePropertyPanel();
-            }
+            // playhead 이동은 하지 않도록 별도로 처리
+            // (selectKeyframe에서 playhead 이동을 방지하기 위해)
+            console.log("onKeyframeAdded - 키프레임 선택 완료, 객체도 함께 선택됨");
         }
     }
 

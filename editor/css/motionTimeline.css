@@ -596,7 +596,7 @@ cursor: pointer;
   bottom: 0;
   z-index: 10;
   border-radius: 50%;
-  transition: all 0.1s ease;
+  /* transition: all 0.1s ease; */
 }
 
 .keyframe:hover {
@@ -1330,7 +1330,7 @@ border-left: 3px solid #666;
 /* 애니메이션 상태 전환 효과 */
 .animation-sprite,
 .keyframe {
-  transition: all 0.2s ease-in-out;
+  /* transition: all 0.2s ease-in-out; */
 }
 
 /* 애니메이션 재생 중 부드러운 전환 */
