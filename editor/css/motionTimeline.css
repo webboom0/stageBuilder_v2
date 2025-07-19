@@ -937,13 +937,19 @@ border-radius: 5px 5px 2px 2px;
 }
 
 /* 4) 헤더 상단 고정 */
-.main-timeline-container .timeline-header {
+.timeline-top-container{
   position: sticky;
   top: 0;
   z-index: 10;
+}
+.main-timeline-container .timeline-header {
   display: grid;
   grid-template-columns: 200px 1fr;
   box-sizing: border-box;
+}
+
+.timeline-top-container .tab-buttons{
+  background-color: #000;
 }
 
 .track-toggle {
@@ -973,10 +979,9 @@ border-radius: 5px 5px 2px 2px;
   padding: 3px 5px !important;
 }
 
-/* #keyframe-property-panel {
-padding: 5px;
-color: #fff;
-} */
+#keyframe-property-panel {
+display: none;
+}
 
 .property-panel{
   color: #fff;

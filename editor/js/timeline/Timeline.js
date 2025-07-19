@@ -45,7 +45,7 @@ class Timeline {
 
     // addTrack 추가가
     this.container
-      .querySelector(".controls-container")
+      .querySelector(".timeline-header .controls-container")
       .prepend(this.createAddTimelineButton().dom);
 
     // 타임라인 상단 눈금 및 플레이헤드 생성
@@ -196,23 +196,9 @@ class Timeline {
     c.id = "main-timeline";
     c.className = "main-timeline-container";
     c.innerHTML = `
-      <div class="timeline-header">
-        <div class="controls-container">
-          <button class="play-button"><i class="fa fa-play"></i></button>
-          <button class="stop-button"><i class="fa fa-stop"></i></button></div>
-        <div class="time-ruler-container"></div>
-      </div>
-      <div class="tab-buttons">
-        <button class="tab-button active" data-timeline="motion">Motion</button>
-        <button class="tab-button" data-timeline="light">Light</button>
-        <button class="tab-button" data-timeline="audio">Audio</button>
-      </div>
-      <div class="timeline-body">
-        <div class="timeline-viewport"></div>
-      </div>
+    <div class="timeline-top-container">
       <div class="timeline-footer">
         <div class="controls-container">
-          
           <span class="time-display">00:00:00</span>
           <input type="number" class="frame-input" min="0" value="0">
           <span class="frame-total">/ ${this.timelineSettings.totalSeconds *
@@ -220,6 +206,23 @@ class Timeline {
       }</span>
         </div>
       </div>
+      <div class="timeline-header">
+        <div class="controls-container">
+          <button class="play-button"><i class="fa fa-play"></i></button>
+          <button class="stop-button"><i class="fa fa-stop"></i></button></div>
+        <div class="time-ruler-container"></div>
+      </div>
+      
+      <div class="tab-buttons">
+        <button class="tab-button active" data-timeline="motion">Motion</button>
+        <button class="tab-button" data-timeline="light">Light</button>
+        <button class="tab-button" data-timeline="audio">Audio</button>
+      </div>
+      </div>
+      <div class="timeline-body">
+        <div class="timeline-viewport"></div>
+      </div>
+    
     `;
     return c;
   }
