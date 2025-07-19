@@ -153,15 +153,22 @@ class Timeline {
       deleteBtn.textContent = "트랙 삭제";
       deleteBtn.onclick = () => {
         const objectId = parseInt(track.dataset.objectId, 10);
-        console.log("트랙 삭제");
-        console.log(objectId);
+        const objectUuid = track.dataset.uuid;
+        console.log("트랙 삭제", { objectId, objectUuid });
 
-        // TimelineData에서 트랙 삭제
-        const wasDeleted = this.timelines.motion.timelineData.removeTrackById(objectId, 'position') ||
-                          this.timelines.motion.timelineData.removeTrackById(objectId, 'rotation') ||
-                          this.timelines.motion.timelineData.removeTrackById(objectId, 'scale');
-        console.log(`삭제 성공 여부: ${wasDeleted}`);
-        track.remove();
+        // MotionTimeline의 완전한 트랙 삭제 메서드 호출
+        if (this.timelines.motion && objectUuid) {
+          const removedCount = this.timelines.motion.removeTrackCompletely(objectUuid);
+          console.log(`완전 삭제 완료: ${removedCount}개 트랙 제거됨`);
+        } else {
+          // 기존 방식으로 삭제 (하위 호환성)
+          const wasDeleted = this.timelines.motion.timelineData.removeTrackById(objectId, 'position') ||
+                            this.timelines.motion.timelineData.removeTrackById(objectId, 'rotation') ||
+                            this.timelines.motion.timelineData.removeTrackById(objectId, 'scale');
+          console.log(`기존 방식 삭제 성공 여부: ${wasDeleted}`);
+          track.remove();
+        }
+        
         menu.remove();
         if (
           editor.selected &&
@@ -285,11 +292,36 @@ class Timeline {
     });
     // 선택된 FBX 객체의 모션 타임라인 추가
     if (this.timelines.motion) {
-      // TimelineData 기반으로 이미 존재하는 트랙인지 확인
+      // TimelineData와 UI 모두에서 기존 트랙이 있는지 확인
       const existingTracks = this.timelines.motion.timelineData.getObjectTracks(selectedObject.uuid);
-      if (existingTracks.size > 0) {
-        alert("이 객체트랙은 이미 타임라인에 존재합니다.");
-        return;
+      const existingTrackElement = this.timelines.motion.container.querySelector(`[data-uuid="${selectedObject.uuid}"]`);
+      
+      console.log("트랙 추가 전 확인:", {
+        objectUuid: selectedObject.uuid,
+        timelineDataTracks: existingTracks.size,
+        uiElementExists: !!existingTrackElement
+      });
+      
+      if (existingTracks.size > 0 || existingTrackElement) {
+        console.log("기존 트랙이 발견되었습니다. 완전히 제거합니다.");
+        
+        // 완전한 트랙 제거
+        this.timelines.motion.removeTrackCompletely(selectedObject.uuid);
+        
+        // 잠시 대기 후 다시 확인
+        setTimeout(() => {
+          const remainingTracks = this.timelines.motion.timelineData.getObjectTracks(selectedObject.uuid);
+          const remainingElement = this.timelines.motion.container.querySelector(`[data-uuid="${selectedObject.uuid}"]`);
+          
+          if (remainingTracks.size > 0 || remainingElement) {
+            console.warn("트랙 제거 후에도 여전히 존재합니다:", {
+              remainingTracks: remainingTracks.size,
+              remainingElement: !!remainingElement
+            });
+            alert("트랙 제거 중 오류가 발생했습니다. 다시 시도해주세요.");
+            return;
+          }
+        }, 100);
       }
 
       const objectUuid = selectedObject.uuid;

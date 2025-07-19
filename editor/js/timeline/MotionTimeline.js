@@ -1180,13 +1180,31 @@ export class MotionTimeline extends BaseTimeline {
     addTrack(objectUuid, objectId, objectName, skipInitialKeyframe = false) {
         console.log("addTrack called with:", { objectUuid, objectId, objectName, skipInitialKeyframe });
 
-        // TimelineData 기반으로 기존 트랙이 있는지 확인
+        // TimelineData와 UI 모두에서 기존 트랙이 있는지 확인
         const existingTracks = this.timelineData.getObjectTracks(objectUuid);
-        if (existingTracks.size > 0) {
-            console.log("기존 트랙이 이미 존재합니다:", { objectId, objectUuid });
-            // 기존 UI 트랙 요소 찾기
-            const existingTrackElement = this.container.querySelector(`[data-uuid="${objectUuid}"]`);
-            if (existingTrackElement) {
+        const existingTrackElement = this.container.querySelector(`[data-uuid="${objectUuid}"]`);
+        
+        if (existingTracks.size > 0 || existingTrackElement) {
+            console.log("기존 트랙이 이미 존재합니다:", { 
+                objectId, 
+                objectUuid, 
+                timelineDataTracks: existingTracks.size,
+                uiElementExists: !!existingTrackElement
+            });
+            
+            // TimelineData에서 트랙이 있지만 UI가 없는 경우, TimelineData에서 완전히 제거
+            if (existingTracks.size > 0 && !existingTrackElement) {
+                console.log("TimelineData에는 있지만 UI가 없습니다. TimelineData에서 완전히 제거합니다.");
+                // 모든 속성의 트랙 제거
+                const properties = ['position', 'rotation', 'scale'];
+                properties.forEach(property => {
+                    this.timelineData.removeTrackByUuid(objectUuid, property);
+                });
+                // TimelineData 정리
+                this.timelineData.cleanupTracks();
+            } else if (existingTrackElement) {
+                // UI 요소가 있으면 기존 요소 반환
+                console.log("UI 요소가 존재하므로 기존 요소를 반환합니다.");
                 return { element: existingTrackElement };
             }
         }
@@ -1376,6 +1394,67 @@ export class MotionTimeline extends BaseTimeline {
         }
 
         return track;
+    }
+
+    // 트랙 완전 삭제 메서드
+    removeTrackCompletely(objectUuid) {
+        console.log("removeTrackCompletely called with:", objectUuid);
+        
+        let totalRemoved = 0;
+        
+        // 1. UI에서 트랙 요소 제거 (모든 관련 요소)
+        const trackElements = this.container.querySelectorAll(`[data-uuid="${objectUuid}"]`);
+        trackElements.forEach(element => {
+            element.remove();
+            console.log("UI 트랙 요소 제거됨:", element.className);
+        });
+        
+        // 2. TimelineData에서 모든 속성의 트랙 제거
+        const existingTracks = this.timelineData.getObjectTracks(objectUuid);
+        let dataRemoved = 0;
+        
+        // 모든 속성에 대해 트랙 제거
+        const properties = ['position', 'rotation', 'scale'];
+        properties.forEach(property => {
+            if (this.timelineData.removeTrackByUuid(objectUuid, property)) {
+                dataRemoved++;
+                console.log(`TimelineData에서 ${property} 트랙 제거됨`);
+            }
+        });
+        
+        // 기존 트랙이 있으면 추가로 제거
+        for (const [property, trackData] of existingTracks) {
+            if (this.timelineData.removeTrackByUuid(objectUuid, property)) {
+                dataRemoved++;
+                console.log(`TimelineData에서 추가 ${property} 트랙 제거됨`);
+            }
+        }
+        
+        totalRemoved += dataRemoved;
+        
+        // 3. Mixer에서 제거
+        if (this.mixers.has(objectUuid)) {
+            this.mixers.delete(objectUuid);
+            console.log("Mixer에서 제거됨");
+        }
+        
+        // 4. 씬의 userData에서 클립 정보 제거
+        if (this.editor.scene.userData.motionTimeline?.clips?.[objectUuid]) {
+            delete this.editor.scene.userData.motionTimeline.clips[objectUuid];
+            console.log("씬 userData에서 클립 정보 제거됨");
+        }
+        
+        // 5. 키프레임 정보도 제거
+        if (this.editor.scene.userData.keyframes?.[objectUuid]) {
+            delete this.editor.scene.userData.keyframes[objectUuid];
+            console.log("씬 userData에서 키프레임 정보 제거됨");
+        }
+        
+        // 6. TimelineData 정리
+        this.timelineData.cleanupTracks();
+        
+        console.log(`트랙 완전 삭제 완료: ${totalRemoved}개 트랙 제거됨`);
+        return totalRemoved;
     }
 
     bindSpriteEvents(sprite, track) {
