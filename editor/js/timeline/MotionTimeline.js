@@ -1434,15 +1434,30 @@ export class MotionTimeline extends BaseTimeline {
             const deltaPercent = (dx / parentWidth) * 100;
 
             if (isResizing) {
+                // 5초를 퍼센트로 변환
+                const minDurationSeconds = 5;
+                const minWidthPercent = (minDurationSeconds / this.options.totalSeconds) * 100;
+                
+                console.log("클립 크기 조정 중:", {
+                    resizeHandle: resizeHandle.classList.contains("left") ? "left" : "right",
+                    startLeft,
+                    startWidth,
+                    deltaPercent,
+                    currentLeft: parseFloat(sprite.style.left) || 0,
+                    currentWidth: parseFloat(sprite.style.width) || 100,
+                    minWidthPercent: minWidthPercent.toFixed(2) + "%",
+                    minDurationSeconds: minDurationSeconds + "초"
+                });
+                
                 if (resizeHandle.classList.contains("left")) {
                     const newLeft = Math.max(
                         0,
-                        Math.min(startLeft + deltaPercent, startLeft + startWidth - 10)
+                        Math.min(startLeft + deltaPercent, startLeft + startWidth - minWidthPercent)
                     );
                     const newWidth = startWidth - (newLeft - startLeft);
 
                     if (
-                        newWidth >= 10 &&
+                        newWidth >= minWidthPercent &&
                         !this.checkClipCollision(sprite, newLeft, newWidth)
                     ) {
                         sprite.style.left = `${newLeft}%`;
@@ -1454,7 +1469,7 @@ export class MotionTimeline extends BaseTimeline {
                     }
                 } else {
                     const newWidth = Math.max(
-                        10,
+                        minWidthPercent,
                         Math.min(startWidth + deltaPercent, 100 - startLeft)
                     );
                     if (!this.checkClipCollision(sprite, startLeft, newWidth)) {
