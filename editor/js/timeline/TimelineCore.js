@@ -595,7 +595,7 @@ export class TimelineData {
     this.tracks = new Map(); // Map<objectUuid, Map<property, TrackData>>
     this.tracksById = new Map(); // Map<objectId, Map<property, TrackData>> - ID 기반 접근
     this.maxTime = 0;
-    this.frameRate = 30;
+    this.frameRate = 30; // 60에서 30으로 변경하여 성능 향상
     this.dirty = true;
     this.eventListeners = new Map();
     this.precomputedData = new Map(); // 프리컴퓨트된 애니메이션 데이터

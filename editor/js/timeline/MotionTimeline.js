@@ -18,6 +18,13 @@ export class MotionTimeline extends BaseTimeline {
         this.pendingKeyframeUpdate = false; // 키프레임 업데이트 대기 상태
         this.isPlayheadDragging = false; // playhead 드래그 상태 추적
         this.timelineData = new TimelineData();
+        
+        // Timeline.js의 framesPerSecond와 동기화
+        if (options && options.framesPerSecond) {
+            this.timelineData.frameRate = options.framesPerSecond;
+            // console.log(`MotionTimeline frameRate를 Timeline.js와 동기화: ${this.timelineData.frameRate}fps`);
+        }
+        
         // 중복된 tracks 관리를 제거하고 TimelineData를 단일 소스로 사용
         this.timeline = this.editor.scene.userData.timeline || {};
         this.initMotionTracks();
@@ -378,13 +385,13 @@ export class MotionTimeline extends BaseTimeline {
             trackData.forEach((trackData, property) => {
                 // TrackData의 getValueAtTime을 사용하여 직접 값 계산
                 const value = trackData.getValueAtTime(currentTime);
-                console.log(`[updateAnimation] ${objectUuid} ${property}:`, {
-                    currentTime,
-                    hasValue: !!value,
-                    value: value,
-                    keyframeCount: trackData.keyframeCount,
-                    times: Array.from(trackData.times.slice(0, trackData.keyframeCount))
-                });
+                // console.log(`[updateAnimation] ${objectUuid} ${property}:`, {
+                //     currentTime,
+                //     hasValue: !!value,
+                //     value: value,
+                //     keyframeCount: trackData.keyframeCount,
+                //     times: Array.from(trackData.times.slice(0, trackData.keyframeCount))
+                // });
                 if (value) {
                     this.applyValue(object, property, value);
                 }
@@ -743,12 +750,13 @@ export class MotionTimeline extends BaseTimeline {
             }
         });
 
-        console.log("애니메이션 재생 시작:", {
-            currentTime: this.currentTime,
-            frameRate: this.timelineData.frameRate,
-            maxTime: this.timelineData.maxTime,
-            timelineIsPlaying: this.editor.scene?.userData?.timeline?.isPlaying
-        });
+        // console.log("애니메이션 재생 시작:", {
+        //     currentTime: this.currentTime,
+        //     frameRate: this.timelineData.frameRate,
+        //     maxTime: this.timelineData.maxTime,
+        //     timelineIsPlaying: this.editor.scene?.userData?.timeline?.isPlaying,
+        //     timelineFrameRate: this.options?.framesPerSecond || 'unknown'
+        // });
 
         // Timeline.js에서 호출된 경우에도 자체 animate() 루프를 시작하지 않음
         // Timeline.js의 animate() 루프에서 updateAnimation()을 호출하므로 중복 방지
@@ -811,20 +819,24 @@ export class MotionTimeline extends BaseTimeline {
 
         // Timeline.js에서 호출된 경우 자체 루프를 시작하지 않음
         if (this.editor.scene?.userData?.timeline?.isPlaying) {
-            console.log("Timeline.js에서 호출된 경우 자체 animate() 루프를 시작하지 않습니다.");
+            // console.log("Timeline.js에서 호출된 경우 자체 animate() 루프를 시작하지 않습니다.");
             return;
         }
+
+        // Timeline.js가 주도적으로 애니메이션을 제어하므로 자체 루프는 비활성화
+        // console.log("MotionTimeline 자체 animate() 루프는 비활성화됨 - Timeline.js가 제어함");
+        return;
 
         // data-* 속성을 통한 애니메이션 상태 관리 (무한 재귀 방지를 위해 직접 설정)
         this.container.dataset.isPlaying = 'true';
 
-        console.log("=== animate() 실행 ===");
-        console.log("현재 시간:", this.currentTime);
-        console.log("프레임 레이트:", this.timelineData.frameRate);
+        // console.log("=== animate() 실행 ===");
+        // console.log("현재 시간:", this.currentTime);
+        // console.log("프레임 레이트:", this.timelineData.frameRate);
 
         // TimelineData 상태 확인 및 업데이트
         if (this.timelineData.dirty) {
-            console.log("TimelineData가 dirty 상태입니다. precomputeAnimationData를 실행합니다.");
+            // console.log("TimelineData가 dirty 상태입니다. precomputeAnimationData를 실행합니다.");
             this.timelineData.precomputeAnimationData();
             this.setAnimationProperty('maxTime', this.timelineData.maxTime);
         }
@@ -879,16 +891,16 @@ export class MotionTimeline extends BaseTimeline {
         // 키프레임 애니메이션 업데이트 (data-* 속성 활용)
         this.updateAnimation(this.currentTime);
 
-        // 성능 모니터링 (선택적)
-        if (this.currentTime % 1 < deltaTime) { // 매 초마다
-            console.log("애니메이션 상태:", {
-                currentTime: this.currentTime.toFixed(3),
-                frame: Math.floor(this.currentTime * this.timelineData.frameRate),
-                isPlaying: this.isPlaying,
-                activeClips: this.getClipAnimationStates(),
-                currentKeyframes: this.getKeyframeAnimationStates()
-            });
-        }
+        // 성능 모니터링 (비활성화 - 로그가 성능에 영향을 줄 수 있음)
+        // if (this.currentTime % 1 < deltaTime) { // 매 초마다
+        //     console.log("애니메이션 상태:", {
+        //         currentTime: this.currentTime.toFixed(3),
+        //         frame: Math.floor(this.currentTime * this.timelineData.frameRate),
+        //         isPlaying: this.isPlaying,
+        //         activeClips: this.getClipAnimationStates(),
+        //         currentKeyframes: this.getKeyframeAnimationStates()
+        //     });
+        // }
 
         // 다음 프레임 요청
         requestAnimationFrame(() => this.animate());
@@ -4395,19 +4407,20 @@ export class MotionTimeline extends BaseTimeline {
 
     // 애니메이션 속도 조절
     setPlaybackSpeed(speed) {
-        console.log(`재생 속도 설정: ${speed}x`);
+        // console.log(`재생 속도 설정: ${speed}x`);
 
         // 프레임 레이트 조정으로 속도 변경
-        const baseFrameRate = 30;
+        const baseFrameRate = this.options?.framesPerSecond || 30; // Timeline.js의 framesPerSecond 사용
         const newFrameRate = Math.floor(baseFrameRate * speed);
 
         this.timelineData.frameRate = newFrameRate;
         this.setAnimationProperty('frameRate', newFrameRate);
 
-        console.log("재생 속도 변경 완료:", {
-            speed: speed,
-            newFrameRate: newFrameRate
-        });
+        // console.log("재생 속도 변경 완료:", {
+        //     speed: speed,
+        //     baseFrameRate: baseFrameRate,
+        //     newFrameRate: newFrameRate
+        // });
     }
 
     // 애니메이션 루프 설정

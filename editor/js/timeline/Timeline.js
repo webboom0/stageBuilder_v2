@@ -14,7 +14,7 @@ class Timeline {
     // 기본 타임라인 설정을 먼저 초기화
     this.defaultSettings = {
       totalSeconds: 180,
-      framesPerSecond: 30,
+      framesPerSecond: 30, // 60에서 30으로 변경하여 성능 향상
       currentFrame: 0,
     };
 
@@ -668,12 +668,12 @@ class Timeline {
   }
 
   play() {
-    console.log("Timeline- play");
+    // console.log("Timeline- play");
     if (!this.editor.scene) return;
 
-    console.log("=== 타임라인 재생 시작 ===");
-    console.log("현재 씬:", this.editor.scene);
-    console.log("타임라인 설정:", this.timelineSettings);
+    // console.log("=== 타임라인 재생 시작 ===");
+    // console.log("현재 씬:", this.editor.scene);
+    // console.log("타임라인 설정:", this.timelineSettings);
 
     this.isPlaying = true;
     this.editor.scene.userData.timeline.isPlaying = true;
@@ -687,22 +687,22 @@ class Timeline {
       const playheadLeft = parseFloat(playhead.style.left) || 0;
       const playheadPercent = playheadLeft / 100;
       currentFrame = Math.floor(playheadPercent * this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond);
-      console.log("DOM에서 playhead 위치로 currentFrame 설정:", {
-        playheadLeft,
-        playheadPercent,
-        currentFrame,
-        totalFrames: this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond
-      });
+      // console.log("DOM에서 playhead 위치로 currentFrame 설정:", {
+      //   playheadLeft,
+      //   playheadPercent,
+      //   currentFrame,
+      //   totalFrames: this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond
+      // });
     }
     
     // 2. Timeline.js의 currentSeconds가 있으면 사용
     if (this.editor.scene?.userData?.timeline?.currentSeconds !== undefined) {
       const currentSeconds = this.editor.scene.userData.timeline.currentSeconds;
       currentFrame = Math.floor(currentSeconds * this.timelineSettings.framesPerSecond);
-      console.log("Timeline.js currentSeconds로 currentFrame 설정:", {
-        currentSeconds,
-        currentFrame
-      });
+      // console.log("Timeline.js currentSeconds로 currentFrame 설정:", {
+      //   currentSeconds,
+      //   currentFrame
+      // });
     }
     const totalFrames =
       this.timelineSettings.totalSeconds *
@@ -756,12 +756,18 @@ class Timeline {
       this.timelines.motion.play();
     }
 
-    // 애니메이션 프레임 업데이트
+    // 애니메이션 프레임 업데이트 - 실제 시간 기반으로 제어
+    let lastTime = performance.now();
     const animate = () => {
       if (!this.isPlaying) return;
 
-      // 프레임 증가량을 playbackSpeed로 조절
-      currentFrame += playbackSpeed;
+      const currentTime = performance.now();
+      const deltaTime = (currentTime - lastTime) / 1000; // 초 단위
+      lastTime = currentTime;
+
+      // 실제 시간 기반으로 프레임 계산
+      const frameDelta = deltaTime * this.timelineSettings.framesPerSecond * playbackSpeed;
+      currentFrame += frameDelta;
 
       if (currentFrame >= totalFrames) {
         currentFrame = 0;
@@ -770,7 +776,7 @@ class Timeline {
       // 오디오는 자체적으로 재생되도록 함 - 시간 동기화 제거
 
       // setCurrentFrame을 사용하여 모션 애니메이션 업데이트 (오디오 제외)
-      this.setCurrentFrame(currentFrame, true);
+      this.setCurrentFrame(Math.floor(currentFrame), true);
 
       // 플레이헤드 위치 업데이트
       const percent = (currentFrame / totalFrames) * 100;
@@ -892,13 +898,13 @@ class Timeline {
     frame = Math.max(0, Math.min(frame, totalFrames - 1));
 
     const currentTime = frame / this.timelineSettings.framesPerSecond;
-    console.log("=== setCurrentFrame ===");
-    console.log("현재 시간(초):", currentTime);
-    console.log("현재 프레임:", frame);
+    // console.log("=== setCurrentFrame ===");
+    // console.log("현재 시간(초):", currentTime);
+    // console.log("현재 프레임:", frame);
 
     // MotionTimeline의 updateAnimation 호출하여 속성 애니메이션 처리
     if (this.timelines.motion && updateAnimation) {
-      console.log("MotionTimeline updateAnimation 호출");
+      // console.log("MotionTimeline updateAnimation 호출");
       this.timelines.motion.currentTime = currentTime;
       this.timelines.motion.updateAnimation(currentTime);
     }
