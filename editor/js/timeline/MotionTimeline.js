@@ -120,24 +120,81 @@ export class MotionTimeline extends BaseTimeline {
     }
 
     addKeyframe(trackUuid, propertyType, timeInSeconds, value) {
-        // TimelineData를 통해 키프레임 추가
-        console.log("addKeyframe");
+        // TimelineData를 통해 키프레임 추가 (모든 속성 함께 저장)
+        console.log("addKeyframe - 모든 속성 함께 저장");
         console.log(trackUuid);
         console.log(propertyType);
         console.log(timeInSeconds);
         console.log(value);
         console.log(this.timelineData.tracks);
 
-        // 트랙이 없으면 키프레임 추가 실패
-        let track = this.timelineData.tracks.get(trackUuid)?.get(propertyType);
-        if (!track) {
-            console.warn("트랙이 존재하지 않습니다:", { trackUuid, propertyType });
+        // 객체에서 모든 속성의 현재 값 가져오기
+        const object = this.editor.scene.getObjectByProperty('uuid', trackUuid);
+        if (!object) {
+            console.warn("객체를 찾을 수 없습니다:", trackUuid);
             return false;
         }
 
-        // 키프레임 데이터 추가 (UI는 이벤트 시스템에서 자동 생성)
-        if (!track.addKeyframe(timeInSeconds, value)) {
-            console.warn("키프레임 추가 실패:", { timeInSeconds, value });
+        const position = new THREE.Vector3(object.position.x, object.position.y, object.position.z);
+        const rotation = new THREE.Vector3(object.rotation.x, object.rotation.y, object.rotation.z);
+        const scale = new THREE.Vector3(object.scale.x, object.scale.y, object.scale.z);
+
+        console.log("현재 객체 속성:", { position, rotation, scale });
+
+        // 모든 속성에 대해 키프레임 추가
+        const properties = [
+            { type: 'position', value: position },
+            { type: 'rotation', value: rotation },
+            { type: 'scale', value: scale }
+        ];
+
+        let success = true;
+        properties.forEach(({ type, value }) => {
+            let track = this.timelineData.tracks.get(trackUuid)?.get(type);
+            if (!track) {
+                console.log(`${type} 트랙을 생성합니다:`, trackUuid);
+                track = this.timelineData.addTrack(trackUuid, type);
+            }
+
+            if (track) {
+                // 기존 키프레임이 있는지 확인
+                const existingIndex = track.findKeyframeIndex(timeInSeconds);
+                if (existingIndex !== -1) {
+                    // 기존 키프레임이 있으면 값만 업데이트
+                    track.updateKeyframeValue(existingIndex, value);
+                    console.log(`${type} 기존 키프레임 업데이트:`, { time: timeInSeconds, value });
+                } else {
+                    // 새 키프레임 추가 (position만 이벤트 발생, 나머지는 내부 데이터만 저장)
+                    if (type === 'position') {
+                        // position은 정상적으로 addKeyframe 호출 (이벤트 발생)
+                        if (!track.addKeyframe(timeInSeconds, value)) {
+                            console.warn(`${type} 키프레임 추가 실패:`, { timeInSeconds, value });
+                            success = false;
+                        } else {
+                            console.log(`${type} 새 키프레임 추가 (이벤트 발생):`, { time: timeInSeconds, value });
+                        }
+                    } else {
+                        // rotation, scale은 내부 데이터만 저장 (이벤트 발생 안함)
+                        const index = track.keyframeCount;
+                        track.times[index] = timeInSeconds;
+                        track.values[index * 3] = value.x;
+                        track.values[index * 3 + 1] = value.y;
+                        track.values[index * 3 + 2] = value.z;
+                        track.interpolations[index] = track.interpolations[0] || 0;
+                        track.keyframeCount++;
+                        track.dirty = true;
+                        track.sortKeyframes();
+                        console.log(`${type} 새 키프레임 추가 (내부 데이터만):`, { time: timeInSeconds, value });
+                    }
+                }
+            } else {
+                console.warn(`${type} 트랙 생성 실패:`, trackUuid);
+                success = false;
+            }
+        });
+
+        if (!success) {
+            console.warn("일부 속성의 키프레임 추가에 실패했습니다.");
             return false;
         }
 
@@ -321,6 +378,13 @@ export class MotionTimeline extends BaseTimeline {
             trackData.forEach((trackData, property) => {
                 // TrackData의 getValueAtTime을 사용하여 직접 값 계산
                 const value = trackData.getValueAtTime(currentTime);
+                console.log(`[updateAnimation] ${objectUuid} ${property}:`, {
+                    currentTime,
+                    hasValue: !!value,
+                    value: value,
+                    keyframeCount: trackData.keyframeCount,
+                    times: Array.from(trackData.times.slice(0, trackData.keyframeCount))
+                });
                 if (value) {
                     this.applyValue(object, property, value);
                 }
@@ -1358,12 +1422,18 @@ export class MotionTimeline extends BaseTimeline {
             }
         }
 
-        // TimelineData에 트랙 생성
+        // TimelineData에 모든 속성 트랙 생성
+        const properties = ['position', 'rotation', 'scale'];
+        properties.forEach(property => {
+            let trackData = this.timelineData.tracks.get(objectUuid)?.get(property);
+            if (!trackData) {
+                console.log(`TimelineData에 ${property} 트랙을 생성합니다:`, objectUuid);
+                trackData = this.timelineData.addTrack(objectUuid, property);
+            }
+        });
+        
+        // position 트랙 참조 (기존 코드 호환성)
         let trackData = this.timelineData.tracks.get(objectUuid)?.get('position');
-        if (!trackData) {
-            console.log("TimelineData에 position 트랙을 생성합니다:", objectUuid);
-            trackData = this.timelineData.addTrack(objectUuid, 'position');
-        }
 
         // TimelineData 기반으로 관리하므로 Map 저장 제거
         this.container.appendChild(track.element);
@@ -1822,15 +1892,22 @@ export class MotionTimeline extends BaseTimeline {
         const clipDuration = parseFloat(sprite.dataset.duration) || 5;
         const clipEndTime = clipStartTime + clipDuration;
 
+        // 이전 클립 크기 정보 가져오기
+        const previousClipDuration = parseFloat(sprite.dataset.previousDuration) || clipDuration;
+        const previousClipEndTime = clipStartTime + previousClipDuration;
+
         console.log("updateKeyframesInClip - 클립 정보:", {
             spriteWidth,
             spriteLeft,
             clipStartTime,
             clipDuration,
-            clipEndTime
+            clipEndTime,
+            previousClipDuration,
+            previousClipEndTime,
+            isExpanding: clipDuration > previousClipDuration
         });
 
-        // 클립 밖으로 나간 키프레임들을 추적
+        // 클립 밖으로 나간 키프레임들을 추적 (클립이 줄어들 때만)
         const keyframesToRemove = [];
 
         // 클립 크기 변경 시 키프레임 위치를 절대 시간 기준으로 다시 계산
@@ -1844,12 +1921,14 @@ export class MotionTimeline extends BaseTimeline {
                 return;
             }
 
-            // 클립 범위 체크 (초기 키프레임 제외)
-            if (absoluteTime !== 0 && (absoluteTime < clipStartTime || absoluteTime > clipEndTime)) {
-                console.warn("키프레임이 클립 범위 밖으로 나갔습니다:", {
+            // 클립이 줄어들 때만 범위 밖 키프레임 체크 (클립을 늘릴 때는 체크하지 않음)
+            const isClipShrinking = clipDuration < previousClipDuration;
+            if (isClipShrinking && absoluteTime !== 0 && (absoluteTime < clipStartTime || absoluteTime > clipEndTime)) {
+                console.warn("클립이 줄어들어서 키프레임이 클립 범위 밖으로 나갔습니다:", {
                     absoluteTime,
                     clipStartTime,
                     clipEndTime,
+                    previousClipEndTime,
                     propertyType
                 });
                 
@@ -1859,7 +1938,6 @@ export class MotionTimeline extends BaseTimeline {
                     absoluteTime,
                     propertyType
                 });
-                return;
             }
 
             // 절대 시간을 기준으로 새로운 위치 계산 (createKeyframeElement와 동일한 방식)
@@ -1877,27 +1955,23 @@ export class MotionTimeline extends BaseTimeline {
                 // 클립 내에서의 상대 픽셀 위치
                 const relativePixelPosition = absolutePixelPosition - clipStartPixelPosition;
                 
-                // 클립 내에서의 상대 위치를 퍼센트로 변환
-                const percentPosition = (relativePixelPosition / spriteWidth) * 100;
-
                 console.log("클립 크기 변경 시 키프레임 위치 재계산:", {
                     absoluteTime,
                     absolutePixelPosition,
                     clipStartPixelPosition,
                     relativePixelPosition,
-                    spriteWidth,
-                    percentPosition
+                    spriteWidth
                 });
 
                 // 키프레임의 CSS 위치만 업데이트 (TimelineData는 건드리지 않음)
-                keyframe.style.left = `${percentPosition}%`;
+                keyframe.style.left = `${relativePixelPosition}px`;
                 keyframe.dataset.pixelPosition = relativePixelPosition.toString();
             }
         });
 
-        // 클립 밖으로 나간 키프레임들 처리 (다이얼로그 표시를 위해 handleKeyframesOutsideClip 사용)
+        // 클립이 줄어들어서 밖으로 나간 키프레임들만 처리
         if (keyframesToRemove.length > 0) {
-            console.log("클립 밖으로 나간 키프레임들 발견:", keyframesToRemove.length);
+            console.log("클립이 줄어들어서 밖으로 나간 키프레임들 발견:", keyframesToRemove.length);
             
             // 클립 밖 키프레임들을 일단 숨김 처리하고 다이얼로그 표시
             keyframesToRemove.forEach(({ keyframe }) => {
@@ -1910,6 +1984,9 @@ export class MotionTimeline extends BaseTimeline {
             // 다이얼로그 표시
             this.showKeyframeOutsideClipDialog(keyframesToRemove, track, sprite);
         }
+
+        // 현재 클립 크기를 이전 크기로 저장
+        sprite.dataset.previousDuration = clipDuration.toString();
 
         console.log("클립 크기 조정 완료 - 키프레임 위치 업데이트 및 범위 밖 키프레임 처리됨");
     }
@@ -2086,20 +2163,49 @@ export class MotionTimeline extends BaseTimeline {
             font-size: 14px;
         `;
         removeButton.onclick = () => {
-            // 키프레임 제거
-            outsideKeyframes.forEach(({ keyframe, absoluteTime, propertyType }) => {
-                // TimelineData에서 제거
+            console.log("=== 다이얼로그에서 키프레임 제거 시작 ===");
+            
+            // 모든 키프레임의 시간을 수집 (중복 제거)
+            const uniqueTimes = [...new Set(outsideKeyframes.map(kf => kf.absoluteTime))];
+            console.log("제거할 키프레임 시간들:", uniqueTimes);
+            
+            // 각 시간에 대해 모든 속성(position, rotation, scale) 삭제
+            uniqueTimes.forEach(time => {
                 if (track.uuid) {
-                    const trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
-                    if (trackData) {
-                        const keyframeIndex = trackData.findKeyframeIndex(absoluteTime);
-                        if (keyframeIndex !== -1) {
-                            trackData.removeKeyframeByIndex(keyframeIndex);
+                    const properties = ['position', 'rotation', 'scale'];
+                    let allDeleted = true;
+
+                    properties.forEach(prop => {
+                        const trackData = this.timelineData.tracks.get(track.uuid)?.get(prop);
+                        if (trackData) {
+                            const keyframeIndex = trackData.findKeyframeIndex(time);
+                            if (keyframeIndex !== -1) {
+                                if (trackData.removeKeyframeByIndex(keyframeIndex)) {
+                                    console.log(`${prop} 키프레임 삭제 완료:`, { time, index: keyframeIndex });
+                                } else {
+                                    console.warn(`${prop} 키프레임 삭제 실패:`, { time, index: keyframeIndex });
+                                    allDeleted = false;
+                                }
+                            } else {
+                                console.warn(`${prop} 키프레임 인덱스를 찾을 수 없음:`, { time });
+                                allDeleted = false;
+                            }
+                        } else {
+                            console.warn(`${prop} trackData를 찾을 수 없음:`, track.uuid);
+                            allDeleted = false;
                         }
+                    });
+
+                    if (allDeleted) {
+                        console.log(`시간 ${time}s의 모든 속성 키프레임 삭제 완료`);
+                    } else {
+                        console.error(`시간 ${time}s의 일부 속성 키프레임 삭제에 실패했습니다`);
                     }
                 }
-                
-                // UI에서 제거
+            });
+            
+            // UI에서 모든 키프레임 요소 제거
+            outsideKeyframes.forEach(({ keyframe }) => {
                 keyframe.remove();
             });
 
@@ -2109,7 +2215,7 @@ export class MotionTimeline extends BaseTimeline {
             
             dialog.remove();
             document.removeEventListener('keydown', handleEscape);
-            console.log('사용자가 키프레임 제거를 선택했습니다.');
+            console.log('=== 다이얼로그에서 키프레임 제거 완료 ===');
         };
 
 
@@ -2260,61 +2366,80 @@ export class MotionTimeline extends BaseTimeline {
             keyframeCount: keyframes.length
         });
 
-        // 각 키프레임의 시간 업데이트
-        keyframes.forEach((keyframe) => {
-            const propertyType = keyframe.dataset.property;
-            const oldTime = parseFloat(keyframe.dataset.time);
-
-            // NaN 체크
-            if (isNaN(oldTime)) {
-                console.warn("키프레임 시간이 유효하지 않습니다:", {
-                    propertyType,
-                    oldTime,
-                    keyframeDataset: keyframe.dataset
-                });
-                return;
-            }
-
-            // 새로운 시간 = 기존 시간 + 클립 이동 거리
-            const newTime = oldTime + timeOffset;
-
-            // 시간이 음수가 되지 않도록 제한
-            const clampedNewTime = Math.max(0, newTime);
-
-            console.log("키프레임 시간 업데이트:", {
-                propertyType,
-                oldTime,
-                newTime: clampedNewTime,
-                timeOffset
-            });
-
-            // TimelineData에서 키프레임 시간 업데이트
-            if (track.uuid) {
-                const trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
-                if (trackData) {
-                    // 기존 시간으로 인덱스 찾기
-                    const keyframeIndex = trackData.findKeyframeIndex(oldTime);
-                    if (keyframeIndex !== -1) {
-                        // 키프레임 시간 업데이트
-                        if (trackData.updateKeyframeTime(keyframeIndex, clampedNewTime)) {
-                            // UI 업데이트
-                            keyframe.dataset.time = clampedNewTime.toString();
-                            
-                            // 새로운 인덱스 찾기 (정렬 후)
-                            const newIndex = trackData.findKeyframeIndex(clampedNewTime);
-                            if (newIndex !== -1) {
-                                keyframe.dataset.index = newIndex.toString();
-                            }
-                            
-                            console.log(`키프레임 시간 업데이트 완료: ${oldTime} -> ${clampedNewTime}`);
-                        } else {
-                            console.warn("키프레임 시간 업데이트 실패:", { oldTime, newTime: clampedNewTime });
+        // TimelineData에서 모든 속성의 키프레임 시간 업데이트
+        if (track.uuid) {
+            const objectTracks = this.timelineData.tracks.get(track.uuid);
+            if (objectTracks) {
+                // 모든 속성(position, rotation, scale)에 대해 키프레임 시간 업데이트
+                const properties = ['position', 'rotation', 'scale'];
+                
+                properties.forEach(propertyType => {
+                    const trackData = objectTracks.get(propertyType);
+                    if (trackData && trackData.keyframeCount > 0) {
+                        console.log(`${propertyType} 트랙 키프레임 시간 업데이트:`, {
+                            keyframeCount: trackData.keyframeCount,
+                            times: Array.from(trackData.times.slice(0, trackData.keyframeCount))
+                        });
+                        
+                        // 키프레임 데이터 백업 (시간, 값, 보간 방식)
+                        const backupData = [];
+                        for (let i = 0; i < trackData.keyframeCount; i++) {
+                            backupData.push({
+                                time: trackData.times[i],
+                                value: new THREE.Vector3(
+                                    trackData.values[i * 3],
+                                    trackData.values[i * 3 + 1],
+                                    trackData.values[i * 3 + 2]
+                                ),
+                                interpolation: trackData.interpolations[i]
+                            });
                         }
-                    } else {
-                        console.warn("키프레임 인덱스를 찾을 수 없습니다:", oldTime);
+                        
+                        // 백업된 데이터로 새로운 시간 계산하여 업데이트
+                        backupData.forEach((data, i) => {
+                            const newTime = data.time + timeOffset;
+                            const clampedNewTime = Math.max(0, newTime);
+                            
+                            // 시간 업데이트
+                            trackData.times[i] = clampedNewTime;
+                            
+                            // 값 업데이트 (동일한 값 유지)
+                            trackData.values[i * 3] = data.value.x;
+                            trackData.values[i * 3 + 1] = data.value.y;
+                            trackData.values[i * 3 + 2] = data.value.z;
+                            
+                            // 보간 방식 유지
+                            trackData.interpolations[i] = data.interpolation;
+                            
+                            console.log(`${propertyType} 키프레임 ${i} 시간 업데이트: ${data.time} -> ${clampedNewTime} (값 유지)`);
+                        });
+                        
+                        // 정렬 수행
+                        trackData.sortKeyframes();
+                        trackData.dirty = true;
                     }
-                } else {
-                    console.warn("트랙 데이터를 찾을 수 없습니다:", track.uuid, propertyType);
+                });
+            }
+        }
+
+        // UI 키프레임 시간 업데이트 (position만 표시되므로)
+        keyframes.forEach((keyframe) => {
+            const oldTime = parseFloat(keyframe.dataset.time);
+            if (!isNaN(oldTime)) {
+                const newTime = oldTime + timeOffset;
+                const clampedNewTime = Math.max(0, newTime);
+                
+                keyframe.dataset.time = clampedNewTime.toString();
+                
+                // 새로운 인덱스 찾기
+                if (track.uuid) {
+                    const trackData = this.timelineData.tracks.get(track.uuid)?.get('position');
+                    if (trackData) {
+                        const newIndex = trackData.findKeyframeIndex(clampedNewTime);
+                        if (newIndex !== -1) {
+                            keyframe.dataset.index = newIndex.toString();
+                        }
+                    }
                 }
             }
         });
@@ -2758,13 +2883,15 @@ export class MotionTimeline extends BaseTimeline {
             spriteOffsetWidth: sprite.offsetWidth
         });
 
-        // 모든 속성의 키프레임 렌더링
-        objectTracks.forEach((trackData, property) => {
-            for (let i = 0; i < trackData.keyframeCount; i++) {
-                const keyframeTime = trackData.times[i];
+        // position 속성의 키프레임만 렌더링 (통합 키프레임)
+        const positionTrack = objectTracks.get('position');
+        if (positionTrack) {
+            for (let i = 0; i < positionTrack.keyframeCount; i++) {
+                const keyframeTime = positionTrack.times[i];
                             const keyframeElement = document.createElement('div');
+                            
             keyframeElement.className = 'keyframe';
-            keyframeElement.dataset.property = property;
+            keyframeElement.dataset.property = 'position';
             keyframeElement.dataset.time = keyframeTime;
             keyframeElement.dataset.index = i;
             keyframeElement.dataset.draggable = 'false'; // 드래그 가능 상태 초기화
@@ -2821,16 +2948,16 @@ export class MotionTimeline extends BaseTimeline {
 
             // 키프레임 데이터 저장
             const value = new THREE.Vector3(
-                trackData.values[i * 3],
-                trackData.values[i * 3 + 1],
-                trackData.values[i * 3 + 2]
+                positionTrack.values[i * 3],
+                positionTrack.values[i * 3 + 1],
+                positionTrack.values[i * 3 + 2]
             );
             keyframeElement.dataset.value = JSON.stringify([value.x, value.y, value.z]);
 
             // 선택된 키프레임인지 확인하여 selected 클래스 추가
             if (this.selectedKeyframe && 
                 this.selectedKeyframe.objectId === objectUuid && 
-                this.selectedKeyframe.property === property && 
+                this.selectedKeyframe.property === 'position' && 
                 this.selectedKeyframe.index === i) {
                 keyframeElement.classList.add('selected');
                 console.log("선택된 키프레임에 selected 클래스 추가:", keyframeElement);
@@ -2913,7 +3040,7 @@ export class MotionTimeline extends BaseTimeline {
                                  console.log("드래그 중 - 새 시간:", newTimeInSeconds);
                                  
                                  // TimelineData 업데이트
-                                 const trackData = this.timelineData.tracks.get(objectUuid)?.get(property);
+                                 const trackData = this.timelineData.tracks.get(objectUuid)?.get('position');
                                  if (trackData && dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
                                      if (trackData.updateKeyframeTime(dragStartIndex, newTimeInSeconds)) {
                                          keyframeElement.dataset.time = newTimeInSeconds.toString();
@@ -2925,7 +3052,7 @@ export class MotionTimeline extends BaseTimeline {
                                          if (object) {
                                              const newValue = trackData.getValueAtTime(newTimeInSeconds);
                                              if (newValue) {
-                                                 this.applyValue(object, property, newValue);
+                                                 this.applyValue(object, 'position', newValue);
                                              }
                                          }
                                      }
@@ -2941,11 +3068,40 @@ export class MotionTimeline extends BaseTimeline {
                      if (isDragging) {
                          if (isOutsideClip) {
                              console.log("=== 키프레임 삭제 실행! ===");
-                             // 키프레임 삭제
-                             const trackData = this.timelineData.tracks.get(objectUuid)?.get(property);
-                             if (trackData && dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
-                                 trackData.removeKeyframeByIndex(dragStartIndex);
-                                 console.log("키프레임 삭제 완료!");
+                             
+                             // 모든 속성(position, rotation, scale)의 키프레임 삭제
+                             const trackUuid = keyframeElement.closest('.timeline-track')?.dataset.uuid;
+                             if (trackUuid) {
+                                 const properties = ['position', 'rotation', 'scale'];
+                                 let allDeleted = true;
+
+                                 properties.forEach(prop => {
+                                     const trackData = this.timelineData.tracks.get(trackUuid)?.get(prop);
+                                     if (trackData) {
+                                         if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
+                                             if (trackData.removeKeyframeByIndex(dragStartIndex)) {
+                                                 console.log(`${prop} 키프레임 삭제 완료:`, dragStartIndex);
+                                             } else {
+                                                 console.warn(`${prop} 키프레임 삭제 실패:`, dragStartIndex);
+                                                 allDeleted = false;
+                                             }
+                                         } else {
+                                             console.warn(`${prop} 유효하지 않은 키프레임 인덱스:`, dragStartIndex);
+                                             allDeleted = false;
+                                         }
+                                     } else {
+                                         console.warn(`${prop} trackData를 찾을 수 없음:`, trackUuid);
+                                         allDeleted = false;
+                                     }
+                                 });
+
+                                 if (allDeleted) {
+                                     console.log("모든 속성의 키프레임 삭제 완료");
+                                 } else {
+                                     console.error("일부 속성의 키프레임 삭제에 실패했습니다");
+                                 }
+                             } else {
+                                 console.warn("trackUuid를 찾을 수 없음");
                              }
                              
                              // UI에서 키프레임 제거
@@ -2974,7 +3130,7 @@ export class MotionTimeline extends BaseTimeline {
                  document.addEventListener("mouseup", handleMouseUp);
              });
         }
-        });
+    }
     }
 
     // 키프레임 드래그 가능하게 만들기 (안전한 버전)
@@ -3046,14 +3202,16 @@ export class MotionTimeline extends BaseTimeline {
             // 드래그 시작 시점의 인덱스와 시간을 저장
             const dragStartTime = parseFloat(keyframeElement.dataset.time);
 
-            // 키프레임 인덱스 가져오기 (TimelineData에서)
+            // 키프레임 인덱스 가져오기 (position 트랙 기준으로 모든 속성에 동일하게 적용)
             if (track.uuid) {
-                const trackData = this.timelineData.tracks.get(track.uuid)?.get(property);
-                if (trackData) {
-                    dragStartIndex = trackData.findKeyframeIndex(dragStartTime);
-                    console.log("trackData 인덱스", trackData);
+                const positionTrackData = this.timelineData.tracks.get(track.uuid)?.get('position');
+                if (positionTrackData) {
+                    dragStartIndex = positionTrackData.findKeyframeIndex(dragStartTime);
+                    console.log("trackData 인덱스", positionTrackData);
                     console.log("trackData 시간", dragStartTime);
-                    console.log("드래그 시작 - 인덱스:", dragStartIndex, "시간:", dragStartTime);
+                    console.log("드래그 시작 - 인덱스 (position 기준):", dragStartIndex, "시간:", dragStartTime);
+                } else {
+                    console.warn("position 트랙을 찾을 수 없음:", track.uuid);
                 }
             }
 
@@ -3214,14 +3372,38 @@ export class MotionTimeline extends BaseTimeline {
 
                     // 클립 밖에서 마우스를 놓았으면 키프레임 삭제
                     if (isOutsideClip) {
-                        // TimelineData에서 키프레임 제거
+                        console.log("=== 키프레임 드래그 삭제 시작 ===");
+                        
+                        // 모든 속성(position, rotation, scale)의 키프레임 삭제
                         if (track.uuid) {
-                            const trackData = this.timelineData.tracks.get(track.uuid)?.get(property);
-                            if (trackData) {
-                                // index 기반으로 키프레임 삭제
-                                if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
-                                    trackData.removeKeyframeByIndex(dragStartIndex);
+                            const properties = ['position', 'rotation', 'scale'];
+                            let allDeleted = true;
+
+                            properties.forEach(prop => {
+                                const trackData = this.timelineData.tracks.get(track.uuid)?.get(prop);
+                                if (trackData) {
+                                    // index 기반으로 키프레임 삭제
+                                    if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
+                                        if (trackData.removeKeyframeByIndex(dragStartIndex)) {
+                                            console.log(`${prop} 키프레임 삭제 완료:`, dragStartIndex);
+                                        } else {
+                                            console.warn(`${prop} 키프레임 삭제 실패:`, dragStartIndex);
+                                            allDeleted = false;
+                                        }
+                                    } else {
+                                        console.warn(`${prop} 유효하지 않은 키프레임 인덱스:`, dragStartIndex);
+                                        allDeleted = false;
+                                    }
+                                } else {
+                                    console.warn(`${prop} trackData를 찾을 수 없음:`, track.uuid);
+                                    allDeleted = false;
                                 }
+                            });
+
+                            if (allDeleted) {
+                                console.log("모든 속성의 키프레임 삭제 완료");
+                            } else {
+                                console.error("일부 속성의 키프레임 삭제에 실패했습니다");
                             }
                         }
 
@@ -3232,6 +3414,8 @@ export class MotionTimeline extends BaseTimeline {
                         this.timelineData.dirty = true;
                         this.timelineData.precomputeAnimationData();
                         this.updateAnimation();
+                        
+                        console.log("=== 키프레임 드래그 삭제 완료 ===");
                     } else {
                         // 클립 안에서 놓았으면 드래그 중에 이미 업데이트되었으므로 추가 업데이트 불필요
                         // 현재 시간에 맞춰 애니메이션만 업데이트
@@ -3356,22 +3540,42 @@ export class MotionTimeline extends BaseTimeline {
                 
                 if (isOutsideClip) {
                     console.log("=== 키프레임 삭제 분기 진입! ===");
+                    
+                    // 모든 속성(position, rotation, scale)의 키프레임 삭제
                     if (track.uuid) {
-                        const trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
-                        if (trackData) {
-                            console.log("삭제할 키프레임 인덱스:", dragStartIndex);
-                            if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
-                                trackData.removeKeyframeByIndex(dragStartIndex);
-                                console.log("키프레임 삭제 완료!");
+                        const properties = ['position', 'rotation', 'scale'];
+                        let allDeleted = true;
+
+                        properties.forEach(prop => {
+                            const trackData = this.timelineData.tracks.get(track.uuid)?.get(prop);
+                            if (trackData) {
+                                console.log(`${prop} 삭제할 키프레임 인덱스:`, dragStartIndex);
+                                if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
+                                    if (trackData.removeKeyframeByIndex(dragStartIndex)) {
+                                        console.log(`${prop} 키프레임 삭제 완료!`);
+                                    } else {
+                                        console.warn(`${prop} 키프레임 삭제 실패!`);
+                                        allDeleted = false;
+                                    }
+                                } else {
+                                    console.warn(`${prop} 유효하지 않은 키프레임 인덱스:`, dragStartIndex);
+                                    allDeleted = false;
+                                }
                             } else {
-                                console.warn("유효하지 않은 키프레임 인덱스:", dragStartIndex);
+                                console.warn(`${prop} trackData를 찾을 수 없음:`, track.uuid);
+                                allDeleted = false;
                             }
+                        });
+
+                        if (allDeleted) {
+                            console.log("모든 속성의 키프레임 삭제 완료!");
                         } else {
-                            console.warn("trackData를 찾을 수 없음:", track.uuid, propertyType);
+                            console.error("일부 속성의 키프레임 삭제에 실패했습니다!");
                         }
                     } else {
                         console.warn("track.uuid가 없음");
                     }
+                    
                     keyframeElement.remove();
                     console.log("UI에서 키프레임 요소 제거됨");
                     this.timelineData.dirty = true;
@@ -3429,10 +3633,13 @@ export class MotionTimeline extends BaseTimeline {
             });
             
             if (track.uuid) {
-                const trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
-                if (trackData) {
-                    dragStartIndex = trackData.findKeyframeIndex(dragStartTime);
-                    console.log("dragStartIndex:", dragStartIndex);
+                // position 트랙에서 인덱스를 찾아서 모든 속성에 동일하게 적용
+                const positionTrackData = this.timelineData.tracks.get(track.uuid)?.get('position');
+                if (positionTrackData) {
+                    dragStartIndex = positionTrackData.findKeyframeIndex(dragStartTime);
+                    console.log("dragStartIndex (position 기준):", dragStartIndex);
+                } else {
+                    console.warn("position 트랙을 찾을 수 없음:", track.uuid);
                 }
             }
             if (track.uuid) {
@@ -3655,39 +3862,12 @@ export class MotionTimeline extends BaseTimeline {
                     totalSeconds: this.options.totalSeconds
                 });
 
-                // position 속성만 추가 (기본적으로 position만 사용)
-                const propertyType = 'position';
-                const value = this.getKeyframeValue(object, propertyType);
+                // 모든 속성과 함께 키프레임 추가
+                const value = this.getKeyframeValue(object, 'position'); // position 값으로 시작
                 if (value && track.uuid) {
-                    // 트랙이 없으면 자동으로 생성
-                    let trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
-                    if (!trackData) {
-                        console.log("키프레임 추가 시 트랙을 생성합니다:", { trackUuid: track.uuid, propertyType });
-                        trackData = this.timelineData.addTrack(track.uuid, propertyType);
-                        if (!trackData) {
-                            console.error("트랙 생성 실패:", { trackUuid: track.uuid, propertyType });
-                            return;
-                        }
-                    }
-
-                    // 절대 시간으로 키프레임 추가 (클립 이동에 관계없이 올바른 위치에 추가)
-                    // 기존 키프레임이 있는지 확인하고 있으면 업데이트, 없으면 추가
-                    console.log("키프레임 검색 전 트랙 상태:", {
-                        trackTimes: trackData.times,
-                        trackKeyframeCount: trackData.keyframeCount,
-                        searchTime: absoluteTime
-                    });
-                    
-                    const existingIndex = trackData.findKeyframeIndex(absoluteTime);
-                    if (existingIndex !== -1) {
-                        // 기존 키프레임이 있으면 값만 업데이트
-                        console.log("기존 키프레임 발견, 값 업데이트:", { time: absoluteTime, index: existingIndex });
-                        trackData.updateKeyframeValue(existingIndex, value);
-                    } else {
-                        // 새 키프레임 추가
-                        console.log("새 키프레임 추가:", { time: absoluteTime, value });
-                        this.addKeyframe(track.uuid, propertyType, absoluteTime, value);
-                    }
+                    // addKeyframe에서 모든 속성을 함께 저장하므로 position만 호출
+                    console.log("모든 속성과 함께 키프레임 추가:", { time: absoluteTime });
+                    this.addKeyframe(track.uuid, 'position', absoluteTime, value);
                 }
             });
         }
@@ -3755,42 +3935,17 @@ export class MotionTimeline extends BaseTimeline {
                     totalSeconds: this.options.totalSeconds
                 });
 
-                const value = this.getKeyframeValue(object, propertyType);
+                // 모든 속성과 함께 키프레임 추가
+                const value = this.getKeyframeValue(object, 'position'); // position 값으로 시작
                 if (!value) {
-                    console.warn("키프레임 값을 가져올 수 없습니다:", { objectId, propertyType });
+                    console.warn("키프레임 값을 가져올 수 없습니다:", { objectId, propertyType: 'position' });
                     return;
                 }
 
                 if (track.uuid) {
-                    // 트랙이 없으면 자동으로 생성
-                    let trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
-                    if (!trackData) {
-                        console.log("키프레임 레이어 클릭 시 트랙을 생성합니다:", { trackUuid: track.uuid, propertyType });
-                        trackData = this.timelineData.addTrack(track.uuid, propertyType);
-                        if (!trackData) {
-                            console.error("트랙 생성 실패:", { trackUuid: track.uuid, propertyType });
-                            return;
-                        }
-                    }
-
-                    // 절대 시간으로 키프레임 추가 (클립 이동에 관계없이 올바른 위치에 추가)
-                    // 기존 키프레임이 있는지 확인하고 있으면 업데이트, 없으면 추가
-                    console.log("키프레임 레이어 클릭 - 트랙 상태:", {
-                        trackTimes: trackData.times,
-                        trackKeyframeCount: trackData.keyframeCount,
-                        searchTime: clickAbsoluteTime
-                    });
-                    
-                    const existingIndex = trackData.findKeyframeIndex(clickAbsoluteTime);
-                    if (existingIndex !== -1) {
-                        // 기존 키프레임이 있으면 값만 업데이트
-                        console.log("기존 키프레임 발견, 값 업데이트:", { time: clickAbsoluteTime, index: existingIndex });
-                        trackData.updateKeyframeValue(existingIndex, value);
-                    } else {
-                        // 새 키프레임 추가
-                        console.log("새 키프레임 추가 (레이어 클릭):", { time: clickAbsoluteTime, value });
-                        this.addKeyframe(track.uuid, propertyType, clickAbsoluteTime, value);
-                    }
+                    // addKeyframe에서 모든 속성을 함께 저장하므로 position만 호출
+                    console.log("모든 속성과 함께 키프레임 추가 (레이어 클릭):", { time: clickAbsoluteTime });
+                    this.addKeyframe(track.uuid, 'position', clickAbsoluteTime, value);
                 }
             });
 
@@ -3862,8 +4017,22 @@ export class MotionTimeline extends BaseTimeline {
 
         const { objectId, index, element } = this.selectedKeyframe;
 
-        // 인덱스 기반으로 키프레임 삭제
-        if (this.removeKeyframeByIndex(objectId, 'position', index)) {
+        console.log("키프레임 삭제 시작:", { objectId, index });
+
+        // 모든 속성(position, rotation, scale)의 키프레임 삭제
+        const properties = ['position', 'rotation', 'scale'];
+        let allDeleted = true;
+
+        properties.forEach(property => {
+            if (!this.removeKeyframeByIndex(objectId, property, index)) {
+                console.warn(`${property} 키프레임 삭제 실패:`, { objectId, index });
+                allDeleted = false;
+            } else {
+                console.log(`${property} 키프레임 삭제 완료:`, { objectId, index });
+            }
+        });
+
+        if (allDeleted) {
             // UI 요소 제거
             if (element && element.parentNode) {
                 element.parentNode.removeChild(element);
@@ -3876,11 +4045,19 @@ export class MotionTimeline extends BaseTimeline {
                 this.editor.scene.userData.timeline.selectedKeyframe = null;
             }
 
+            // TimelineData 업데이트
+            this.timelineData.dirty = true;
+            this.timelineData.precomputeAnimationData();
+
             this.updatePropertyPanel();
 
             if (this.editor.signals?.sceneGraphChanged) {
                 this.editor.signals.sceneGraphChanged.dispatch();
             }
+
+            console.log("모든 속성의 키프레임 삭제 완료");
+        } else {
+            console.error("일부 속성의 키프레임 삭제에 실패했습니다");
         }
     }
 
@@ -4455,6 +4632,12 @@ export class MotionTimeline extends BaseTimeline {
             value
         });
         
+        // position 속성일 때만 UI 키프레임 생성 (통합 키프레임)
+        if (property !== 'position') {
+            console.log("position이 아닌 속성은 UI 키프레임을 생성하지 않습니다:", property);
+            return;
+        }
+        
         const trackElement = this.container.querySelector(`[data-uuid="${objectUuid}"]`);
         if (!trackElement) {
             console.warn("트랙 요소를 찾을 수 없습니다:", objectUuid);
@@ -4603,10 +4786,8 @@ export class MotionTimeline extends BaseTimeline {
                     // 클립 내에서의 상대 픽셀 위치
                     const relativePixelPosition = absolutePixelPosition - clipStartPixelPosition;
                     
-                    // 클립 내에서의 상대 위치를 퍼센트로 변환
-                    const percentPosition = (relativePixelPosition / spriteWidth) * 100;
-
-                    keyframeElement.style.left = `${percentPosition}%`;
+                    // 클립 내에서의 상대 픽셀 위치로 설정
+                    keyframeElement.style.left = `${relativePixelPosition}px`;
                     keyframeElement.dataset.pixelPosition = relativePixelPosition.toString();
                 }
             }
@@ -4642,25 +4823,38 @@ export class MotionTimeline extends BaseTimeline {
                 // 클립 내에서의 상대 픽셀 위치
                 const relativePixelPosition = absolutePixelPosition - clipStartPixelPosition;
                 
-                // 클립 내에서의 상대 위치를 퍼센트로 변환
-                const percentPosition = (relativePixelPosition / spriteWidth) * 100;
-                
                 console.log("키프레임 UI 위치 계산 (클립 상대 위치):", {
                     absoluteTime: time,
                     clipStartTime,
                     absolutePixelPosition,
                     clipStartPixelPosition,
                     relativePixelPosition,
-                    spriteWidth,
-                    percentPosition
+                    spriteWidth
                 });
                 
-                keyframeElement.style.left = `${percentPosition}%`;
+                keyframeElement.style.left = `${relativePixelPosition}px`;
                 keyframeElement.dataset.pixelPosition = relativePixelPosition.toString();
             } else {
                 // fallback: 절대 위치 사용
-                const percent = (time / this.options.totalSeconds) * 100;
-                keyframeElement.style.left = `${percent}%`;
+                const timeRulerContainer = document.querySelector('.time-ruler-container');
+                if (timeRulerContainer) {
+                    const timeRulerRect = timeRulerContainer.getBoundingClientRect();
+                    const timeRulerWidth = timeRulerRect.width;
+                    const keyframePixelPosition = (time / this.options.totalSeconds) * timeRulerWidth;
+                    keyframeElement.style.left = `${keyframePixelPosition}px`;
+                } else {
+                    // fallback: 절대 픽셀 위치 사용
+                    const timeRulerContainer = document.querySelector('.time-ruler-container');
+                    if (timeRulerContainer) {
+                        const timeRulerRect = timeRulerContainer.getBoundingClientRect();
+                        const timeRulerWidth = timeRulerRect.width;
+                        const keyframePixelPosition = (time / this.options.totalSeconds) * timeRulerWidth;
+                        keyframeElement.style.left = `${keyframePixelPosition}px`;
+                    } else {
+                        const percent = (time / this.options.totalSeconds) * 100;
+                        keyframeElement.style.left = `${percent}%`;
+                    }
+                }
             }
         } else {
             // fallback: 절대 위치 사용
@@ -4671,8 +4865,17 @@ export class MotionTimeline extends BaseTimeline {
                 const keyframePixelPosition = (time / this.options.totalSeconds) * timeRulerWidth;
                 keyframeElement.style.left = `${keyframePixelPosition}px`;
             } else {
-                const percent = (time / this.options.totalSeconds) * 100;
-                keyframeElement.style.left = `${percent}%`;
+                // fallback: 절대 픽셀 위치 사용
+                const timeRulerContainer = document.querySelector('.time-ruler-container');
+                if (timeRulerContainer) {
+                    const timeRulerRect = timeRulerContainer.getBoundingClientRect();
+                    const timeRulerWidth = timeRulerRect.width;
+                    const keyframePixelPosition = (time / this.options.totalSeconds) * timeRulerWidth;
+                    keyframeElement.style.left = `${keyframePixelPosition}px`;
+                } else {
+                    const percent = (time / this.options.totalSeconds) * 100;
+                    keyframeElement.style.left = `${percent}%`;
+                }
             }
         }
 
@@ -5097,33 +5300,45 @@ export class MotionTimeline extends BaseTimeline {
             console.error("선택된 키프레임 정보가 불완전합니다:", this.selectedKeyframe);
             return;
         }
-        
-        const track = this.timelineData.tracks.get(objectId)?.get(property);
-        
-        if (!track) {
-            console.error("트랙을 찾을 수 없습니다:", { objectId, property });
+
+        // 객체에서 모든 속성의 현재 값 가져오기
+        const object = this.editor.scene.getObjectByProperty('uuid', objectId);
+        if (!object) {
+            console.error("객체를 찾을 수 없습니다:", objectId);
             return;
         }
 
-        // 현재 키프레임의 시간과 보간 방식은 유지하고 값만 업데이트
-        const currentTime = track.times[index];
-        const currentInterpolation = track.interpolations[index];
+        const position = new THREE.Vector3(object.position.x, object.position.y, object.position.z);
+        const rotation = new THREE.Vector3(object.rotation.x, object.rotation.y, object.rotation.z);
+        const scale = new THREE.Vector3(object.scale.x, object.scale.y, object.scale.z);
 
-        // values 배열에서 해당 인덱스의 값만 직접 업데이트
-        if (property === 'position' || property === 'rotation' || property === 'scale') {
-            track.values[index * 3] = newValue.x;
-            track.values[index * 3 + 1] = newValue.y;
-            track.values[index * 3 + 2] = newValue.z;
-            
-            console.log("키프레임 값 직접 업데이트:", {
-                index,
-                time: currentTime,
-                newValue,
-                trackValues: track.values.slice(index * 3, index * 3 + 3)
-            });
-        }
+        console.log("키프레임 수정 - 모든 속성 업데이트:", { position, rotation, scale });
 
-        // selectedKeyframe 정보 업데이트
+        // 모든 속성에 대해 키프레임 업데이트
+        const properties = [
+            { type: 'position', value: position },
+            { type: 'rotation', value: rotation },
+            { type: 'scale', value: scale }
+        ];
+
+        properties.forEach(({ type, value }) => {
+            const track = this.timelineData.tracks.get(objectId)?.get(type);
+            if (track && index < track.keyframeCount) {
+                // values 배열에서 해당 인덱스의 값만 직접 업데이트
+                track.values[index * 3] = value.x;
+                track.values[index * 3 + 1] = value.y;
+                track.values[index * 3 + 2] = value.z;
+                
+                console.log(`${type} 키프레임 값 업데이트:`, {
+                    index,
+                    time: track.times[index],
+                    newValue: value,
+                    trackValues: track.values.slice(index * 3, index * 3 + 3)
+                });
+            }
+        });
+
+        // selectedKeyframe 정보 업데이트 (현재 수정 중인 속성 기준)
         if (this.selectedKeyframe) {
             this.selectedKeyframe.value = {
                 x: newValue.x,
