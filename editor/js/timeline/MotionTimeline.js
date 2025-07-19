@@ -1574,6 +1574,68 @@ export class MotionTimeline extends BaseTimeline {
         });
         */
 
+        // 오른쪽 핸들 더블클릭 이벤트 - 클립 길이 토글
+        const rightHandle = sprite.querySelector(".sprite-handle.right");
+        if (rightHandle) {
+            rightHandle.addEventListener("dblclick", (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                // 현재 클립 정보
+                const currentLeft = parseFloat(sprite.style.left) || 0;
+                const currentWidth = parseFloat(sprite.style.width) || 100;
+                const currentDuration = parseFloat(sprite.dataset.duration) || 5;
+                
+                // 이전 크기 정보 확인 (dataset에 저장된 값)
+                const originalWidth = sprite.dataset.originalWidth ? parseFloat(sprite.dataset.originalWidth) : null;
+                const originalDuration = sprite.dataset.originalDuration ? parseFloat(sprite.dataset.originalDuration) : null;
+                
+                // 현재 클립이 타임라인 끝까지 확장되어 있는지 확인
+                const maxWidth = 100 - currentLeft;
+                const isExtended = Math.abs(currentWidth - maxWidth) < 0.1; // 0.1% 오차 허용
+                
+                if (isExtended && originalWidth !== null) {
+                    // 확장된 상태에서 원래 크기로 복원
+                    console.log("클립을 원래 크기로 복원:", {
+                        currentWidth: currentWidth.toFixed(2) + "%",
+                        originalWidth: originalWidth.toFixed(2) + "%",
+                        currentDuration: currentDuration + "초",
+                        originalDuration: originalDuration + "초"
+                    });
+                    
+                    sprite.style.width = `${originalWidth}%`;
+                    sprite.dataset.duration = originalDuration.toString();
+                    
+                    // 원래 크기 정보 제거
+                    delete sprite.dataset.originalWidth;
+                    delete sprite.dataset.originalDuration;
+                } else {
+                    // 현재 크기를 원래 크기로 저장하고 타임라인 끝까지 확장
+                    console.log("클립을 타임라인 끝까지 확장:", {
+                        currentWidth: currentWidth.toFixed(2) + "%",
+                        maxWidth: maxWidth.toFixed(2) + "%",
+                        currentDuration: currentDuration + "초",
+                        maxDuration: (maxWidth / 100 * this.options.totalSeconds).toFixed(2) + "초"
+                    });
+                    
+                    // 현재 크기를 원래 크기로 저장
+                    sprite.dataset.originalWidth = currentWidth.toString();
+                    sprite.dataset.originalDuration = currentDuration.toString();
+                    
+                    // 타임라인 끝까지 확장
+                    sprite.style.width = `${maxWidth}%`;
+                    const maxDuration = (maxWidth / 100) * this.options.totalSeconds;
+                    sprite.dataset.duration = maxDuration.toString();
+                }
+                
+                // 키프레임 업데이트
+                this.updateKeyframesInClip(track, sprite);
+                
+                // 애니메이션 업데이트
+                this.updateAnimation();
+            });
+        }
+
         // 스프라이트 클릭 이벤트 (선택)
         sprite.addEventListener("click", (e) => {
             // 키프레임을 클릭한 경우 스프라이트 선택을 방지
@@ -1603,6 +1665,52 @@ export class MotionTimeline extends BaseTimeline {
                 });
             }
         });
+    }
+
+    extendTimeline(newTotalSeconds) {
+        console.log(`타임라인 길이를 ${this.options.totalSeconds}초에서 ${newTotalSeconds}초로 확장`);
+        
+        // 기존 타임라인 길이 저장
+        const oldTotalSeconds = this.options.totalSeconds;
+        
+        // 새로운 타임라인 길이 설정
+        this.options.totalSeconds = newTotalSeconds;
+        
+        // 타임라인 컨테이너의 너비 업데이트
+        const timelineContainer = this.container.querySelector('.timeline-container');
+        if (timelineContainer) {
+            timelineContainer.style.width = `${newTotalSeconds * 10}px`; // 10px per second
+        }
+        
+        // 모든 클립의 duration과 width 재계산
+        const allSprites = this.container.querySelectorAll('.animation-sprite');
+        allSprites.forEach(sprite => {
+            const currentWidth = parseFloat(sprite.style.width) || 100;
+            const currentDuration = parseFloat(sprite.dataset.duration) || 5;
+            
+            // 새로운 퍼센트 계산 (기존 duration 유지)
+            const newWidthPercent = (currentDuration / newTotalSeconds) * 100;
+            
+            // 클립이 100%를 넘지 않도록 조정
+            const currentLeft = parseFloat(sprite.style.left) || 0;
+            const maxWidth = 100 - currentLeft;
+            const adjustedWidth = Math.min(newWidthPercent, maxWidth);
+            
+            sprite.style.width = `${adjustedWidth}%`;
+            
+            console.log(`클립 업데이트: ${currentDuration}초 -> ${adjustedWidth.toFixed(2)}%`);
+        });
+        
+        // 플레이헤드 위치 조정 (필요한 경우)
+        if (this.currentTime > newTotalSeconds) {
+            this.currentTime = newTotalSeconds;
+            this.updatePlayheadPosition((this.currentTime / newTotalSeconds) * 100);
+        }
+        
+        // 애니메이션 업데이트
+        this.updateAnimation();
+        
+        console.log(`타임라인 확장 완료: ${oldTotalSeconds}초 -> ${newTotalSeconds}초`);
     }
 
     checkClipCollision(currentSprite, newLeft, newWidth) {
