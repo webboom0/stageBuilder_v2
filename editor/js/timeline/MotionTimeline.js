@@ -6,6 +6,9 @@ import { TimelineData, TrackData } from './TimelineCore.js';
 import { KeyboardShortcuts } from './KeyboardShortcuts.js';
 
 export class MotionTimeline extends BaseTimeline {
+    // 클립 범위 체크용 오차 범위 (초 단위)
+    static CLIP_RANGE_TOLERANCE = 0.1;
+    
     constructor(editor, options) {
         super(editor, options);
         this.selectedObject = null;
@@ -896,6 +899,27 @@ export class MotionTimeline extends BaseTimeline {
         console.log(keyframeElement);
         console.log("전달된 인덱스:", index);
 
+        // 클립 범위 체크 - 클립 밖의 키프레임은 선택하지 않음
+        if (keyframeElement) {
+            const sprite = keyframeElement.closest('.animation-sprite');
+            if (sprite) {
+                const spriteLeft = parseFloat(sprite.style.left) || 0;
+                const clipStartTime = (spriteLeft / 100) * this.options.totalSeconds;
+                const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+                const clipEndTime = clipStartTime + clipDuration;
+
+                // 클립 범위 밖의 키프레임은 선택하지 않음 (초기 키프레임 제외)
+                if (time !== 0 && (time < clipStartTime || time > clipEndTime)) {
+                    console.log("클립 범위 밖의 키프레임이므로 선택하지 않습니다:", {
+                        time,
+                        clipStartTime,
+                        clipEndTime
+                    });
+                    return;
+                }
+            }
+        }
+
         // 이전에 선택된 모든 키프레임 선택 해제
         this.container.querySelectorAll('.keyframe.selected').forEach(el => el.classList.remove('selected'));
 
@@ -1403,6 +1427,9 @@ export class MotionTimeline extends BaseTimeline {
 
         // 스프라이트를 트랙에 추가
         if (sprite) {
+            // 클립이 처음 생성될 때 previousDuration 초기화
+            sprite.dataset.previousDuration = sprite.dataset.duration;
+            
             trackContent.appendChild(sprite);
             this.bindSpriteEvents(sprite, track);
             
@@ -1439,7 +1466,7 @@ export class MotionTimeline extends BaseTimeline {
                 this.updateTrackUI(track.element, this.currentTime);
             }, 50);
         } else if (trackData) {
-            // 초기 키프레임 추가 (시간 0에서 position만) - skipInitialKeyframe 조건 제거
+            // 초기 키프레임 추가 (시간 0에서 position만)
             const position = new THREE.Vector3(
                 object.position.x,
                 object.position.y,
@@ -1912,9 +1939,10 @@ export class MotionTimeline extends BaseTimeline {
                 return;
             }
 
-            // 클립이 줄어들 때만 범위 밖 키프레임 체크 (클립을 늘릴 때는 체크하지 않음)
-            const isClipShrinking = clipDuration < previousClipDuration;
-            if (isClipShrinking && absoluteTime !== 0 && (absoluteTime < clipStartTime || absoluteTime > clipEndTime)) {
+                    // 클립이 줄어들 때만 범위 밖 키프레임 체크
+        // previousDuration이 있으면 실제 비교, 없으면 첫 번째 조정이므로 체크하지 않음
+        const isClipShrinking = previousClipDuration ? clipDuration < previousClipDuration : false;
+        if (isClipShrinking && absoluteTime !== 0 && (absoluteTime < clipStartTime - MotionTimeline.CLIP_RANGE_TOLERANCE || absoluteTime > clipEndTime + MotionTimeline.CLIP_RANGE_TOLERANCE)) {
                 console.warn("클립이 줄어들어서 키프레임이 클립 범위 밖으로 나갔습니다:", {
                     absoluteTime,
                     clipStartTime,
@@ -2009,7 +2037,7 @@ export class MotionTimeline extends BaseTimeline {
             if (isNaN(absoluteTime)) return;
 
             // 초기 키프레임(시간 0)은 제외
-            if (absoluteTime !== 0 && (absoluteTime < clipStartTime || absoluteTime > clipEndTime)) {
+            if (absoluteTime !== 0 && (absoluteTime < clipStartTime - MotionTimeline.CLIP_RANGE_TOLERANCE || absoluteTime > clipEndTime + MotionTimeline.CLIP_RANGE_TOLERANCE)) {
                 outsideKeyframes.push({
                     keyframe,
                     absoluteTime,
@@ -2228,7 +2256,15 @@ export class MotionTimeline extends BaseTimeline {
                     properties.forEach(prop => {
                         const trackData = this.timelineData.tracks.get(track.uuid)?.get(prop);
                         if (trackData) {
+                            console.log(`${prop} 트랙 키프레임 정보:`, {
+                                keyframeCount: trackData.keyframeCount,
+                                times: Array.from(trackData.times.slice(0, trackData.keyframeCount)),
+                                searchTime: time
+                            });
+                            
                             const keyframeIndex = trackData.findKeyframeIndex(time);
+                            console.log(`${prop} 키프레임 인덱스 검색 결과:`, { time, keyframeIndex });
+                            
                             if (keyframeIndex !== -1) {
                                 if (trackData.removeKeyframeByIndex(keyframeIndex)) {
                                     console.log(`${prop} 키프레임 삭제 완료:`, { time, index: keyframeIndex });
@@ -2501,6 +2537,15 @@ export class MotionTimeline extends BaseTimeline {
         this.timelineData.dirty = true;
         this.timelineData.precomputeAnimationData();
         
+        // UI 강제 업데이트 (클립 이동 후 키프레임 위치 재계산)
+        setTimeout(() => {
+            const trackElement = this.container.querySelector(`[data-uuid="${track.uuid}"]`);
+            if (trackElement) {
+                console.log("클립 이동 후 UI 강제 업데이트 실행");
+                this.updateTrackUI(trackElement, this.currentTime);
+            }
+        }, 50);
+        
         console.log("=== 클립 이동 후 키프레임 시간 업데이트 완료 ===");
     }
 
@@ -2671,6 +2716,7 @@ export class MotionTimeline extends BaseTimeline {
         const newClip = document.createElement("div");
         newClip.className = "animation-sprite";
         newClip.dataset.duration = sourceClip.dataset.duration;
+        newClip.dataset.previousDuration = sourceClip.dataset.duration; // 복제 시에도 previousDuration 초기화
 
         const originalName = sourceClip.querySelector(".sprite-name").textContent;
         newClip.innerHTML = `
@@ -2916,10 +2962,22 @@ export class MotionTimeline extends BaseTimeline {
         const objectTracks = this.timelineData.tracks.get(objectUuid);
         if (!objectTracks) return;
 
-        // 클립 정보 가져오기
+        // 클립 정보 가져오기 (더 정확한 방법)
         const clipLeft = parseFloat(sprite.style.left) || 0;
         const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
         const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+        
+        // 디버깅을 위한 로그 추가
+        console.log("updateTrackUI - 클립 정보 상세:", {
+            spriteStyleLeft: sprite.style.left,
+            parsedClipLeft: clipLeft,
+            clipStartTime,
+            clipDuration,
+            spriteDataset: {
+                duration: sprite.dataset.duration,
+                initialLeft: sprite.dataset.initialLeft
+            }
+        });
 
         // 스프라이트의 실제 너비를 정확히 가져오기
         const spriteWidth = sprite.offsetWidth || sprite.getBoundingClientRect().width;
@@ -2938,7 +2996,13 @@ export class MotionTimeline extends BaseTimeline {
         if (positionTrack) {
             for (let i = 0; i < positionTrack.keyframeCount; i++) {
                 const keyframeTime = positionTrack.times[i];
-                            const keyframeElement = document.createElement('div');
+                
+                // 클립 범위 체크 - 클립 밖의 키프레임은 UI에 생성하지 않음 (초기 키프레임 제외, 오차 범위 추가)
+                if (keyframeTime !== 0 && (keyframeTime < clipStartTime - MotionTimeline.CLIP_RANGE_TOLERANCE || keyframeTime > clipStartTime + clipDuration + MotionTimeline.CLIP_RANGE_TOLERANCE)) {
+                    console.log(`updateTrackUI에서 클립 범위 밖 키프레임 건너뜀: 시간=${keyframeTime}, 클립 범위=${clipStartTime}~${clipStartTime + clipDuration}, 오차범위=${MotionTimeline.CLIP_RANGE_TOLERANCE}초`);
+                    continue;
+                }
+                 const keyframeElement = document.createElement('div');
                             
             keyframeElement.className = 'keyframe';
             keyframeElement.dataset.property = 'position';
@@ -4285,12 +4349,31 @@ export class MotionTimeline extends BaseTimeline {
             setTimeout(() => {
                 this.updateAnimation();
 
-                // 모든 트랙의 UI 업데이트 강제 실행
+                // 모든 트랙의 UI 업데이트 강제 실행 (클립 범위 고려)
                 this.timelineData.getAllTracksByUuid().forEach((trackInfo, key) => {
                     const { uuid: objectUuid } = trackInfo;
                     const trackElement = this.container.querySelector(`[data-uuid="${objectUuid}"]`);
                     if (trackElement) {
+                        // 클립 범위를 고려하여 UI 업데이트
                         this.updateTrackUI(trackElement, this.currentTime);
+                        
+                        // 클립 범위 밖의 키프레임은 UI에서 제거
+                        const sprites = trackElement.querySelectorAll('.animation-sprite');
+                        sprites.forEach(sprite => {
+                            const spriteLeft = parseFloat(sprite.style.left) || 0;
+                            const clipStartTime = (spriteLeft / 100) * this.options.totalSeconds;
+                            const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+                            const clipEndTime = clipStartTime + clipDuration;
+                            
+                            const keyframes = sprite.querySelectorAll('.keyframe');
+                            keyframes.forEach(keyframe => {
+                                const keyframeTime = parseFloat(keyframe.dataset.time);
+                                if (keyframeTime !== 0 && (keyframeTime < clipStartTime || keyframeTime > clipEndTime)) {
+                                    console.log(`onAfterLoad에서 클립 범위 밖 키프레임 제거: 시간=${keyframeTime}, 클립 범위=${clipStartTime}~${clipEndTime}`);
+                                    keyframe.remove();
+                                }
+                            });
+                        });
                     }
                 });
 
@@ -4711,8 +4794,23 @@ export class MotionTimeline extends BaseTimeline {
             return;
         }
 
-        // 클립 범위 체크는 키프레임 추가 시점에서 이미 수행되었으므로 여기서는 제거
-        // 키프레임이 여기까지 왔다면 이미 클립 범위 내에 있다는 의미
+        // 클립 범위 체크 - 클립 밖의 키프레임은 UI에 생성하지 않음
+        const spriteLeft = parseFloat(sprite.style.left) || 0;
+        const clipStartTime = (spriteLeft / 100) * this.options.totalSeconds;
+        const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+        const clipEndTime = clipStartTime + clipDuration;
+
+        // 클립 범위 밖의 키프레임은 UI에 생성하지 않음 (초기 키프레임 제외, 오차 범위 추가)
+        if (time !== 0 && (time < clipStartTime - MotionTimeline.CLIP_RANGE_TOLERANCE || time > clipEndTime + MotionTimeline.CLIP_RANGE_TOLERANCE)) {
+            console.log("클립 범위 밖의 키프레임이므로 UI에 생성하지 않습니다:", {
+                time,
+                clipStartTime,
+                clipEndTime,
+                tolerance: MotionTimeline.CLIP_RANGE_TOLERANCE,
+                property
+            });
+            return;
+        }
 
         console.log("키프레임 요소 생성 중...");
         const keyframeElement = this.createKeyframeElement(time, value, property, index, sprite);

@@ -524,6 +524,7 @@ top: 10px; */
 transform: translateY(-50%); */
   display: flex;
   box-sizing: border-box;
+  /* % 단위 우선 적용 */
 }
 
 .animation-sprite.selected {

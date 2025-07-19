@@ -330,7 +330,8 @@ export class TrackData {
       const mid = Math.floor((left + right) / 2);
       const midTime = this.times[mid];
 
-      if (Math.abs(midTime - time) < 0.001) {
+      // 더 관대한 정밀도 사용 (0.01초)
+      if (Math.abs(midTime - time) < 0.01) {
         return mid;
       }
 
@@ -357,7 +358,8 @@ export class TrackData {
       const mid = Math.floor((left + right) / 2);
       const midTime = this.times[mid];
 
-      if (Math.abs(midTime - time) < 0.001) {
+      // 더 관대한 정밀도 사용 (0.01초)
+      if (Math.abs(midTime - time) < 0.01) {
         return mid;
       }
 
