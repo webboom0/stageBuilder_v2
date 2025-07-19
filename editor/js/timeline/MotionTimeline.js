@@ -3153,24 +3153,44 @@ export class MotionTimeline extends BaseTimeline {
                                  
                                  console.log("드래그 중 - 새 시간:", newTimeInSeconds);
                                  
-                                 // TimelineData 업데이트
-                                 const trackData = this.timelineData.tracks.get(objectUuid)?.get('position');
-                                 if (trackData && dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
-                                     if (trackData.updateKeyframeTime(dragStartIndex, newTimeInSeconds)) {
-                                         keyframeElement.dataset.time = newTimeInSeconds.toFixed(2);
-                                         this.timelineData.dirty = true;
-                                         this.timelineData.precomputeAnimationData();
-                                         
-                                         // 객체 즉시 업데이트
-                                         const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
-                                         if (object) {
-                                             const newValue = trackData.getValueAtTime(newTimeInSeconds);
-                                             if (newValue) {
-                                                 this.applyValue(object, 'position', newValue);
-                                             }
-                                         }
-                                     }
-                                 }
+                                // TimelineData 업데이트 (모든 속성 동시 업데이트)
+                                const properties = ['position', 'rotation', 'scale'];
+                                let allUpdated = true;
+
+                                properties.forEach(prop => {
+                                    const trackData = this.timelineData.tracks.get(objectUuid)?.get(prop);
+                                    if (trackData && dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
+                                        if (trackData.updateKeyframeTime(dragStartIndex, newTimeInSeconds)) {
+                                            console.log(`${prop} 키프레임 시간 업데이트 성공:`, newTimeInSeconds);
+                                        } else {
+                                            console.warn(`${prop} 키프레임 시간 업데이트 실패`);
+                                            allUpdated = false;
+                                        }
+                                    } else {
+                                        console.warn(`${prop} trackData를 찾을 수 없거나 유효하지 않은 인덱스`);
+                                        allUpdated = false;
+                                    }
+                                });
+
+                                if (allUpdated) {
+                                    keyframeElement.dataset.time = newTimeInSeconds.toFixed(2);
+                                    this.timelineData.dirty = true;
+                                    this.timelineData.precomputeAnimationData();
+                                    
+                                    // 모든 속성의 객체 즉시 업데이트
+                                    const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
+                                    if (object) {
+                                        properties.forEach(prop => {
+                                            const trackData = this.timelineData.tracks.get(objectUuid)?.get(prop);
+                                            if (trackData) {
+                                                const newValue = trackData.getValueAtTime(newTimeInSeconds);
+                                                if (newValue) {
+                                                    this.applyValue(object, prop, newValue);
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
                              }
                          }
                      }
