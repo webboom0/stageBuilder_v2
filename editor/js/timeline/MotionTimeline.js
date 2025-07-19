@@ -2093,6 +2093,65 @@ export class MotionTimeline extends BaseTimeline {
         return outsideKeyframes;
     }
 
+    // 클립 범위 경고 표시
+    showClipRangeWarning(message) {
+        // 기존 경고가 있으면 제거
+        const existingWarning = document.querySelector('.clip-range-warning');
+        if (existingWarning) {
+            existingWarning.remove();
+        }
+
+        const warning = document.createElement('div');
+        warning.className = 'clip-range-warning';
+        warning.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff6b6b;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            max-width: 300px;
+            animation: slideInRight 0.3s ease-out;
+        `;
+
+        warning.textContent = message;
+
+        // CSS 애니메이션 추가
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(warning);
+
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            if (warning.parentNode) {
+                warning.style.animation = 'slideOutRight 0.3s ease-in';
+                setTimeout(() => {
+                    if (warning.parentNode) {
+                        warning.remove();
+                    }
+                }, 300);
+            }
+        }, 3000);
+    }
+
     // 클립 밖 키프레임 처리 다이얼로그 표시
     showKeyframeOutsideClipDialog(outsideKeyframes, track, sprite) {
         // 기존 다이얼로그가 있으면 제거
@@ -3851,15 +3910,19 @@ export class MotionTimeline extends BaseTimeline {
                 // .time-ruler-container에서의 playhead 절대 시간 계산
                 const playheadAbsoluteTime = (playheadRelativeToTimeRuler / timeRulerWidth) * this.options.totalSeconds;
 
-                // 키프레임이 클립 범위 밖에 있으면 경고만 출력하고 계속 진행
+                // 키프레임이 클립 범위 밖에 있으면 추가하지 않음
                 if (playheadAbsoluteTime < clipStartTime || playheadAbsoluteTime > clipEndTime) {
-                    console.warn("키프레임 추가 버튼 - 클립 범위 밖이지만 추가를 허용합니다:", {
+                    console.warn("키프레임 추가 버튼 - 클립 범위 밖이므로 추가하지 않습니다:", {
                         playheadAbsoluteTime,
                         clipStartTime,
                         clipEndTime,
                         clipDuration
                     });
-                    // 클립 범위 밖이어도 키프레임 추가 허용
+                    
+                    // 사용자에게 알림 표시
+                    this.showClipRangeWarning("키프레임은 클립 범위 내에서만 추가할 수 있습니다.");
+                    
+                    return; // 클립 범위 밖이면 키프레임 추가하지 않음
                 }
 
                 // 절대 시간으로 키프레임 저장 (클립 이동에 관계없이 올바른 위치에 추가)
@@ -3924,15 +3987,19 @@ export class MotionTimeline extends BaseTimeline {
                 // .time-ruler-container에서의 클릭 절대 시간 계산
                 const clickAbsoluteTime = (clickRelativeToTimeRuler / timeRulerWidth) * this.options.totalSeconds;
 
-                // 클릭이 클립 범위 밖에 있으면 경고만 출력하고 계속 진행
+                // 클릭이 클립 범위 밖에 있으면 추가하지 않음
                 if (clickAbsoluteTime < clipStartTime || clickAbsoluteTime > clipEndTime) {
-                    console.warn("키프레임 레이어 클릭 - 클립 범위 밖이지만 추가를 허용합니다:", {
+                    console.warn("키프레임 레이어 클릭 - 클립 범위 밖이므로 추가하지 않습니다:", {
                         clickAbsoluteTime,
                         clipStartTime,
                         clipEndTime,
                         clipDuration
                     });
-                    // 클립 범위 밖이어도 키프레임 추가 허용
+                    
+                    // 사용자에게 알림 표시
+                    this.showClipRangeWarning("키프레임은 클립 범위 내에서만 추가할 수 있습니다.");
+                    
+                    return; // 클립 범위 밖이면 키프레임 추가하지 않음
                 }
 
                 // 클립 내에서의 상대 시간 계산 (키프레임 저장용)
@@ -4665,26 +4732,8 @@ export class MotionTimeline extends BaseTimeline {
             return;
         }
 
-        // 클립 범위 체크 (절대 시간 기준으로 체크)
-        const clipLeft = parseFloat(sprite.style.left) || 0;
-        const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
-        const clipDuration = parseFloat(sprite.dataset.duration) || 5;
-        const clipEndTime = clipStartTime + clipDuration;
-
-        // time은 절대 시간이므로 클립 범위에 있는지 직접 확인
-        const isInClipRange = time >= clipStartTime && time <= clipEndTime;
-
-        // 초기 키프레임(시간 0)이거나 클립 범위에 있으면 허용
-        if (time !== 0 && !isInClipRange) {
-            console.warn("키프레임이 클립 범위 밖에 있습니다:", {
-                absoluteTime: time,
-                clipStartTime,
-                clipEndTime,
-                clipDuration,
-                isInClipRange
-            });
-            return;
-        }
+        // 클립 범위 체크는 키프레임 추가 시점에서 이미 수행되었으므로 여기서는 제거
+        // 키프레임이 여기까지 왔다면 이미 클립 범위 내에 있다는 의미
 
         console.log("키프레임 요소 생성 중...");
         const keyframeElement = this.createKeyframeElement(time, value, property, index, sprite);
