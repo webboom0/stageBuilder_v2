@@ -3,6 +3,7 @@ import { UIPanel, UIRow, UINumber, UIText } from "../libs/ui.js";
 import * as THREE from "three";
 import { INTERPOLATION } from './TimelineCore.js';
 import { TimelineData, TrackData } from './TimelineCore.js';
+import { KeyboardShortcuts } from './KeyboardShortcuts.js';
 
 export class MotionTimeline extends BaseTimeline {
     constructor(editor, options) {
@@ -100,30 +101,8 @@ export class MotionTimeline extends BaseTimeline {
             }
         });
 
-        // 키보드 단축키 이벤트
-        document.addEventListener("keydown", (e) => {
-            // 스페이스바로 재생/일시정지 토글
-            if (e.code === "Space") {
-                e.preventDefault(); // 기본 스크롤 동작 방지
-
-                console.log("MotionTimeline 스페이스바 단축키 - 현재 재생 상태:", this.isPlaying);
-
-                if (!this.isPlaying) {
-                    console.log("MotionTimeline 재생 시작");
-                    this.play();
-                } else {
-                    console.log("MotionTimeline 일시정지");
-                    this.pause();
-                }
-            }
-
-            // ESC 키로 정지
-            if (e.code === "Escape") {
-                e.preventDefault();
-                console.log("MotionTimeline ESC 키 - 정지");
-                this.stop();
-            }
-        });
+        // 키보드 단축키 초기화
+        this.keyboardShortcuts = new KeyboardShortcuts(this);
     }
 
     addKeyframe(trackUuid, propertyType, timeInSeconds, value) {

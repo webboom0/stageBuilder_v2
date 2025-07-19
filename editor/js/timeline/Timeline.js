@@ -5,6 +5,7 @@ import { MotionTimeline } from "./MotionTimeline.js";
 import { LightTimeline } from "./LightTimeline.js";
 import { AudioTimeline } from "./AudioTimeline.js";
 import { VideoTimeline } from "./VideoTimeline.js";
+import { KeyboardShortcuts } from "./KeyboardShortcuts.js";
 import * as TWEEN from "../../../examples/jsm/libs/tween.module.js";
 
 class Timeline {
