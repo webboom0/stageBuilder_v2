@@ -1347,7 +1347,7 @@ class TimelineCore {
     keyframe.style.cursor = "pointer";
     keyframe.style.left = (options.left || 10) + "px";
     keyframe.dataset.index = index;
-    keyframe.dataset.time = options.time || 0;
+    keyframe.dataset.time = (options.time || 0).toFixed(2);
     keyframe.dataset.x = options.x || 0;
     keyframe.dataset.y = options.y || 0;
     keyframe.dataset.z = options.z || 0;
@@ -1446,7 +1446,7 @@ class TimelineCore {
     if (!keyframe) return false;
 
     if (options.time !== undefined) {
-      keyframe.element.dataset.time = options.time;
+      keyframe.element.dataset.time = options.time.toFixed(2);
       keyframe.element.style.left = (options.left || keyframe.element.style.left) + "px";
     }
     if (options.x !== undefined) keyframe.element.dataset.x = options.x;

@@ -2963,7 +2963,7 @@ export class MotionTimeline extends BaseTimeline {
                             
             keyframeElement.className = 'keyframe';
             keyframeElement.dataset.property = 'position';
-            keyframeElement.dataset.time = keyframeTime;
+            keyframeElement.dataset.time = keyframeTime.toFixed(2);
             keyframeElement.dataset.index = i;
             keyframeElement.dataset.draggable = 'false'; // 드래그 가능 상태 초기화
 
@@ -3114,7 +3114,7 @@ export class MotionTimeline extends BaseTimeline {
                                  const trackData = this.timelineData.tracks.get(objectUuid)?.get('position');
                                  if (trackData && dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
                                      if (trackData.updateKeyframeTime(dragStartIndex, newTimeInSeconds)) {
-                                         keyframeElement.dataset.time = newTimeInSeconds.toString();
+                                         keyframeElement.dataset.time = newTimeInSeconds.toFixed(2);
                                          this.timelineData.dirty = true;
                                          this.timelineData.precomputeAnimationData();
                                          
@@ -3414,7 +3414,7 @@ export class MotionTimeline extends BaseTimeline {
                                 console.log("maxTime 업데이트 완료:", newTimeInSeconds);
 
                                 // UI의 dataset.time 업데이트
-                                keyframeElement.dataset.time = newTimeInSeconds.toString();
+                                keyframeElement.dataset.time = newTimeInSeconds.toFixed(2);
                                 console.log("키프레임 시간 업데이트 완료:", newTimeInSeconds);
 
                                 // TimelineData 업데이트
@@ -3574,7 +3574,7 @@ export class MotionTimeline extends BaseTimeline {
                                     keyframeElement.dataset.index = newIndex.toString();
                                 }
                                 this.timelineData.updateMaxTime(newTimeInSeconds);
-                                keyframeElement.dataset.time = newTimeInSeconds.toString();
+                                keyframeElement.dataset.time = newTimeInSeconds.toFixed(2);
                                 this.timelineData.dirty = true;
                                 this.timelineData.precomputeAnimationData();
                                 const draggedObject = this.editor.scene.getObjectByProperty('uuid', track.uuid);
@@ -4774,7 +4774,7 @@ export class MotionTimeline extends BaseTimeline {
         sprites.forEach(sprite => {
             const keyframeLayer = sprite.querySelector('.keyframe-layer');
             if (keyframeLayer) {
-                const keyframeElement = keyframeLayer.querySelector(`[data-time="${time}"]`);
+                const keyframeElement = keyframeLayer.querySelector(`[data-time="${time.toFixed(2)}"]`);
                 if (keyframeElement) {
                     keyframeElement.remove();
                 }
@@ -4823,7 +4823,7 @@ export class MotionTimeline extends BaseTimeline {
                 const keyframeElement = keyframeLayer.querySelector(`[data-time="${oldTime}"]`);
                 if (keyframeElement) {
                     // 새로운 시간으로 업데이트
-                    keyframeElement.dataset.time = newTime.toString();
+                    keyframeElement.dataset.time = newTime.toFixed(2);
                     keyframeElement.dataset.index = index.toString();
 
                     // 클립 내에서의 상대 위치로 새로운 위치 계산 (updateKeyframesInClip과 동일한 방식)
@@ -4860,7 +4860,7 @@ export class MotionTimeline extends BaseTimeline {
     createKeyframeElement(time, value, property, index, sprite = null) {
         const keyframeElement = document.createElement("div");
         keyframeElement.className = "keyframe";
-        keyframeElement.dataset.time = time;
+        keyframeElement.dataset.time = time.toFixed(2);
         keyframeElement.dataset.property = property;
         keyframeElement.dataset.index = index;
         keyframeElement.title = `${property}: ${time.toFixed(2)}s`;
