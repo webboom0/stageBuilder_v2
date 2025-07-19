@@ -1386,6 +1386,7 @@ export class MotionTimeline extends BaseTimeline {
         let isResizing = false;
         let resizeHandle;
         let initialLeft; // 초기 위치 저장
+        let initialWidth; // 초기 크기 저장
         let hasMoved = false; // 클립이 이동했는지 추적
 
         // 스프라이트 클릭 이벤트
@@ -1408,7 +1409,9 @@ export class MotionTimeline extends BaseTimeline {
             startLeft = parseFloat(sprite.style.left) || 0;
             startWidth = parseFloat(sprite.style.width) || 100;
             initialLeft = startLeft; // 초기 위치 저장
+            initialWidth = startWidth; // 초기 크기 저장
             sprite.dataset.initialLeft = startLeft.toString(); // dataset에 초기 위치 저장
+            sprite.dataset.initialWidth = startWidth.toString(); // dataset에 초기 크기 저장
             hasMoved = false; // 이동 상태 초기화
             e.stopPropagation();
         });
@@ -1615,13 +1618,18 @@ export class MotionTimeline extends BaseTimeline {
         const spriteLeft = parseFloat(sprite.style.left) || 0;
         const clipStartTime = (spriteLeft / 100) * this.options.totalSeconds;
         const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+        const clipEndTime = clipStartTime + clipDuration;
 
         console.log("updateKeyframesInClip - 클립 정보:", {
             spriteWidth,
             spriteLeft,
             clipStartTime,
-            clipDuration
+            clipDuration,
+            clipEndTime
         });
+
+        // 클립 밖으로 나간 키프레임들을 추적
+        const keyframesToRemove = [];
 
         // 클립 크기 변경 시 키프레임 위치를 절대 시간 기준으로 다시 계산
         keyframes.forEach((keyframe) => {
@@ -1631,6 +1639,24 @@ export class MotionTimeline extends BaseTimeline {
             // 절대 시간이 유효한지 확인
             if (isNaN(absoluteTime)) {
                 console.warn("키프레임의 절대 시간이 유효하지 않습니다:", keyframe.dataset);
+                return;
+            }
+
+            // 클립 범위 체크 (초기 키프레임 제외)
+            if (absoluteTime !== 0 && (absoluteTime < clipStartTime || absoluteTime > clipEndTime)) {
+                console.warn("키프레임이 클립 범위 밖으로 나갔습니다:", {
+                    absoluteTime,
+                    clipStartTime,
+                    clipEndTime,
+                    propertyType
+                });
+                
+                // 클립 밖으로 나간 키프레임을 제거 목록에 추가
+                keyframesToRemove.push({
+                    keyframe,
+                    absoluteTime,
+                    propertyType
+                });
                 return;
             }
 
@@ -1667,8 +1693,294 @@ export class MotionTimeline extends BaseTimeline {
             }
         });
 
-        // TimelineData 업데이트는 하지 않음 (키프레임 시간은 재생 시에만 계산)
-        console.log("클립 크기 조정 완료 - 키프레임 위치만 업데이트됨");
+        // 클립 밖으로 나간 키프레임들 처리 (다이얼로그 표시를 위해 handleKeyframesOutsideClip 사용)
+        if (keyframesToRemove.length > 0) {
+            console.log("클립 밖으로 나간 키프레임들 발견:", keyframesToRemove.length);
+            
+            // 클립 밖 키프레임들을 일단 숨김 처리하고 다이얼로그 표시
+            keyframesToRemove.forEach(({ keyframe }) => {
+                keyframe.style.opacity = '0.3';
+                keyframe.style.background = '#ff6b6b';
+                keyframe.title = '클립 범위 밖의 키프레임 (숨김)';
+                keyframe.dataset.outsideClip = 'true';
+            });
+            
+            // 다이얼로그 표시
+            this.showKeyframeOutsideClipDialog(keyframesToRemove, track, sprite);
+        }
+
+        console.log("클립 크기 조정 완료 - 키프레임 위치 업데이트 및 범위 밖 키프레임 처리됨");
+    }
+
+    // 클립 밖으로 나간 키프레임 처리 옵션
+    handleKeyframesOutsideClip(track, sprite, options = {}) {
+        const {
+            autoRemove = true,        // 자동 제거 (기본값)
+            showWarning = true,       // 경고 표시
+            preserveData = false      // 데이터 보존 (삭제하지 않고 숨김만)
+        } = options;
+
+        const keyframeLayer = sprite.querySelector(".keyframe-layer");
+        if (!keyframeLayer) return;
+
+        const keyframes = Array.from(keyframeLayer.querySelectorAll(".keyframe"));
+        const spriteLeft = parseFloat(sprite.style.left) || 0;
+        const clipStartTime = (spriteLeft / 100) * this.options.totalSeconds;
+        const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+        const clipEndTime = clipStartTime + clipDuration;
+
+        const outsideKeyframes = [];
+
+        // 클립 밖의 키프레임 찾기
+        keyframes.forEach(keyframe => {
+            const absoluteTime = parseFloat(keyframe.dataset.time);
+            const propertyType = keyframe.dataset.property;
+
+            if (isNaN(absoluteTime)) return;
+
+            // 초기 키프레임(시간 0)은 제외
+            if (absoluteTime !== 0 && (absoluteTime < clipStartTime || absoluteTime > clipEndTime)) {
+                outsideKeyframes.push({
+                    keyframe,
+                    absoluteTime,
+                    propertyType
+                });
+            }
+        });
+
+        if (outsideKeyframes.length === 0) return;
+
+        // 경고 표시
+        if (showWarning) {
+            console.warn(`${outsideKeyframes.length}개의 키프레임이 클립 범위 밖에 있습니다:`, {
+                clipStartTime,
+                clipEndTime,
+                outsideKeyframes: outsideKeyframes.map(kf => ({
+                    time: kf.absoluteTime,
+                    property: kf.propertyType
+                }))
+            });
+        }
+
+        // 처리 방식에 따른 분기
+        if (autoRemove) {
+            // 자동 제거
+            outsideKeyframes.forEach(({ keyframe, absoluteTime, propertyType }) => {
+                // TimelineData에서 제거
+                if (track.uuid) {
+                    const trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
+                    if (trackData) {
+                        const keyframeIndex = trackData.findKeyframeIndex(absoluteTime);
+                        if (keyframeIndex !== -1) {
+                            trackData.removeKeyframeByIndex(keyframeIndex);
+                        }
+                    }
+                }
+                
+                // UI에서 제거
+                keyframe.remove();
+            });
+
+            // TimelineData 업데이트
+            this.timelineData.dirty = true;
+            this.timelineData.precomputeAnimationData();
+            
+            console.log(`${outsideKeyframes.length}개의 키프레임이 자동으로 제거되었습니다.`);
+            
+        } else if (preserveData) {
+            // 데이터 보존 (숨김만)
+            outsideKeyframes.forEach(({ keyframe }) => {
+                keyframe.style.opacity = '0.3';
+                keyframe.style.background = '#ff6b6b';
+                keyframe.title = '클립 범위 밖의 키프레임 (숨김)';
+                keyframe.dataset.outsideClip = 'true';
+            });
+            
+            console.log(`${outsideKeyframes.length}개의 키프레임이 숨김 처리되었습니다.`);
+        }
+
+        return outsideKeyframes;
+    }
+
+    // 클립 밖 키프레임 처리 다이얼로그 표시
+    showKeyframeOutsideClipDialog(outsideKeyframes, track, sprite) {
+        // 기존 다이얼로그가 있으면 제거
+        const existingDialog = document.querySelector('.keyframe-outside-clip-dialog');
+        if (existingDialog) {
+            existingDialog.remove();
+        }
+
+        const dialog = document.createElement('div');
+        dialog.className = 'keyframe-outside-clip-dialog';
+        dialog.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 2px solid #ff6b6b;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-family: Arial, sans-serif;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = '클립 범위 밖 키프레임 발견';
+        title.style.cssText = `
+            margin: 0 0 15px 0;
+            color: #ff6b6b;
+            font-size: 16px;
+        `;
+
+        const message = document.createElement('p');
+        message.textContent = `${outsideKeyframes.length}개의 키프레임이 클립 범위 밖에 있습니다. 키프레임을 제거하거나 클립 크기를 되돌릴 수 있습니다.`;
+        message.style.cssText = `
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 14px;
+            line-height: 1.4;
+        `;
+
+        const keyframeList = document.createElement('div');
+        keyframeList.style.cssText = `
+            margin: 0 0 20px 0;
+            max-height: 100px;
+            overflow-y: auto;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        `;
+
+        outsideKeyframes.forEach(({ absoluteTime, propertyType }) => {
+            const item = document.createElement('div');
+            item.textContent = `${propertyType}: ${absoluteTime.toFixed(2)}s`;
+            item.style.cssText = `
+                margin: 2px 0;
+                color: #666;
+            `;
+            keyframeList.appendChild(item);
+        });
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        `;
+
+        const removeButton = document.createElement('button');
+        removeButton.textContent = '제거';
+        removeButton.style.cssText = `
+            padding: 8px 16px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        removeButton.onclick = () => {
+            // 키프레임 제거
+            outsideKeyframes.forEach(({ keyframe, absoluteTime, propertyType }) => {
+                // TimelineData에서 제거
+                if (track.uuid) {
+                    const trackData = this.timelineData.tracks.get(track.uuid)?.get(propertyType);
+                    if (trackData) {
+                        const keyframeIndex = trackData.findKeyframeIndex(absoluteTime);
+                        if (keyframeIndex !== -1) {
+                            trackData.removeKeyframeByIndex(keyframeIndex);
+                        }
+                    }
+                }
+                
+                // UI에서 제거
+                keyframe.remove();
+            });
+
+            // TimelineData 업데이트
+            this.timelineData.dirty = true;
+            this.timelineData.precomputeAnimationData();
+            
+            dialog.remove();
+            document.removeEventListener('keydown', handleEscape);
+            console.log('사용자가 키프레임 제거를 선택했습니다.');
+        };
+
+
+
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = '취소';
+        cancelButton.style.cssText = `
+            padding: 8px 16px;
+            background: #ccc;
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        cancelButton.onclick = () => {
+            // 클립 크기를 이전 상태로 되돌리기
+            const initialLeft = parseFloat(sprite.dataset.initialLeft) || 0;
+            const initialWidth = parseFloat(sprite.dataset.initialWidth) || 100;
+            const initialDuration = (initialWidth / 100) * this.options.totalSeconds;
+            
+            sprite.style.left = `${initialLeft}%`;
+            sprite.style.width = `${initialWidth}%`;
+            sprite.dataset.duration = initialDuration.toString();
+            
+            // 키프레임 숨김 해제 (정상 상태로 복원)
+            outsideKeyframes.forEach(({ keyframe }) => {
+                keyframe.style.opacity = '1';
+                keyframe.style.background = '#f90';
+                keyframe.title = '';
+                delete keyframe.dataset.outsideClip;
+            });
+            
+            // 키프레임 위치 재계산
+            this.updateKeyframesInClip(track, sprite);
+            
+            dialog.remove();
+            document.removeEventListener('keydown', handleEscape);
+            console.log('사용자가 취소를 선택했습니다. 클립 크기가 이전 상태로 되돌아갔습니다.');
+        };
+
+        buttonContainer.appendChild(removeButton);
+        buttonContainer.appendChild(cancelButton);
+
+        dialog.appendChild(title);
+        dialog.appendChild(message);
+        dialog.appendChild(keyframeList);
+        dialog.appendChild(buttonContainer);
+
+        document.body.appendChild(dialog);
+
+        // ESC 키로 다이얼로그 닫기
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                dialog.remove();
+                document.removeEventListener('keydown', handleEscape);
+                console.log('ESC 키로 다이얼로그가 닫혔습니다.');
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+
+        // 다이얼로그 외부 클릭 시 닫기 방지 (사용자가 명시적으로 선택하도록)
+        dialog.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // 자동 타임아웃 제거 - 사용자가 명시적으로 선택할 때까지 다이얼로그 유지
+        // setTimeout(() => {
+        //     if (document.body.contains(dialog)) {
+        //         dialog.remove();
+        //         console.log('다이얼로그가 자동으로 닫혔습니다.');
+        //     }
+        // }, 5000);
     }
 
     // 객체 애니메이션 즉시 업데이트
