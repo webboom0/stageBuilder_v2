@@ -542,6 +542,123 @@ Editor.prototype = {
     this.signals.editorCleared.dispatch();
   },
 
+  // skeleton 정보를 강제로 포함
+  ensureSkeletonData: function (sceneData) {
+    try {
+      console.log("=== Skeleton 정보 강제 포함 시작 ===");
+      
+      // scene의 모든 객체를 순회하면서 skeleton 정보 확인
+      this.scene.traverse((object) => {
+        if (object.isSkinnedMesh && object.skeleton) {
+          console.log("SkinnedMesh 발견:", object.name, "skeleton:", object.skeleton);
+          
+          // skeleton 정보가 sceneData에 포함되어 있는지 확인
+          if (sceneData.skeletons) {
+            const skeletonData = sceneData.skeletons.find(s => s.uuid === object.skeleton.uuid);
+            if (!skeletonData) {
+              console.log("skeleton 정보가 누락됨, 강제 추가:", object.skeleton.uuid);
+              
+              // skeleton 정보를 강제로 추가
+              const skeletonJSON = object.skeleton.toJSON();
+              sceneData.skeletons.push(skeletonJSON);
+              
+              console.log("skeleton 정보 추가 완료:", skeletonJSON);
+            } else {
+              console.log("skeleton 정보 이미 존재:", skeletonData.uuid);
+            }
+          } else {
+            console.log("sceneData.skeletons가 없음, 생성");
+            sceneData.skeletons = [object.skeleton.toJSON()];
+          }
+        }
+      });
+      
+      console.log("=== Skeleton 정보 강제 포함 완료 ===");
+    } catch (error) {
+      console.error("Skeleton 정보 강제 포함 중 오류:", error);
+    }
+  },
+
+  // FBX 객체의 skeleton 바인딩 복원
+  restoreSkeletonBinding: function (object) {
+    try {
+      console.log("=== Skeleton 바인딩 복원 시작 ===", object.name || object.uuid);
+      
+      // 객체를 순회하면서 SkinnedMesh 찾기
+      object.traverse((child) => {
+        if (child.isSkinnedMesh) {
+          console.log("SkinnedMesh 발견:", child.name);
+          
+          // skeleton이 있는지 확인
+          if (child.skeleton) {
+            console.log("기존 skeleton 존재:", child.skeleton);
+            
+            // skeleton의 bones 배열 확인
+            if (child.skeleton.bones && child.skeleton.bones.length > 0) {
+              console.log("skeleton bones 개수:", child.skeleton.bones.length);
+              
+              // skeleton 업데이트
+              child.skeleton.update();
+              console.log("skeleton 업데이트 완료");
+            } else {
+              console.warn("skeleton에 bones가 없습니다");
+            }
+          } else {
+            console.warn("SkinnedMesh에 skeleton이 없습니다");
+            
+            // skeleton을 찾아서 바인딩 시도
+            let foundSkeleton = null;
+            object.traverse((sibling) => {
+              if (sibling.isBone && !foundSkeleton) {
+                // 루트 본 찾기
+                let rootBone = sibling;
+                while (rootBone.parent && rootBone.parent.isBone) {
+                  rootBone = rootBone.parent;
+                }
+                
+                // skeleton 생성
+                const bones = [];
+                rootBone.traverse((bone) => {
+                  if (bone.isBone) {
+                    bones.push(bone);
+                  }
+                });
+                
+                if (bones.length > 0) {
+                  foundSkeleton = new THREE.Skeleton(bones);
+                  console.log("새로운 skeleton 생성:", bones.length, "개 bones");
+                }
+              }
+            });
+            
+            if (foundSkeleton) {
+              child.bind(foundSkeleton, child.bindMatrix);
+              console.log("skeleton 바인딩 완료");
+            }
+          }
+          
+          // geometry의 skin attributes 확인
+          if (child.geometry) {
+            const skinIndex = child.geometry.attributes.skinIndex;
+            const skinWeight = child.geometry.attributes.skinWeight;
+            
+            if (skinIndex && skinWeight) {
+              console.log("skin attributes 확인 완료");
+              console.log("skinIndex:", skinIndex.count, "vertices");
+              console.log("skinWeight:", skinWeight.count, "vertices");
+            } else {
+              console.warn("skin attributes가 없습니다");
+            }
+          }
+        }
+      });
+      
+      console.log("=== Skeleton 바인딩 복원 완료 ===");
+    } catch (error) {
+      console.error("Skeleton 바인딩 복원 중 오류:", error);
+    }
+  },
+
   //
 
   fromJSON: async function (json) {
@@ -909,6 +1026,10 @@ Editor.prototype = {
               const childData = projectData.scene.children[i];
               if (childData && childData.object) {
                 const child = await loader.parseAsync(childData);
+                
+                // FBX 객체의 skeleton 바인딩 복원
+                this.restoreSkeletonBinding(child);
+                
                 this.scene.add(child);
                 console.log(`child ${i} 복원 완료:`, child.name || child.uuid);
               }
@@ -1109,9 +1230,13 @@ Editor.prototype = {
       // scene.toJSON() 호출 전에 children 전체를 임시로 제거
       const originalChildren = this.scene.children;
       this.scene.children = [];
-      // 기본 씬 데이터 생성
-      sceneData = this.scene.toJSON();
-      console.log("기본 씬 데이터 생성 완료");
+          // 기본 씬 데이터 생성 (skeleton 정보 포함)
+    sceneData = this.scene.toJSON();
+    console.log("기본 씬 데이터 생성 완료");
+    
+    // skeleton 정보 강제 포함
+    this.ensureSkeletonData(sceneData);
+    console.log("skeleton 정보 강제 포함 완료");
       // children을 별도 파일로 저장 (안전한 처리)
       if (originalChildren.length > 0) {
         console.log("children 개수:", originalChildren.length);
