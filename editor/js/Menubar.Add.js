@@ -327,7 +327,7 @@ function MenubarAdd(editor) {
   lightSubmenuTitle.onMouseOut(function () {
     lightSubmenu.setDisplay("none");
   });
-  // options.add(lightSubmenuTitle);
+  options.add(lightSubmenuTitle);
 
   const lightSubmenu = new UIPanel()
     .setPosition("fixed")

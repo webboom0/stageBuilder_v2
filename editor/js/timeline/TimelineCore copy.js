@@ -190,10 +190,6 @@ export class TrackData {
       interpolation
     });
 
-    // TimelineData의 dirty 플래그만 설정하고 precomputeAnimationData는 호출하지 않음
-    // (LightTimeline에서 직접 관리)
-    console.log(`🔧 TrackData.addKeyframe 완료: dirty 플래그만 설정`);
-
     return true;
   }
 
@@ -468,10 +464,7 @@ export class TrackData {
 
   // 키프레임 값 가져오기
   getValueAtTime(time) {
-    if (this.keyframeCount === 0) {
-      return null;
-    }
-    
+    if (this.keyframeCount === 0) return null;
     if (this.keyframeCount === 1) {
       return new THREE.Vector3(
         this.values[0],
@@ -488,7 +481,6 @@ export class TrackData {
         this.values[2]
       );
     }
-    
     if (time >= this.times[this.keyframeCount - 1]) {
       const lastIndex = (this.keyframeCount - 1) * 3;
       return new THREE.Vector3(
@@ -597,16 +589,6 @@ export class TrackData {
 
     return cloned;
   }
-
-  // 모든 키프레임 삭제
-  clearAllKeyframes() {
-    const removedCount = this.keyframeCount;
-    this.keyframeCount = 0;
-    this.dirty = true;
-    
-    console.log(`TrackData.clearAllKeyframes: ${removedCount}개 키프레임 삭제됨`);
-    return removedCount;
-  }
 }
 
 // 타임라인 데이터 클래스
@@ -655,50 +637,27 @@ export class TimelineData {
 
   // 트랙 데이터 정리 및 통합 관리 메서드들
   addTrack(objectUuid, property, objectId = null) {
-    console.log(`🔍 TimelineData.addTrack 호출:`, {
-      objectUuid,
-      property,
-      objectId,
-      tracksSize: this.tracks.size,
-      tracksByIdSize: this.tracksById.size
-    });
-    
     if (!this.tracks.has(objectUuid)) {
       this.tracks.set(objectUuid, new Map());
-      console.log(`🔄 UUID 맵 생성: ${objectUuid}`);
     }
     
     if (!this.tracks.get(objectUuid).has(property)) {
       const trackData = new TrackData();
       this.tracks.get(objectUuid).set(property, trackData);
-      console.log(`🔄 UUID 기반 트랙 추가: ${objectUuid} ${property}`);
       
       // objectId가 제공된 경우 ID 기반 맵에도 저장
       if (objectId !== null) {
         if (!this.tracksById.has(objectId)) {
           this.tracksById.set(objectId, new Map());
-          console.log(`🔄 ID 맵 생성: ${objectId}`);
         }
         this.tracksById.get(objectId).set(property, trackData);
-        console.log(`🔄 ID 기반 트랙 추가: ${objectId} ${property}`);
-        
-        // 추가 후 즉시 확인
-        const addedTrack = this.tracksById.get(objectId).get(property);
-        console.log(`🔍 ID 기반 트랙 추가 확인: ${objectId} ${property}`, {
-          found: !!addedTrack,
-          trackData: addedTrack,
-          tracksByIdSize: this.tracksById.size,
-          tracksByIdKeys: Array.from(this.tracksById.keys())
-        });
       }
       
       this.emit('track_added', { objectUuid, objectId, property });
       return trackData;
     }
     
-    const existingTrack = this.tracks.get(objectUuid).get(property);
-    console.log(`ℹ️ 기존 트랙 반환: ${objectUuid} ${property}`);
-    return existingTrack;
+    return this.tracks.get(objectUuid).get(property);
   }
 
   // UUID로 트랙 가져오기
@@ -708,35 +667,7 @@ export class TimelineData {
 
   // ID로 트랙 가져오기
   getTrackById(objectId, property) {
-    console.log(`🔍 TimelineData.getTrackById 호출:`, {
-      objectId,
-      property,
-      tracksByIdSize: this.tracksById.size,
-      tracksByIdKeys: Array.from(this.tracksById.keys()),
-      hasObjectId: this.tracksById.has(objectId)
-    });
-    
-    if (this.tracksById.has(objectId)) {
-      const objectTracks = this.tracksById.get(objectId);
-      console.log(`🔍 객체 트랙들:`, {
-        objectId,
-        objectTracksSize: objectTracks.size,
-        objectTracksKeys: Array.from(objectTracks.keys()),
-        hasProperty: objectTracks.has(property)
-      });
-      
-      const trackData = objectTracks.get(property);
-      console.log(`🔍 트랙 데이터 찾기 결과:`, {
-        objectId,
-        property,
-        found: !!trackData,
-        trackData: trackData
-      });
-      return trackData;
-    } else {
-      console.log(`❌ 객체 ID를 찾을 수 없음: ${objectId}`);
-      return undefined;
-    }
+    return this.tracksById.get(objectId)?.get(property);
   }
 
   // 모든 트랙 가져오기 (UUID 기반)
@@ -1172,9 +1103,8 @@ export class TimelineData {
     console.log("계산된 totalFrames:", totalFrames);
     console.log("실제 최대 프레임 인덱스:", totalFrames - 1);
 
-    // UUID 기반 트랙 처리
     this.tracks.forEach((objectTracks, objectUuid) => {
-      console.log("TimelineCore- precomputeAnimationData (UUID 기반)");
+      console.log("TimelineCore- precomputeAnimationData");
       console.log(objectTracks);
       console.log(objectUuid);
       const objectData = new Map();
@@ -1203,39 +1133,6 @@ export class TimelineData {
         objectData.set(property, frames);
       });
       this.precomputedData.set(objectUuid, objectData);
-    });
-    
-    // ID 기반 트랙도 처리 (LightTimeline용)
-    this.tracksById.forEach((objectTracks, objectId) => {
-      console.log("TimelineCore- precomputeAnimationData (ID 기반)");
-      console.log(objectTracks);
-      console.log(objectId);
-      const objectData = new Map();
-      objectTracks.forEach((trackData, property) => {
-        console.log(`=== precomputeAnimationData - ${objectId}.${property} ===`);
-        console.log(`키프레임 개수: ${trackData.keyframeCount}`);
-        console.log(`시간 배열: ${Array.from(trackData.times.slice(0, trackData.keyframeCount))}`);
-        console.log(`값 배열: ${Array.from(trackData.values.slice(0, trackData.keyframeCount * 3))}`);
-
-        const frames = new Float32Array(totalFrames * 3);
-
-        // 초기값 설정 (모든 프레임을 0으로 초기화)
-        for (let i = 0; i < totalFrames * 3; i++) {
-          frames[i] = 0;
-        }
-
-        for (let frame = 0; frame < totalFrames; frame++) {
-          const time = frame / this.frameRate;
-          const value = trackData.getValueAtTime(time);
-          if (value) {
-            frames[frame * 3] = value.x;
-            frames[frame * 3 + 1] = value.y;
-            frames[frame * 3 + 2] = value.z;
-          }
-        }
-        objectData.set(property, frames);
-      });
-      this.precomputedData.set(objectId, objectData);
     });
 
     this.dirty = false;

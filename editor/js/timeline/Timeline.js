@@ -473,11 +473,17 @@ class Timeline {
         const frame = Math.round(percent * totalFrames);
         const currentTime = frame / this.timelineSettings.framesPerSecond;
 
-        // 모든 모션 트랙 업데이트
+        // 모든 타임라인 업데이트
         if (this.timelines.motion) {
           // MotionTimeline의 updateAnimation 호출
           this.timelines.motion.currentTime = currentTime;
           this.timelines.motion.updateAnimation(currentTime);
+        }
+        
+        if (this.timelines.light) {
+          // LightTimeline의 updateFrame 호출
+          this.timelines.light.currentTime = currentTime;
+          this.timelines.light.updateFrame(frame);
         }
 
         // 현재 프레임 업데이트 (애니메이션은 이미 위에서 처리됨)
@@ -502,10 +508,15 @@ class Timeline {
         const currentTime = frame / this.timelineSettings.framesPerSecond;
         console.log(frame);
 
-        // MotionTimeline 애니메이션 업데이트
+        // 모든 타임라인 애니메이션 업데이트
         if (this.timelines.motion) {
           this.timelines.motion.currentTime = currentTime;
           this.timelines.motion.updateAnimation(currentTime);
+        }
+        
+        if (this.timelines.light) {
+          this.timelines.light.currentTime = currentTime;
+          this.timelines.light.updateFrame(frame);
         }
 
         // 현재 프레임 업데이트 (애니메이션은 이미 위에서 처리됨)
@@ -760,6 +771,16 @@ class Timeline {
       this.timelines.motion.play();
     }
 
+    // LightTimeline의 play() 메서드 호출
+    if (this.timelines.light) {
+      console.log("LightTimeline play() 호출");
+      // 현재 playhead 위치를 LightTimeline에 전달
+      const currentTimeInSeconds = currentFrame / this.timelineSettings.framesPerSecond;
+      this.timelines.light.currentTime = currentTimeInSeconds;
+      console.log("LightTimeline currentTime 설정:", currentTimeInSeconds);
+      this.timelines.light.play();
+    }
+
     // 애니메이션 프레임 업데이트 - 실제 시간 기반으로 제어
     let lastTime = performance.now();
     const animate = () => {
@@ -809,6 +830,11 @@ class Timeline {
       this.timelines.motion.pause();
     }
 
+    // LightTimeline의 pause() 메서드 호출
+    if (this.timelines.light) {
+      this.timelines.light.pause();
+    }
+
     // 오디오 일시정지
     if (this.timelines.audio) {
       const audioTracks = Array.from(this.timelines.audio.tracks.values());
@@ -854,6 +880,11 @@ class Timeline {
     // MotionTimeline의 stop() 메서드 호출
     if (this.timelines.motion) {
       this.timelines.motion.stop();
+    }
+
+    // LightTimeline의 stop() 메서드 호출
+    if (this.timelines.light) {
+      this.timelines.light.stop();
     }
 
     // 오디오 정지
@@ -913,6 +944,13 @@ class Timeline {
       this.timelines.motion.updateAnimation(currentTime);
     }
 
+    // LightTimeline의 updateAnimation 호출하여 조명 애니메이션 처리
+    if (this.timelines.light && updateAnimation) {
+      console.log("LightTimeline updateAnimation 호출");
+      this.timelines.light.currentTime = currentTime;
+      this.timelines.light.updateAnimation(currentTime);
+    }
+
     this.editor.scene.userData.timeline.currentFrame = frame;
 
     // 시간 표시 업데이트
@@ -920,7 +958,18 @@ class Timeline {
 
     // 각 타임라인 업데이트
     Object.values(this.timelines).forEach((timeline) => {
+      console.log("타임라인 업데이트:", {
+        timelineType: timeline.constructor.name,
+        hasUpdateFrame: !!timeline.updateFrame,
+        currentTime: currentTime
+      });
+      
       if (timeline.updateFrame) {
+        // LightTimeline의 경우 currentTime도 설정
+        if (timeline.constructor.name === 'LightTimeline') {
+          timeline.currentTime = currentTime;
+          console.log("LightTimeline currentTime 설정:", currentTime);
+        }
         timeline.updateFrame(frame);
       }
     });
