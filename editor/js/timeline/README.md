@@ -290,3 +290,17 @@ K 키를 눌러 키프레임 추가
 클립 범위 밖이면 경고
 트랙이 없으면 경고
 이제 K 키만 누르면 현재 선택된 객체의 현재 시간에 키프레임이 추가됩니다! 🚀
+
+
+
+tracks = Map {
+  "objectUuid" => UnifiedTrackData {
+    times: Float32Array([0, 1, 2, ...]),  // 공통 시간 배열
+    keyframeCount: 3,
+    properties: {
+      position: { values: Float32Array(...), interpolations: Uint8Array(...) },
+      rotation: { values: Float32Array(...), interpolations: Uint8Array(...) },
+      scale: { values: Float32Array(...), interpolations: Uint8Array(...) }
+    }
+  }
+}

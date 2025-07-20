@@ -1141,25 +1141,79 @@ export class TimelineData {
 
   // JSON 형식으로 변환
   toJSON() {
+    console.log("=== TimelineCore toJSON 시작 ===");
+    console.log("현재 tracks 구조:", this.tracks);
+    
     const data = {
       tracks: {},
       maxTime: this.maxTime,
       frameRate: this.frameRate
     };
 
+    // 새로운 통합된 키프레임 구조로 저장
     this.tracks.forEach((objectTracks, objectUuid) => {
-      data.tracks[objectUuid] = {};
+      console.log(`객체 ${objectUuid} 처리 중:`, objectTracks);
+      
+      const keyframes = [];
+      
+      // 모든 속성의 키프레임을 수집
+      const allTimes = new Set();
       objectTracks.forEach((trackData, property) => {
-        data.tracks[objectUuid][property] = {
-          times: Array.from(trackData.times.slice(0, trackData.keyframeCount)),
-          values: Array.from(trackData.values.slice(0, trackData.keyframeCount * 3)),
-          interpolations: Array.from(trackData.interpolations.slice(0, trackData.keyframeCount))
-        };
+        console.log(`${property} 트랙의 키프레임 개수:`, trackData.keyframeCount);
+        for (let i = 0; i < trackData.keyframeCount; i++) {
+          const time = trackData.times[i];
+          console.log(`${property} 키프레임 ${i}: 시간=${time}`);
+          allTimes.add(time);
+        }
       });
+      
+      // 시간순으로 정렬
+      const sortedTimes = Array.from(allTimes).sort((a, b) => a - b);
+      console.log(`정렬된 시간들:`, sortedTimes);
+      
+      // 각 시간에 대해 모든 속성의 값을 수집
+      sortedTimes.forEach(time => {
+        const keyframe = {
+          time: time,
+          position: null,
+          rotation: null,
+          scale: null
+        };
+        
+        // 각 속성의 값을 가져오기
+        ['position', 'rotation', 'scale'].forEach(property => {
+          const trackData = objectTracks.get(property);
+          if (trackData) {
+            const index = trackData.findKeyframeIndex(time);
+            console.log(`${property}에서 시간 ${time}의 인덱스:`, index);
+            if (index !== -1) {
+              const x = trackData.values[index * 3];
+              const y = trackData.values[index * 3 + 1];
+              const z = trackData.values[index * 3 + 2];
+              const interpolation = trackData.interpolations[index];
+              
+              keyframe[property] = {
+                x: x,
+                y: y,
+                z: z,
+                interpolation: interpolation
+              };
+              
+              console.log(`${property} 키프레임 값:`, keyframe[property]);
+            }
+          }
+        });
+        
+        keyframes.push(keyframe);
+        console.log(`키프레임 추가:`, keyframe);
+      });
+      
+      data.tracks[objectUuid] = keyframes;
+      console.log(`객체 ${objectUuid}의 최종 키프레임 배열:`, keyframes);
     });
 
-    console.log("toJSON");
-    console.log(data);
+    console.log("=== TimelineCore toJSON 완료 ===");
+    console.log("저장된 데이터:", data);
     return data;
   }
 
@@ -1168,70 +1222,73 @@ export class TimelineData {
     console.log("=== TimelineCore fromJSON 시작 ===");
     console.log("입력 데이터:", data);
     
+    if (!data || typeof data !== 'object') {
+      console.error("유효하지 않은 데이터입니다:", data);
+      return;
+    }
+    
     this.tracks.clear();
     this.maxTime = data.maxTime || 0;
     this.frameRate = data.frameRate || 30;
 
-    // tracks가 Map인지 일반 객체인지 확인
-    let tracksData;
-    if (data.tracks instanceof Map) {
-      tracksData = data.tracks;
-      console.log("tracks가 Map입니다");
-    } else if (typeof data.tracks === 'object' && data.tracks !== null) {
-      // 일반 객체를 Map으로 변환
-      console.log("tracks를 Map으로 변환합니다");
-      console.log("tracks 객체:", data.tracks);
-      console.log("tracks 키들:", Object.keys(data.tracks));
-      
-      tracksData = new Map(Object.entries(data.tracks));
-      console.log("변환된 tracksData:", tracksData);
-    } else {
+    // tracks 데이터 처리
+    if (!data.tracks || typeof data.tracks !== 'object') {
       console.warn("tracks 데이터가 없거나 잘못된 형식입니다:", data.tracks);
-      tracksData = new Map();
+      return;
     }
 
-    tracksData.forEach((properties, objectUuid) => {
-      console.log(`객체 ${objectUuid} 처리 중:`, properties);
+    // tracks 객체의 각 항목 처리
+    Object.entries(data.tracks).forEach(([objectUuid, keyframes]) => {
+      console.log(`객체 ${objectUuid} 처리 중:`, keyframes);
       
-      // properties가 Map인지 일반 객체인지 확인
-      let propertiesData;
-      if (properties instanceof Map) {
-        propertiesData = properties;
-        console.log(`객체 ${objectUuid}의 properties가 Map입니다`);
-      } else if (typeof properties === 'object' && properties !== null) {
-        console.log(`객체 ${objectUuid}의 properties를 Map으로 변환합니다:`, properties);
-        propertiesData = new Map(Object.entries(properties));
-        console.log(`변환된 propertiesData:`, propertiesData);
-      } else {
-        console.warn(`객체 ${objectUuid}의 properties가 잘못된 형식입니다:`, properties);
+      if (!Array.isArray(keyframes)) {
+        console.warn(`객체 ${objectUuid}의 데이터가 키프레임 배열이 아닙니다:`, keyframes);
         return;
       }
-
-      propertiesData.forEach((trackData, property) => {
-        console.log(`속성 ${property} 처리 중:`, trackData);
-        
-        const track = this.addTrack(objectUuid, property);
-        console.log(`트랙 생성됨:`, track);
-
-        if (trackData.times && Array.isArray(trackData.times)) {
-          console.log(`키프레임 개수: ${trackData.times.length}`);
-          trackData.times.forEach((time, index) => {
-            if (trackData.values && trackData.values.length >= (index * 3 + 2)) {
-              const value = new THREE.Vector3(
-                trackData.values[index * 3] || 0,
-                trackData.values[index * 3 + 1] || 0,
-                trackData.values[index * 3 + 2] || 0
-              );
-              const interpolation = trackData.interpolations && trackData.interpolations[index]
-                ? trackData.interpolations[index]
-                : INTERPOLATION.LINEAR;
-              track.addKeyframe(time, value, interpolation);
-              console.log(`키프레임 ${index} 추가됨: 시간=${time}, 값=${value}`);
-            }
-          });
-        } else {
-          console.warn(`트랙 데이터에 times 배열이 없습니다:`, trackData);
+      
+      console.log(`객체 ${objectUuid}의 키프레임 개수: ${keyframes.length}`);
+      
+      keyframes.forEach((keyframe, index) => {
+        if (!keyframe || typeof keyframe !== 'object') {
+          console.warn(`키프레임 ${index}가 유효하지 않습니다:`, keyframe);
+          return;
         }
+        
+        console.log(`키프레임 ${index} 처리 중:`, keyframe);
+        
+        // 각 속성별로 키프레임 추가
+        ['position', 'rotation', 'scale'].forEach(property => {
+          if (keyframe[property] && typeof keyframe[property] === 'object') {
+            console.log(`${property} 속성 처리 중:`, keyframe[property]);
+            
+            // TimelineData의 addTrack 메서드 사용
+            const track = this.addTrack(objectUuid, property);
+            if (!track) {
+              console.error(`${property} 트랙 생성 실패:`, objectUuid);
+              return;
+            }
+            
+            console.log(`${property} 트랙 생성됨:`, track);
+            
+            const value = new THREE.Vector3(
+              keyframe[property].x || 0,
+              keyframe[property].y || 0,
+              keyframe[property].z || 0
+            );
+            const interpolation = keyframe[property].interpolation || INTERPOLATION.LINEAR;
+            
+            console.log(`${property} 키프레임 추가 시도: 시간=${keyframe.time}, 값=${value}, interpolation=${interpolation}`);
+            
+            // TrackData의 addKeyframe 메서드 사용
+            if (track.addKeyframe(keyframe.time, value, interpolation)) {
+              console.log(`${property} 키프레임 추가 성공: 시간=${keyframe.time}, 값=${value}`);
+            } else {
+              console.warn(`${property} 키프레임 추가 실패: 시간=${keyframe.time}`);
+            }
+          } else {
+            console.log(`${property} 속성이 없거나 유효하지 않습니다.`);
+          }
+        });
       });
     });
 

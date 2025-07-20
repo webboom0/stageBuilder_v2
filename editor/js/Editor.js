@@ -814,6 +814,23 @@ Editor.prototype = {
           }
         }
         if (projectData.scene) {
+          // window.projectData 설정 전에 motionTimeline 데이터가 새로운 구조인지 확인
+          if (projectData.motionTimeline && projectData.motionTimeline.tracks) {
+            console.log("=== motionTimeline 데이터 구조 확인 ===");
+            console.log("motionTimeline tracks 키들:", Object.keys(projectData.motionTimeline.tracks));
+            
+            // 첫 번째 객체의 데이터 구조 확인
+            const firstObjectKey = Object.keys(projectData.motionTimeline.tracks)[0];
+            console.log("firstObjectKey:", firstObjectKey);
+            console.log("projectData.motionTimeline.tracks:", projectData.motionTimeline.tracks[firstObjectKey]);
+            if (firstObjectKey) {
+              const firstObjectData = projectData.motionTimeline.tracks[firstObjectKey];
+              console.log("첫 번째 객체 데이터:", firstObjectData);
+              console.log("첫 번째 객체 타입:", typeof firstObjectData);
+              console.log("첫 번째 객체가 배열인가:", Array.isArray(firstObjectData));
+            }
+          }
+          
           window.projectData = projectData; // 콘솔에서 직접 접근 가능하게
           try {
             if (typeof projectData.scene.toJSON === 'function') {
@@ -939,15 +956,64 @@ Editor.prototype = {
       if (projectData.motionTimeline && this.motionTimeline) {
         try {
           console.log("=== MotionTimeline 데이터 복원 시작 ===");
-          console.log("json.motionTimeline:", json.motionTimeline);
-          console.log("this.motionTimeline:", this.motionTimeline);
+          // 올바른 경로로 데이터 확인
+          const correctMotionTimelineData = projectData.scene?.object?.userData?.motionTimeline;
+          console.log("올바른 경로의 motionTimeline:", correctMotionTimelineData);
+          console.log("올바른 경로의 tracks:", correctMotionTimelineData?.tracks);
+          
+          // 기존 경로도 확인 (비교용)
+          console.log("기존 경로의 motionTimeline:", projectData.motionTimeline);
+          console.log("기존 경로의 tracks:", projectData.motionTimeline?.tracks);
+          
+          if (correctMotionTimelineData?.tracks) {
+            console.log("올바른 경로의 tracks 키들:", Object.keys(correctMotionTimelineData.tracks));
+            console.log("올바른 경로의 tracks 타입:", typeof correctMotionTimelineData.tracks);
+            
+            // 첫 번째 객체의 데이터 구조 확인
+            const firstObjectKey = Object.keys(correctMotionTimelineData.tracks)[0];
+            console.log("firstObjectKey:", firstObjectKey);
+            
+            if (firstObjectKey) {
+              const firstObjectData = correctMotionTimelineData.tracks[firstObjectKey];
+              console.log("올바른 경로의 첫 번째 객체 데이터:", firstObjectData);
+              console.log("올바른 경로의 첫 번째 객체 타입:", typeof firstObjectData);
+              console.log("올바른 경로의 첫 번째 객체가 배열인가:", Array.isArray(firstObjectData));
+              
+              if (Array.isArray(firstObjectData)) {
+                console.log("올바른 경로의 첫 번째 객체 키프레임 개수:", firstObjectData.length);
+                if (firstObjectData.length > 0) {
+                  console.log("올바른 경로의 첫 번째 키프레임:", firstObjectData[0]);
+                }
+              }
+            }
+          }
 
-          // scene.userData에 motionTimeline 데이터 저장
+          // scene.userData에 motionTimeline 데이터 저장 (올바른 경로 사용)
           if (!this.scene.userData) {
             this.scene.userData = {};
           }
-          this.scene.userData.motionTimeline = projectData.motionTimeline;
+          
+          // 올바른 경로에서 데이터 가져오기
+          const correctMotionTimeline = projectData.scene?.object?.userData?.motionTimeline;
+          if (correctMotionTimeline) {
+            this.scene.userData.motionTimeline = correctMotionTimeline;
+            console.log("올바른 경로에서 motionTimeline 데이터 설정 완료");
+          } else {
+            // 기존 경로로 폴백
+            this.scene.userData.motionTimeline = projectData.motionTimeline;
+            console.log("기존 경로에서 motionTimeline 데이터 설정 완료");
+          }
           console.log("scene.userData.motionTimeline 설정 완료:", this.scene.userData.motionTimeline);
+          console.log("scene.userData.motionTimeline.tracks 키들:", Object.keys(this.scene.userData.motionTimeline.tracks || {}));
+          
+          // 설정 후 첫 번째 객체 데이터 재확인
+          const sceneFirstObjectKey = Object.keys(this.scene.userData.motionTimeline.tracks || {})[0];
+          if (sceneFirstObjectKey) {
+            const sceneFirstObjectData = this.scene.userData.motionTimeline.tracks[sceneFirstObjectKey];
+            console.log("scene.userData 첫 번째 객체 데이터:", sceneFirstObjectData);
+            console.log("scene.userData 첫 번째 객체 타입:", typeof sceneFirstObjectData);
+            console.log("scene.userData 첫 번째 객체가 배열인가:", Array.isArray(sceneFirstObjectData));
+          }
 
           // MotionTimeline에서 데이터 로드
           console.log("motionTimeline.onAfterLoad() 호출 중...");
@@ -958,7 +1024,7 @@ Editor.prototype = {
         }
       } else {
         console.log("MotionTimeline 데이터가 없거나 motionTimeline 인스턴스가 없습니다.");
-        console.log("json.motionTimeline 존재:", !!projectData.motionTimeline);
+        console.log("projectData.motionTimeline 존재:", !!projectData.motionTimeline);
         console.log("this.motionTimeline 존재:", !!this.motionTimeline);
 
         // MotionTimeline 데이터가 없으면 아무것도 하지 않음
