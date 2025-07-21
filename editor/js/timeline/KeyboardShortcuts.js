@@ -23,6 +23,15 @@ export class KeyboardShortcuts {
                     metaKey: false
                 }
             },
+            'KeyD': {
+                description: '선택된 키프레임 삭제',
+                action: () => this.deleteSelectedKeyframe(),
+                preventDefault: true,
+                conditions: {
+                    ctrlKey: false,
+                    metaKey: false
+                }
+            },
             'Escape': {
                 description: '정지',
                 action: () => this.stop(),
@@ -158,6 +167,30 @@ export class KeyboardShortcuts {
         }
     }
 
+    // 선택된 키프레임 삭제
+    deleteSelectedKeyframe() {
+        console.log("KeyboardShortcuts - 선택된 키프레임 삭제");
+        
+        // 선택된 키프레임이 있는지 확인
+        if (!this.motionTimeline.selectedKeyframe) {
+            console.warn("삭제할 키프레임이 선택되지 않았습니다.");
+            this.showWarning("삭제할 키프레임을 선택하세요.");
+            return;
+        }
+
+        // 삭제 전에 선택된 키프레임 정보 저장
+        const wasSelected = !!this.motionTimeline.selectedKeyframe;
+        
+        // 키프레임 삭제 실행
+        this.motionTimeline.deleteSelectedKeyframeByIndex();
+        
+        // 삭제가 성공했는지 확인 (selectedKeyframe이 null이 되었는지)
+        if (wasSelected && !this.motionTimeline.selectedKeyframe) {
+            // 성공 메시지 표시
+            this.showSuccess("선택된 키프레임이 삭제되었습니다.");
+        }
+    }
+
     // 정지
     stop() {
         console.log("KeyboardShortcuts - 정지");
@@ -244,6 +277,7 @@ export class KeyboardShortcuts {
         const keyNames = {
             'Space': 'Space',
             'KeyK': 'K',
+            'KeyD': 'D',
             'Escape': 'ESC',
             'F1': 'F1'
         };

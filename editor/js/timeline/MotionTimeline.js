@@ -3235,18 +3235,17 @@ export class MotionTimeline extends BaseTimeline {
                                  const properties = ['position', 'rotation', 'scale'];
                                  let allDeleted = true;
 
+                                 // 시간 기반으로 키프레임 삭제 (순서 상관없이 정확한 삭제)
+                                 const dragStartTime = parseFloat(keyframeElement.dataset.time);
+                                 console.log("삭제할 키프레임 시간:", dragStartTime);
+                                 
                                  properties.forEach(prop => {
                                      const trackData = this.timelineData.tracks.get(trackUuid)?.get(prop);
                                      if (trackData) {
-                                         if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
-                                             if (trackData.removeKeyframeByIndex(dragStartIndex)) {
-                                                 console.log(`${prop} 키프레임 삭제 완료:`, dragStartIndex);
-                                             } else {
-                                                 console.warn(`${prop} 키프레임 삭제 실패:`, dragStartIndex);
-                                                 allDeleted = false;
-                                             }
+                                         if (trackData.removeKeyframe(dragStartTime)) {
+                                             console.log(`${prop} 키프레임 삭제 완료:`, dragStartTime);
                                          } else {
-                                             console.warn(`${prop} 유효하지 않은 키프레임 인덱스:`, dragStartIndex);
+                                             console.warn(`${prop} 키프레임 삭제 실패:`, dragStartTime);
                                              allDeleted = false;
                                          }
                                      } else {
@@ -3540,19 +3539,18 @@ export class MotionTimeline extends BaseTimeline {
                             const properties = ['position', 'rotation', 'scale'];
                             let allDeleted = true;
 
+                            // 시간 기반으로 키프레임 삭제 (순서 상관없이 정확한 삭제)
+                            const dragStartTime = parseFloat(keyframeElement.dataset.time);
+                            console.log("삭제할 키프레임 시간:", dragStartTime);
+                            
                             properties.forEach(prop => {
                                 const trackData = this.timelineData.tracks.get(track.uuid)?.get(prop);
                                 if (trackData) {
-                                    // index 기반으로 키프레임 삭제
-                                    if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
-                                        if (trackData.removeKeyframeByIndex(dragStartIndex)) {
-                                            console.log(`${prop} 키프레임 삭제 완료:`, dragStartIndex);
-                                        } else {
-                                            console.warn(`${prop} 키프레임 삭제 실패:`, dragStartIndex);
-                                            allDeleted = false;
-                                        }
+                                    // 시간 기반으로 키프레임 삭제
+                                    if (trackData.removeKeyframe(dragStartTime)) {
+                                        console.log(`${prop} 키프레임 삭제 완료:`, dragStartTime);
                                     } else {
-                                        console.warn(`${prop} 유효하지 않은 키프레임 인덱스:`, dragStartIndex);
+                                        console.warn(`${prop} 키프레임 삭제 실패:`, dragStartTime);
                                         allDeleted = false;
                                     }
                                 } else {
@@ -3707,19 +3705,18 @@ export class MotionTimeline extends BaseTimeline {
                         const properties = ['position', 'rotation', 'scale'];
                         let allDeleted = true;
 
+                        // 시간 기반으로 키프레임 삭제 (순서 상관없이 정확한 삭제)
+                        const dragStartTime = parseFloat(keyframeElement.dataset.time);
+                        console.log("삭제할 키프레임 시간:", dragStartTime);
+                        
                         properties.forEach(prop => {
                             const trackData = this.timelineData.tracks.get(track.uuid)?.get(prop);
                             if (trackData) {
-                                console.log(`${prop} 삭제할 키프레임 인덱스:`, dragStartIndex);
-                                if (dragStartIndex >= 0 && dragStartIndex < trackData.keyframeCount) {
-                                    if (trackData.removeKeyframeByIndex(dragStartIndex)) {
-                                        console.log(`${prop} 키프레임 삭제 완료!`);
-                                    } else {
-                                        console.warn(`${prop} 키프레임 삭제 실패!`);
-                                        allDeleted = false;
-                                    }
+                                console.log(`${prop} 삭제할 키프레임 시간:`, dragStartTime);
+                                if (trackData.removeKeyframe(dragStartTime)) {
+                                    console.log(`${prop} 키프레임 삭제 완료!`);
                                 } else {
-                                    console.warn(`${prop} 유효하지 않은 키프레임 인덱스:`, dragStartIndex);
+                                    console.warn(`${prop} 키프레임 삭제 실패!`);
                                     allDeleted = false;
                                 }
                             } else {
@@ -4192,12 +4189,23 @@ export class MotionTimeline extends BaseTimeline {
         const properties = ['position', 'rotation', 'scale'];
         let allDeleted = true;
 
+        // 선택된 키프레임의 시간 정보 가져오기
+        const selectedTime = this.selectedKeyframe?.time || 0;
+        console.log("선택된 키프레임 삭제 - 시간:", selectedTime);
+        
+        // objectId는 실제로 objectUuid이므로 직접 TimelineData에서 삭제
         properties.forEach(property => {
-            if (!this.removeKeyframeByIndex(objectId, property, index)) {
-                console.warn(`${property} 키프레임 삭제 실패:`, { objectId, index });
-                allDeleted = false;
+            const trackData = this.timelineData.tracks.get(objectId)?.get(property);
+            if (trackData) {
+                if (trackData.removeKeyframe(selectedTime)) {
+                    console.log(`${property} 키프레임 삭제 완료:`, { objectId, selectedTime });
+                } else {
+                    console.warn(`${property} 키프레임 삭제 실패:`, { objectId, selectedTime });
+                    allDeleted = false;
+                }
             } else {
-                console.log(`${property} 키프레임 삭제 완료:`, { objectId, index });
+                console.warn(`${property} trackData를 찾을 수 없음:`, { objectId, property });
+                allDeleted = false;
             }
         });
 
@@ -5673,6 +5681,45 @@ export class MotionTimeline extends BaseTimeline {
             this.isPlayheadDragging = false;
             console.log("Playhead 터치 드래그 종료");
         });
+    }
+
+
+
+    // 알림 메시지 표시
+    showNotification(message, color = "#333") {
+        // 기존 알림이 있으면 제거
+        const existingNotification = document.querySelector('.timeline-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.className = 'timeline-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${color};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            max-width: 300px;
+            word-wrap: break-word;
+        `;
+        notification.textContent = message;
+
+        document.body.appendChild(notification);
+
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
     }
 }
 
