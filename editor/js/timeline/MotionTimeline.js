@@ -2602,7 +2602,7 @@ export class MotionTimeline extends BaseTimeline {
         video.setAttribute("x5-video-player-fullscreen", "true");
 
         const source = document.createElement("source");
-        source.src = "/files/video3.mp4";
+        source.src = "https://webboom0.github.io/stageBuilder_v2/files/video3.mp4";
         source.type = "video/mp4";
         video.appendChild(source);
 
