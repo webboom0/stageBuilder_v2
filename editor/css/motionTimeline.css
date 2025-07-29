@@ -626,6 +626,10 @@ cursor: pointer;
   height: 35px;
 }
 
+.light-timeline .track-content {
+  height: 20px;
+}
+
 /* --- edit_5: 타임라인 상단 눈금 스타일 --- */
 .time-ruler {
   position: absolute;
@@ -889,8 +893,8 @@ border-radius: 5px 5px 2px 2px;
   overflow: hidden;
   position: relative;
   height: calc(100% -
-          /* 헤더 높이 */
-          30px);
+      /* 헤더 높이 */
+      30px);
 }
 
 /* 2) 레이블 컬럼 */
@@ -940,18 +944,19 @@ border-radius: 5px 5px 2px 2px;
 }
 
 /* 4) 헤더 상단 고정 */
-.timeline-top-container{
+.timeline-top-container {
   position: sticky;
   top: 0;
   z-index: 10;
 }
+
 .main-timeline-container .timeline-header {
   display: grid;
   grid-template-columns: 200px 1fr;
   box-sizing: border-box;
 }
 
-.timeline-top-container .tab-buttons{
+.timeline-top-container .tab-buttons {
   background-color: #000;
 }
 
@@ -983,14 +988,14 @@ border-radius: 5px 5px 2px 2px;
 }
 
 #keyframe-property-panel {
-display: none;
+  display: none;
 }
 
-.property-panel{
+.property-panel {
   color: #fff;
 }
 
-.property-panel input.Number{
+.property-panel input.Number {
   background-color: #000 !important;
   margin-right: 3px;
 }
@@ -1113,7 +1118,7 @@ border-left: 3px solid #666;
 
 /* 애니메이션 시간 표시 */
 .timeline-container[data-animation-time]::before {
-  content: "시간: "attr(data-animation-time) "s";
+  content: "시간: " attr(data-animation-time) "s";
   position: absolute;
   top: 5px;
   right: 10px;
@@ -1126,7 +1131,7 @@ border-left: 3px solid #666;
 
 /* 프레임 번호 표시 */
 .timeline-container[data-animation-frame]::after {
-  content: "프레임: "attr(data-animation-frame);
+  content: "프레임: " attr(data-animation-frame);
   position: absolute;
   top: 5px;
   right: 80px;
@@ -1146,15 +1151,15 @@ border-left: 3px solid #666;
 
 @keyframes playing-indicator {
   0% {
-      background-position: 0% 50%;
+    background-position: 0% 50%;
   }
 
   50% {
-      background-position: 100% 50%;
+    background-position: 100% 50%;
   }
 
   100% {
-      background-position: 0% 50%;
+    background-position: 0% 50%;
   }
 }
 
@@ -1174,7 +1179,7 @@ border-left: 3px solid #666;
 
 /* 키프레임 호버 시 시간 정보 표시 */
 .keyframe:hover::after {
-  content: "시간: "attr(data-time) "s";
+  content: "시간: " attr(data-time) "s";
   position: absolute;
   top: -30px;
   left: 50%;
@@ -1190,13 +1195,13 @@ border-left: 3px solid #666;
 
 /* 현재 키프레임 호버 시 추가 정보 */
 .keyframe[data-is-current="true"]:hover::after {
-  content: "현재 시간: "attr(data-current-time) "s | 키프레임: "attr(data-time) "s";
+  content: "현재 시간: " attr(data-current-time) "s | 키프레임: " attr(data-time) "s";
   display: none;
 }
 
 /* 클립 호버 시 시간 정보 표시 */
 .animation-sprite:hover::after {
-  content: "시작: "attr(data-clip-start-time) "s | 끝: "attr(data-clip-end-time) "s | 길이: "attr(data-duration) "s";
+  content: "시작: " attr(data-clip-start-time) "s | 끝: " attr(data-clip-end-time) "s | 길이: " attr(data-duration) "s";
   position: absolute;
   top: -30px;
   left: 50%;
@@ -1212,7 +1217,7 @@ border-left: 3px solid #666;
 
 /* 애니메이션 속도 표시 */
 .timeline-container[data-frame-rate]::before {
-  content: "FPS: "attr(data-frame-rate);
+  content: "FPS: " attr(data-frame-rate);
   position: absolute;
   top: 5px;
   left: 10px;
@@ -1226,7 +1231,7 @@ border-left: 3px solid #666;
 
 /* 최대 시간 표시 */
 .timeline-container[data-max-time]::after {
-  content: "최대: "attr(data-max-time) "s";
+  content: "최대: " attr(data-max-time) "s";
   position: absolute;
   top: 25px;
   right: 10px;
@@ -1303,13 +1308,13 @@ border-left: 3px solid #666;
   .timeline-container[data-animation-time]::before,
   .timeline-container[data-animation-frame]::after,
   .timeline-container[data-frame-rate]::before {
-      font-size: 10px;
-      padding: 1px 4px;
+    font-size: 10px;
+    padding: 1px 4px;
   }
 
   .keyframe[data-is-current="true"]::after {
-      font-size: 7px;
-      padding: 1px 3px;
+    font-size: 7px;
+    padding: 1px 3px;
   }
 }
 
@@ -1319,19 +1324,19 @@ border-left: 3px solid #666;
   .keyframe[data-is-current="true"]::after,
   .keyframe:hover::after,
   .animation-sprite:hover::after {
-      background: rgba(255, 255, 255, 0.9);
-      color: #000;
+    background: rgba(255, 255, 255, 0.9);
+    color: #000;
   }
 }
 
 /* 고대비 모드 대응 */
 @media (prefers-contrast: high) {
   .animation-sprite[data-is-active="true"] {
-      border: 3px solid #fff;
+    border: 3px solid #fff;
   }
 
   .keyframe[data-is-current="true"] {
-      border: 3px solid #fff !important;
+    border: 3px solid #fff !important;
   }
 }
 
@@ -1362,7 +1367,7 @@ border-left: 3px solid #666;
   border-radius: 4px;
   padding: 4px 0;
   z-index: 10000;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   min-width: 120px;
 }
 
