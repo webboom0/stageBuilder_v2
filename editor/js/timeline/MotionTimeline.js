@@ -6,8 +6,8 @@ import { TimelineData, TrackData } from './TimelineCore.js';
 import { KeyboardShortcuts } from './KeyboardShortcuts.js';
 
 export class MotionTimeline extends BaseTimeline {
-    // 클립 범위 체크용 오차 범위 (초 단위)
-    static CLIP_RANGE_TOLERANCE = 0.1;
+    // 클립 범위 체크용 오차 범위 (초 단위) - 클립 0 위치 근처 키프레임 선택 허용
+    static CLIP_RANGE_TOLERANCE = 0.5;
 
     constructor(editor, options) {
         super(editor, options);
@@ -1079,12 +1079,14 @@ export class MotionTimeline extends BaseTimeline {
                 const clipDuration = parseFloat(sprite.dataset.duration) || 5;
                 const clipEndTime = clipStartTime + clipDuration;
 
-                // 클립 범위 밖의 키프레임은 선택하지 않음 (초기 키프레임 제외)
-                if (time !== 0 && (time < clipStartTime || time > clipEndTime)) {
+                // 클립 범위 밖의 키프레임은 선택하지 않음 (초기 키프레임 제외, 허용 범위 추가)
+                const tolerance = MotionTimeline.CLIP_RANGE_TOLERANCE;
+                if (time !== 0 && (time < clipStartTime - tolerance || time > clipEndTime + tolerance)) {
                     // console.log("클립 범위 밖의 키프레임이므로 선택하지 않습니다:", {
                     //     time,
                     //     clipStartTime,
-                    //     clipEndTime
+                    //     clipEndTime,
+                    //     tolerance
                     // });
                     return;
                 }
@@ -4161,13 +4163,15 @@ export class MotionTimeline extends BaseTimeline {
                 // .time-ruler-container에서의 playhead 절대 시간 계산
                 const playheadAbsoluteTime = (playheadRelativeToTimeRuler / timeRulerWidth) * this.options.totalSeconds;
 
-                // 키프레임이 클립 범위 밖에 있으면 추가하지 않음
-                if (playheadAbsoluteTime < clipStartTime || playheadAbsoluteTime > clipEndTime) {
+                // 키프레임이 클립 범위 밖에 있으면 추가하지 않음 (허용 범위 추가)
+                const tolerance = MotionTimeline.CLIP_RANGE_TOLERANCE;
+                if (playheadAbsoluteTime < clipStartTime - tolerance || playheadAbsoluteTime > clipEndTime + tolerance) {
                     console.warn("키프레임 추가 버튼 - 클립 범위 밖이므로 추가하지 않습니다:", {
                         playheadAbsoluteTime,
                         clipStartTime,
                         clipEndTime,
-                        clipDuration
+                        clipDuration,
+                        tolerance
                     });
 
                     // 사용자에게 알림 표시
@@ -4238,13 +4242,15 @@ export class MotionTimeline extends BaseTimeline {
                 // .time-ruler-container에서의 클릭 절대 시간 계산
                 const clickAbsoluteTime = (clickRelativeToTimeRuler / timeRulerWidth) * this.options.totalSeconds;
 
-                // 클릭이 클립 범위 밖에 있으면 추가하지 않음
-                if (clickAbsoluteTime < clipStartTime || clickAbsoluteTime > clipEndTime) {
+                // 클릭이 클립 범위 밖에 있으면 추가하지 않음 (허용 범위 추가)
+                const tolerance = MotionTimeline.CLIP_RANGE_TOLERANCE;
+                if (clickAbsoluteTime < clipStartTime - tolerance || clickAbsoluteTime > clipEndTime + tolerance) {
                     console.warn("키프레임 레이어 클릭 - 클립 범위 밖이므로 추가하지 않습니다:", {
                         clickAbsoluteTime,
                         clipStartTime,
                         clipEndTime,
-                        clipDuration
+                        clipDuration,
+                        tolerance
                     });
 
                     // 사용자에게 알림 표시

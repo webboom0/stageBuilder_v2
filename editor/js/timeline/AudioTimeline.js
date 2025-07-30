@@ -485,7 +485,11 @@ export class AudioTimeline extends BaseTimeline {
     const framePercent =
       (frame / (this.options.totalSeconds * this.options.framesPerSecond)) *
       100;
-    return framePercent >= clipLeft && framePercent <= clipLeft + clipWidth;
+
+    // 허용 범위 추가 (0.5초에 해당하는 퍼센트)
+    const tolerancePercent = (0.5 / this.options.totalSeconds) * 100;
+
+    return framePercent >= clipLeft - tolerancePercent && framePercent <= clipLeft + clipWidth + tolerancePercent;
   }
 
   // 오디오 특화 메서드들
