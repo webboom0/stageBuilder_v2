@@ -334,8 +334,8 @@ class Timeline {
         <div style="margin-bottom: 10px;">
           <label style="display: block; margin-bottom: 5px; color: #ccc;">프레임 레이트 (FPS):</label>
           <input type="number" id="timeline-fps" min="${TIMELINE_CONSTRAINTS.MIN_FPS}" max="${TIMELINE_CONSTRAINTS.MAX_FPS}" value="${this.timelineSettings.framesPerSecond}" 
-                 style="width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
-          <span style="color: #888; font-size: 11px;">${TimelineHelpers.getFPSRangeMessage()}</span>
+                 style="width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: #666; border-radius: 4px; cursor: not-allowed;" disabled>
+          <span style="color: #888; font-size: 11px;">${TimelineHelpers.getFPSRangeMessage()} (수정 불가)</span>
         </div>
         <div style="margin-bottom: 15px; padding: 10px; background: #333; border-radius: 4px;">
           <span style="color: #ccc; font-size: 12px;">총 프레임: <span id="total-frames-display" style="color: #4CAF50; font-weight: bold;">${this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond}</span></span>
