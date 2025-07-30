@@ -8,13 +8,54 @@ import { VideoTimeline } from "./VideoTimeline.js";
 import { KeyboardShortcuts } from "./KeyboardShortcuts.js";
 import * as TWEEN from "../../../examples/jsm/libs/tween.module.js";
 
+// 타임라인 설정 상수
+export const TIMELINE_CONSTRAINTS = {
+  MIN_SECONDS: 60,    // 최소 1분
+  MAX_SECONDS: 300,   // 최대 5분
+  MIN_FPS: 1,         // 최소 FPS
+  MAX_FPS: 120        // 최대 FPS
+};
+
+// 타임라인 설정 유효성 검사 헬퍼 함수들
+export const TimelineHelpers = {
+  // 시간 범위 검사
+  isValidTimeRange(seconds) {
+    return seconds >= TIMELINE_CONSTRAINTS.MIN_SECONDS && seconds <= TIMELINE_CONSTRAINTS.MAX_SECONDS;
+  },
+
+  // FPS 범위 검사
+  isValidFPS(fps) {
+    return fps >= TIMELINE_CONSTRAINTS.MIN_FPS && fps <= TIMELINE_CONSTRAINTS.MAX_FPS;
+  },
+
+  // 시간 범위 조정
+  clampTimeRange(seconds) {
+    return Math.max(TIMELINE_CONSTRAINTS.MIN_SECONDS, Math.min(TIMELINE_CONSTRAINTS.MAX_SECONDS, seconds));
+  },
+
+  // FPS 범위 조정
+  clampFPS(fps) {
+    return Math.max(TIMELINE_CONSTRAINTS.MIN_FPS, Math.min(TIMELINE_CONSTRAINTS.MAX_FPS, fps));
+  },
+
+  // 시간 범위 안내 메시지
+  getTimeRangeMessage() {
+    return `${TIMELINE_CONSTRAINTS.MIN_SECONDS}초에서 ${TIMELINE_CONSTRAINTS.MAX_SECONDS}초(${Math.floor(TIMELINE_CONSTRAINTS.MIN_SECONDS / 60)}분~${Math.floor(TIMELINE_CONSTRAINTS.MAX_SECONDS / 60)}분)`;
+  },
+
+  // FPS 범위 안내 메시지
+  getFPSRangeMessage() {
+    return `${TIMELINE_CONSTRAINTS.MIN_FPS}에서 ${TIMELINE_CONSTRAINTS.MAX_FPS} FPS`;
+  }
+};
+
 class Timeline {
   constructor(editor) {
     this.editor = editor;
 
     // 기본 타임라인 설정을 먼저 초기화
     this.defaultSettings = {
-      totalSeconds: 180,
+      totalSeconds: 180, // 3분 (60초~300초 범위 내)
       framesPerSecond: 30, // 60에서 30으로 변경하여 성능 향상
       currentFrame: 0,
     };
@@ -37,9 +78,9 @@ class Timeline {
         this.addTimelineTrack();
       });
     }
-    // Scene이 있으면 해당 설정을 사용, 없으면 기본 설정 사용
-    this.timelineSettings =
-      this.editor.scene?.userData?.timeline || this.defaultSettings;
+
+    // 타임라인 설정 로드 (Scene > localStorage > 기본값 순서)
+    this.timelineSettings = this.loadTimelineSettings();
 
     // container는 timelineSettings 초기화 후에 생성
     this.container = this.createMainContainer();
@@ -164,12 +205,12 @@ class Timeline {
         } else {
           // 기존 방식으로 삭제 (하위 호환성)
           const wasDeleted = this.timelines.motion.timelineData.removeTrackById(objectId, 'position') ||
-                            this.timelines.motion.timelineData.removeTrackById(objectId, 'rotation') ||
-                            this.timelines.motion.timelineData.removeTrackById(objectId, 'scale');
+            this.timelines.motion.timelineData.removeTrackById(objectId, 'rotation') ||
+            this.timelines.motion.timelineData.removeTrackById(objectId, 'scale');
           console.log(`기존 방식 삭제 성공 여부: ${wasDeleted}`);
           track.remove();
         }
-        
+
         menu.remove();
         if (
           editor.selected &&
@@ -210,7 +251,9 @@ class Timeline {
       <div class="timeline-header">
         <div class="controls-container">
           <button class="play-button"><i class="fa fa-play"></i></button>
-          <button class="stop-button"><i class="fa fa-stop"></i></button></div>
+          <button class="stop-button"><i class="fa fa-stop"></i></button>
+          <button class="timeline-settings-button" title="타임라인 설정 (총 시간, FPS 변경)"><i class="fa fa-cog"></i></button>
+        </div>
         <div class="time-ruler-container"></div>
       </div>
       
@@ -261,6 +304,278 @@ class Timeline {
     this.switchTimeline(this.activeTimeline);
   }
 
+  // 타임라인 설정 UI 생성
+  createTimelineSettingsUI() {
+    const settingsContainer = document.createElement("div");
+    settingsContainer.className = "timeline-settings-modal";
+    settingsContainer.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 20px;
+      z-index: 1000;
+      min-width: 300px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    `;
+
+    settingsContainer.innerHTML = `
+      <div style="margin-bottom: 15px;">
+        <h3 style="margin: 0 0 15px 0; color: #fff;">타임라인 설정</h3>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; margin-bottom: 5px; color: #ccc;">총 시간 (초):</label>
+          <input type="number" id="timeline-total-seconds" min="${TIMELINE_CONSTRAINTS.MIN_SECONDS}" max="${TIMELINE_CONSTRAINTS.MAX_SECONDS}" value="${this.timelineSettings.totalSeconds}" 
+                 style="width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+          <span style="color: #888; font-size: 11px;">${TimelineHelpers.getTimeRangeMessage()}</span>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label style="display: block; margin-bottom: 5px; color: #ccc;">프레임 레이트 (FPS):</label>
+          <input type="number" id="timeline-fps" min="${TIMELINE_CONSTRAINTS.MIN_FPS}" max="${TIMELINE_CONSTRAINTS.MAX_FPS}" value="${this.timelineSettings.framesPerSecond}" 
+                 style="width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+          <span style="color: #888; font-size: 11px;">${TimelineHelpers.getFPSRangeMessage()}</span>
+        </div>
+        <div style="margin-bottom: 15px; padding: 10px; background: #333; border-radius: 4px;">
+          <span style="color: #ccc; font-size: 12px;">총 프레임: <span id="total-frames-display" style="color: #4CAF50; font-weight: bold;">${this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond}</span></span>
+          <br>
+          <span style="color: #888; font-size: 11px;">총 시간: <span class="total-time-display">${this.formatTime(this.timelineSettings.totalSeconds)}</span></span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="timeline-settings-cancel" style="padding: 8px 16px; background: #555; border: none; color: #fff; border-radius: 4px; cursor: pointer;">취소</button>
+        <button id="timeline-settings-apply" style="padding: 8px 16px; background: #007acc; border: none; color: #fff; border-radius: 4px; cursor: pointer;">적용</button>
+      </div>
+    `;
+
+    return settingsContainer;
+  }
+
+  // 타임라인 설정 적용
+  applyTimelineSettings(newSettings) {
+    console.log('타임라인 설정 적용:', newSettings);
+
+    // 기존 설정 백업
+    const oldSettings = { ...this.timelineSettings };
+
+    // 현재 playhead 위치 및 프레임 저장
+    const currentPlayhead = this.container.querySelector('.playhead');
+    const currentPercent = currentPlayhead ? parseFloat(currentPlayhead.style.left) : 0;
+    const currentFrame = this.timelineSettings.currentFrame || 0;
+
+    // 새 설정 적용
+    this.timelineSettings = { ...this.timelineSettings, ...newSettings };
+
+    // Scene에 설정 저장
+    if (this.editor.scene) {
+      if (!this.editor.scene.userData.timeline) {
+        this.editor.scene.userData.timeline = {};
+      }
+      this.editor.scene.userData.timeline = { ...this.timelineSettings };
+    }
+
+    // localStorage에 설정 저장
+    this.saveTimelineSettings();
+
+    // 모든 타임라인 인스턴스에 새 설정 적용
+    Object.values(this.timelines).forEach(timeline => {
+      if (timeline.updateSettings) {
+        timeline.updateSettings(this.timelineSettings);
+      }
+    });
+
+    // UI 업데이트
+    this.updateTimelineUI();
+
+    // 타임라인 눈금 및 플레이헤드 재생성
+    this.recreateTimeRuler();
+
+    // playhead 위치 및 프레임 복원
+    if (this.updatePlayheadPosition) {
+      this.updatePlayheadPosition(currentPercent);
+    }
+
+    // 현재 프레임 설정
+    this.setCurrentFrame(currentFrame, false);
+
+    console.log('타임라인 설정이 성공적으로 적용되었습니다.');
+  }
+
+  // 타임라인 설정을 localStorage에 저장
+  saveTimelineSettings() {
+    try {
+      const settingsToSave = {
+        totalSeconds: this.timelineSettings.totalSeconds,
+        framesPerSecond: this.timelineSettings.framesPerSecond,
+        currentFrame: this.timelineSettings.currentFrame || 0
+      };
+      localStorage.setItem('timelineSettings', JSON.stringify(settingsToSave));
+      console.log('타임라인 설정이 localStorage에 저장되었습니다:', settingsToSave);
+    } catch (error) {
+      console.error('타임라인 설정 저장 중 오류 발생:', error);
+    }
+  }
+
+  // 타임라인 설정 로드 (Scene > localStorage > 기본값 순서)
+  loadTimelineSettings() {
+    // 1. Scene의 설정이 있으면 우선 사용
+    if (this.editor.scene?.userData?.timeline) {
+      console.log('Scene에서 타임라인 설정을 로드했습니다:', this.editor.scene.userData.timeline);
+      return this.editor.scene.userData.timeline;
+    }
+
+    // 2. localStorage에서 저장된 설정 불러오기
+    const savedSettings = localStorage.getItem('timelineSettings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        // 저장된 설정이 범위를 벗어나면 기본값으로 조정
+        let totalSeconds = TimelineHelpers.clampTimeRange(parsed.totalSeconds || this.defaultSettings.totalSeconds);
+        let fps = TimelineHelpers.clampFPS(parsed.framesPerSecond || this.defaultSettings.framesPerSecond);
+
+        const loadedSettings = {
+          totalSeconds: totalSeconds,
+          framesPerSecond: fps,
+          currentFrame: parsed.currentFrame || this.defaultSettings.currentFrame,
+        };
+        console.log('localStorage에서 타임라인 설정을 로드했습니다:', loadedSettings);
+        return loadedSettings;
+      } catch (error) {
+        console.warn('localStorage의 타임라인 설정을 불러오는 중 오류 발생:', error);
+      }
+    }
+
+    // 3. 기본 설정 사용
+    console.log('기본 타임라인 설정을 사용합니다:', this.defaultSettings);
+    return this.defaultSettings;
+  }
+
+  // 타임라인 UI 업데이트
+  updateTimelineUI() {
+    // 프레임 총 개수 업데이트
+    const frameTotal = this.container.querySelector('.frame-total');
+    if (frameTotal) {
+      frameTotal.textContent = ` / ${this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond}`;
+    }
+
+    // 프레임 입력 최대값 업데이트
+    const frameInput = this.container.querySelector('.frame-input');
+    if (frameInput) {
+      frameInput.max = this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond;
+    }
+  }
+
+  // 타임라인 눈금 및 플레이헤드 재생성
+  recreateTimeRuler() {
+    const timeRulerContainer = this.container.querySelector('.time-ruler-container');
+    if (timeRulerContainer) {
+      timeRulerContainer.innerHTML = '';
+      this.createTimeRuler();
+      this.createPlayhead();
+    }
+  }
+
+  // 타임라인 설정 표시
+  showTimelineSettings() {
+    const settingsModal = this.createTimelineSettingsUI();
+    document.body.appendChild(settingsModal);
+
+    // 총 프레임 수 실시간 업데이트
+    const totalSecondsInput = settingsModal.querySelector('#timeline-total-seconds');
+    const fpsInput = settingsModal.querySelector('#timeline-fps');
+    const totalFramesDisplay = settingsModal.querySelector('#total-frames-display');
+
+    const updateTotalFrames = () => {
+      const totalSeconds = parseInt(totalSecondsInput.value) || 0;
+      const fps = parseInt(fpsInput.value) || 0;
+      const totalFrames = totalSeconds * fps;
+      totalFramesDisplay.textContent = totalFrames;
+
+      // 총 시간도 업데이트
+      const totalTimeDisplay = settingsModal.querySelector('.total-time-display');
+      if (totalTimeDisplay) {
+        totalTimeDisplay.textContent = this.formatTime(totalSeconds);
+      }
+    };
+
+    totalSecondsInput.addEventListener('input', updateTotalFrames);
+    fpsInput.addEventListener('input', updateTotalFrames);
+
+    // 취소 버튼
+    const cancelButton = settingsModal.querySelector('#timeline-settings-cancel');
+    cancelButton.addEventListener('click', () => {
+      document.body.removeChild(settingsModal);
+    });
+
+    // 적용 버튼
+    const applyButton = settingsModal.querySelector('#timeline-settings-apply');
+    applyButton.addEventListener('click', () => {
+      const newTotalSeconds = parseInt(totalSecondsInput.value);
+      const newFps = parseInt(fpsInput.value);
+
+      if (!TimelineHelpers.isValidTimeRange(newTotalSeconds)) {
+        alert(`총 시간은 ${TimelineHelpers.getTimeRangeMessage()} 사이여야 합니다.`);
+        return;
+      }
+
+      if (!TimelineHelpers.isValidFPS(newFps)) {
+        alert(`프레임 레이트는 ${TimelineHelpers.getFPSRangeMessage()} 사이여야 합니다.`);
+        return;
+      }
+
+      this.applyTimelineSettings({
+        totalSeconds: newTotalSeconds,
+        framesPerSecond: newFps
+      });
+
+      // 성공 메시지 표시
+      this.showNotification(`타임라인 설정이 적용되었습니다: ${newTotalSeconds}초, ${newFps} FPS`, '#4CAF50');
+
+      document.body.removeChild(settingsModal);
+    });
+
+    // ESC 키로 닫기
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        document.body.removeChild(settingsModal);
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+  }
+
+  // 알림 메시지 표시
+  showNotification(message, color = '#333') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${color};
+      color: white;
+      padding: 12px 20px;
+      border-radius: 4px;
+      z-index: 10000;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: opacity 0.3s ease;
+    `;
+    notification.textContent = message;
+
+    document.body.appendChild(notification);
+
+    // 3초 후 자동 제거
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          document.body.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
+  }
+
   // 타임라인 추가 버튼
   createAddTimelineButton = () => {
     console.log("createAddTimelineButton");
@@ -299,24 +614,24 @@ class Timeline {
       // TimelineData와 UI 모두에서 기존 트랙이 있는지 확인
       const existingTracks = this.timelines.motion.timelineData.getObjectTracks(selectedObject.uuid);
       const existingTrackElement = this.timelines.motion.container.querySelector(`[data-uuid="${selectedObject.uuid}"]`);
-      
+
       console.log("트랙 추가 전 확인:", {
         objectUuid: selectedObject.uuid,
         timelineDataTracks: existingTracks.size,
         uiElementExists: !!existingTrackElement
       });
-      
+
       if (existingTracks.size > 0 || existingTrackElement) {
         console.log("기존 트랙이 발견되었습니다. 완전히 제거합니다.");
-        
+
         // 완전한 트랙 제거
         this.timelines.motion.removeTrackCompletely(selectedObject.uuid);
-        
+
         // 잠시 대기 후 다시 확인
         setTimeout(() => {
           const remainingTracks = this.timelines.motion.timelineData.getObjectTracks(selectedObject.uuid);
           const remainingElement = this.timelines.motion.container.querySelector(`[data-uuid="${selectedObject.uuid}"]`);
-          
+
           if (remainingTracks.size > 0 || remainingElement) {
             console.warn("트랙 제거 후에도 여전히 존재합니다:", {
               remainingTracks: remainingTracks.size,
@@ -396,6 +711,14 @@ class Timeline {
         this.switchTimeline(tab.dataset.timeline);
       });
     });
+
+    // 타임라인 설정 버튼 이벤트
+    const settingsButton = this.container.querySelector(".timeline-settings-button");
+    if (settingsButton) {
+      settingsButton.addEventListener("click", () => {
+        this.showTimelineSettings();
+      });
+    }
 
     // 재생 컨트롤 이벤트
     const playButton = this.container.querySelector(".play-button");
@@ -479,7 +802,7 @@ class Timeline {
           this.timelines.motion.currentTime = currentTime;
           this.timelines.motion.updateAnimation(currentTime);
         }
-        
+
         if (this.timelines.light) {
           // LightTimeline의 updateFrame 호출
           this.timelines.light.currentTime = currentTime;
@@ -513,7 +836,7 @@ class Timeline {
           this.timelines.motion.currentTime = currentTime;
           this.timelines.motion.updateAnimation(currentTime);
         }
-        
+
         if (this.timelines.light) {
           this.timelines.light.currentTime = currentTime;
           this.timelines.light.updateFrame(frame);
@@ -695,7 +1018,7 @@ class Timeline {
 
     // 현재 playhead 위치에서 시작하도록 currentFrame 설정
     let currentFrame = 0;
-    
+
     // 1. DOM에서 playhead 위치 가져오기
     const playhead = document.querySelector('.playhead');
     if (playhead) {
@@ -709,7 +1032,7 @@ class Timeline {
       //   totalFrames: this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond
       // });
     }
-    
+
     // 2. Timeline.js의 currentSeconds가 있으면 사용
     if (this.editor.scene?.userData?.timeline?.currentSeconds !== undefined) {
       const currentSeconds = this.editor.scene.userData.timeline.currentSeconds;
@@ -963,7 +1286,7 @@ class Timeline {
         hasUpdateFrame: !!timeline.updateFrame,
         currentTime: currentTime
       });
-      
+
       if (timeline.updateFrame) {
         // LightTimeline의 경우 currentTime도 설정
         if (timeline.constructor.name === 'LightTimeline') {
@@ -1045,10 +1368,20 @@ class Timeline {
   createPlayhead() {
     // 타임라인 눈금에 플레이헤드 추가
     const ruler = this.container.querySelector(".time-ruler-container");
+    if (!ruler) {
+      console.warn('time-ruler-container를 찾을 수 없습니다.');
+      return;
+    }
+
     const ph = document.createElement("div");
     ph.className = "playhead";
     ph.style.left = "0%";
-    ph.style.height = document.querySelector(".timelineWrapper").clientHeight + "px";
+
+    // timelineWrapper가 없으면 기본 높이 사용
+    const timelineWrapper = document.querySelector(".timelineWrapper");
+    const height = timelineWrapper ? timelineWrapper.clientHeight : 300;
+    ph.style.height = height + "px";
+
     ph.innerHTML = '<span class="time-box"></span>';
     ruler.appendChild(ph);
 

@@ -65,6 +65,139 @@ export class AudioTimeline extends BaseTimeline {
     }
   }
 
+  // 타임라인 설정 업데이트
+  updateSettings(newSettings) {
+    console.log('AudioTimeline 설정 업데이트:', newSettings);
+
+    // 기존 설정 백업
+    const oldSettings = { ...this.options };
+
+    // 기존 설정 업데이트
+    this.options = { ...this.options, ...newSettings };
+
+    // TimelineData의 frameRate 업데이트
+    if (newSettings.framesPerSecond && this.timelineData) {
+      this.timelineData.frameRate = newSettings.framesPerSecond;
+    }
+
+    // Scene의 timeline 설정 업데이트
+    if (this.editor.scene) {
+      if (!this.editor.scene.userData.timeline) {
+        this.editor.scene.userData.timeline = {};
+      }
+      this.editor.scene.userData.timeline = { ...this.editor.scene.userData.timeline, ...newSettings };
+    }
+
+    // 클립 너비 업데이트 (시간 변경 시)
+    if (newSettings.totalSeconds && oldSettings.totalSeconds !== newSettings.totalSeconds) {
+      this.updateClipWidths(oldSettings.totalSeconds, newSettings.totalSeconds);
+    }
+
+    // UI 업데이트
+    this.updateUI();
+
+    console.log('AudioTimeline 설정이 성공적으로 업데이트되었습니다.');
+  }
+
+  // 클립 너비 업데이트
+  updateClipWidths(oldTotalSeconds, newTotalSeconds) {
+    console.log('AudioTimeline 클립 너비 업데이트:', { oldTotalSeconds, newTotalSeconds });
+
+    const sprites = this.container.querySelectorAll('.animation-sprite');
+    sprites.forEach(sprite => {
+      const duration = parseFloat(sprite.dataset.duration) || 5;
+      const currentLeft = parseFloat(sprite.style.left) || 0;
+
+      // 클립의 절대 시작 시간 계산 (현재 위치 기반)
+      const clipStartTime = (currentLeft / 100) * oldTotalSeconds;
+
+      // 기존 너비 계산
+      const oldWidth = (duration / oldTotalSeconds) * 100;
+      // 새로운 너비 계산
+      const newWidth = (duration / newTotalSeconds) * 100;
+
+      console.log('AudioTimeline 클립 너비 업데이트:', {
+        duration,
+        clipStartTime,
+        currentLeft: `${currentLeft}%`,
+        oldWidth: `${oldWidth}%`,
+        newWidth: `${newWidth}%`
+      });
+
+      // 너비 업데이트
+      sprite.style.width = `${newWidth}%`;
+
+      // 클립의 절대 시작 시간을 보존하여 새로운 위치 계산
+      const newLeft = (clipStartTime / newTotalSeconds) * 100;
+
+      // 클립이 타임라인 끝을 벗어나지 않도록 위치 조정
+      const maxLeft = 100 - newWidth;
+      const clampedLeft = Math.max(0, Math.min(maxLeft, newLeft));
+
+      sprite.style.left = `${clampedLeft}%`;
+
+      console.log('AudioTimeline 클립 위치 업데이트:', {
+        originalStartTime: clipStartTime,
+        newLeft: `${newLeft}%`,
+        clampedLeft: `${clampedLeft}%`,
+        maxLeft: `${maxLeft}%`
+      });
+
+      // 클립 내의 키프레임 위치 업데이트
+      this.updateKeyframesInClipAfterTimeChange(sprite, oldTotalSeconds, newTotalSeconds);
+    });
+  }
+
+  // 타임라인 시간 변경 후 클립 내 키프레임 위치 업데이트
+  updateKeyframesInClipAfterTimeChange(sprite, oldTotalSeconds, newTotalSeconds) {
+    console.log('AudioTimeline 클립 내 키프레임 위치 업데이트:', { oldTotalSeconds, newTotalSeconds });
+
+    const keyframes = sprite.querySelectorAll('.keyframe');
+    keyframes.forEach(keyframe => {
+      // 키프레임의 데이터에서 절대 시간 정보 가져오기
+      const keyframeTime = parseFloat(keyframe.dataset.time) || 0;
+      const clipLeft = parseFloat(sprite.style.left) || 0;
+      const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+
+      // 클립의 시작 시간 계산 (클립의 left 위치 기반)
+      const clipStartTime = (clipLeft / 100) * oldTotalSeconds;
+
+      // 키프레임의 절대 시간 (클립 시작 시간 + 키프레임의 상대 시간)
+      const absoluteTime = clipStartTime + keyframeTime;
+
+      // 새로운 시간 기준으로 클립의 시작 시간 계산
+      const newClipStartTime = (clipLeft / 100) * newTotalSeconds;
+
+      // 새로운 시간 기준으로 키프레임의 상대 시간 계산
+      const newRelativeTime = absoluteTime - newClipStartTime;
+
+      // 키프레임의 새로운 위치 계산 (클립 내에서의 상대적 위치)
+      const newPosition = (newRelativeTime / clipDuration) * 100;
+
+      console.log('AudioTimeline 키프레임 위치 업데이트:', {
+        keyframeTime,
+        clipLeft: `${clipLeft}%`,
+        clipDuration,
+        clipStartTime,
+        absoluteTime,
+        newClipStartTime,
+        newRelativeTime,
+        newPosition: `${newPosition}%`
+      });
+
+      // 키프레임 위치 업데이트 (클립 범위 내로 제한)
+      const clampedPosition = Math.max(0, Math.min(100, newPosition));
+      keyframe.style.left = `${clampedPosition}%`;
+      keyframe.dataset.time = newRelativeTime.toFixed(3);
+
+      console.log('AudioTimeline 최종 키프레임 위치:', {
+        originalTime: keyframeTime,
+        newLeft: `${clampedPosition}%`,
+        newTime: newRelativeTime.toFixed(3)
+      });
+    });
+  }
+
   initAudioTracks() {
     console.log("현재 트랙 수:", this.tracks.size);
 

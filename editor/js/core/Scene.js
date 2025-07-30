@@ -1,5 +1,6 @@
 // editor/core/Scene.js
 import * as THREE from "three";
+import { TIMELINE_CONSTRAINTS, TimelineHelpers } from "../timeline/Timeline.js";
 
 class Scene extends THREE.Scene {
   constructor(editor, id) {
@@ -12,12 +13,8 @@ class Scene extends THREE.Scene {
       // 키프레임 데이터
       keyframes: {},
 
-      // 타임라인 설정
-      timeline: {
-        totalSeconds: 180,
-        framesPerSecond: 30,
-        currentFrame: 0,
-      },
+      // 타임라인 설정 (저장된 설정이 있으면 사용, 없으면 기본값)
+      timeline: this.loadTimelineSettings(),
 
       // 렌더링 설정
       render: {
@@ -28,6 +25,35 @@ class Scene extends THREE.Scene {
     };
 
     this.initializeScene();
+  }
+
+  // 타임라인 설정 로드
+  loadTimelineSettings() {
+    // localStorage에서 저장된 타임라인 설정 불러오기
+    const savedSettings = localStorage.getItem('timelineSettings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        // 저장된 설정이 범위를 벗어나면 기본값으로 조정
+        let totalSeconds = TimelineHelpers.clampTimeRange(parsed.totalSeconds || 180);
+        let fps = TimelineHelpers.clampFPS(parsed.framesPerSecond || 30);
+
+        return {
+          totalSeconds: totalSeconds,
+          framesPerSecond: fps,
+          currentFrame: parsed.currentFrame || 0,
+        };
+      } catch (error) {
+        console.warn('저장된 타임라인 설정을 불러오는 중 오류 발생:', error);
+      }
+    }
+
+    // 기본 설정 반환
+    return {
+      totalSeconds: 180, // 3분 (60초~300초 범위 내)
+      framesPerSecond: 30,
+      currentFrame: 0,
+    };
   }
 
   initializeScene() {

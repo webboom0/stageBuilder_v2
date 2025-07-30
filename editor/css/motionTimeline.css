@@ -1395,3 +1395,71 @@ border-left: 3px solid #666;
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
+
+/* 타임라인 설정 버튼 스타일 */
+.timeline-settings-button {
+  background: #3a3a3a;
+  border: none;
+  color: #ccc;
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.timeline-settings-button:hover {
+  background: #4a4a4a;
+}
+
+.timeline-settings-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 20px;
+  z-index: 1000;
+  min-width: 300px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.timeline-settings-modal h3 {
+  margin: 0 0 15px 0;
+  color: #fff;
+}
+
+.timeline-settings-modal label {
+  display: block;
+  margin-bottom: 5px;
+  color: #ccc;
+}
+
+.timeline-settings-modal input {
+  width: 100%;
+  padding: 8px;
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.timeline-settings-modal button {
+  padding: 8px 16px;
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.timeline-settings-modal button:first-of-type {
+  background: #555;
+}
+
+.timeline-settings-modal button:last-of-type {
+  background: #007acc;
+}

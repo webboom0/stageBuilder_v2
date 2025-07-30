@@ -63,6 +63,119 @@ export class LightTimeline extends BaseTimeline {
     }
   }
 
+  // 타임라인 설정 업데이트
+  updateSettings(newSettings) {
+    console.log('LightTimeline 설정 업데이트:', newSettings);
+
+    // 기존 설정 백업
+    const oldSettings = { ...this.options };
+
+    // 기존 설정 업데이트
+    this.options = { ...this.options, ...newSettings };
+
+    // TimelineData의 frameRate 업데이트
+    if (newSettings.framesPerSecond && this.timelineData) {
+      this.timelineData.frameRate = newSettings.framesPerSecond;
+    }
+
+    // Scene의 timeline 설정 업데이트
+    if (this.editor.scene) {
+      if (!this.editor.scene.userData.timeline) {
+        this.editor.scene.userData.timeline = {};
+      }
+      this.editor.scene.userData.timeline = { ...this.editor.scene.userData.timeline, ...newSettings };
+    }
+
+    // 클립 너비 업데이트 (시간 변경 시)
+    if (newSettings.totalSeconds && oldSettings.totalSeconds !== newSettings.totalSeconds) {
+      this.updateClipWidths(oldSettings.totalSeconds, newSettings.totalSeconds);
+    }
+
+    // UI 업데이트
+    this.updateUI();
+
+    console.log('LightTimeline 설정이 성공적으로 업데이트되었습니다.');
+  }
+
+  // 클립 너비 업데이트
+  updateClipWidths(oldTotalSeconds, newTotalSeconds) {
+    console.log('LightTimeline 클립 너비 업데이트:', { oldTotalSeconds, newTotalSeconds });
+
+    const sprites = this.container.querySelectorAll('.animation-sprite');
+    sprites.forEach(sprite => {
+      // 조명 클립은 항상 전체 타임라인 길이만큼 늘어나거나 줄어듦
+      const newWidth = 100; // 항상 100% (전체 타임라인)
+      const newDuration = newTotalSeconds; // 새로운 총 시간으로 지속시간 업데이트
+
+      console.log('LightTimeline 클립 너비 업데이트:', {
+        oldTotalSeconds,
+        newTotalSeconds,
+        newWidth: `${newWidth}%`,
+        newDuration
+      });
+
+      // 너비와 지속시간 업데이트
+      sprite.style.width = `${newWidth}%`;
+      sprite.dataset.duration = newDuration.toString();
+
+      // 클립을 항상 0% 위치에 고정 (전체 타임라인을 커버)
+      sprite.style.left = '0%';
+
+      // 클립 내의 키프레임 위치 업데이트
+      this.updateKeyframesInClipAfterTimeChange(sprite, oldTotalSeconds, newTotalSeconds);
+    });
+  }
+
+  // 타임라인 시간 변경 후 클립 내 키프레임 위치 업데이트
+  updateKeyframesInClipAfterTimeChange(sprite, oldTotalSeconds, newTotalSeconds) {
+    console.log('LightTimeline 클립 내 키프레임 위치 업데이트:', { oldTotalSeconds, newTotalSeconds });
+
+    const keyframes = sprite.querySelectorAll('.keyframe');
+    keyframes.forEach(keyframe => {
+      // 키프레임의 데이터에서 절대 시간 정보 가져오기
+      const keyframeTime = parseFloat(keyframe.dataset.time) || 0;
+      const clipLeft = parseFloat(sprite.style.left) || 0;
+      const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+
+      // 클립의 시작 시간 계산 (클립의 left 위치 기반)
+      const clipStartTime = (clipLeft / 100) * oldTotalSeconds;
+
+      // 키프레임의 절대 시간 (클립 시작 시간 + 키프레임의 상대 시간)
+      const absoluteTime = clipStartTime + keyframeTime;
+
+      // 새로운 시간 기준으로 클립의 시작 시간 계산
+      const newClipStartTime = (clipLeft / 100) * newTotalSeconds;
+
+      // 새로운 시간 기준으로 키프레임의 상대 시간 계산
+      const newRelativeTime = absoluteTime - newClipStartTime;
+
+      // 키프레임의 새로운 위치 계산 (클립 내에서의 상대적 위치)
+      const newPosition = (newRelativeTime / clipDuration) * 100;
+
+      console.log('LightTimeline 키프레임 위치 업데이트:', {
+        keyframeTime,
+        clipLeft: `${clipLeft}%`,
+        clipDuration,
+        clipStartTime,
+        absoluteTime,
+        newClipStartTime,
+        newRelativeTime,
+        newPosition: `${newPosition}%`
+      });
+
+      // 키프레임 위치 업데이트 (클립 범위 내로 제한)
+      const clampedPosition = Math.max(0, Math.min(100, newPosition));
+      keyframe.style.left = `${clampedPosition}%`;
+      keyframe.dataset.time = newRelativeTime.toFixed(3);
+
+      console.log('LightTimeline 최종 키프레임 위치:', {
+        originalTime: keyframeTime,
+        newLeft: `${clampedPosition}%`,
+        newTime: newRelativeTime.toFixed(3)
+      });
+    });
+  }
+
   setupTimelineDataEvents() {
     if (!this.timelineData) return;
 
