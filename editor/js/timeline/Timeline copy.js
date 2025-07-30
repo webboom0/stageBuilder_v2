@@ -192,44 +192,16 @@ class Timeline {
           clip.style.left = `${currentLeft}%`;
           clip.style.width = `${currentWidth}%`;
 
-          // 키프레임 위치 조정 - MotionTimeline의 updateKeyframesInClip 방식과 일치
+          // 키프레임 위치 조정 - 클립 내에서의 상대적 % 위치 유지
           const keyframes = clip.querySelectorAll(".keyframe");
           keyframes.forEach((keyframe) => {
-            const absoluteTime = parseFloat(keyframe.dataset.time) || 0;
+            const keyframeTime = parseFloat(keyframe.dataset.time) || 0;
+            const clipDuration = parseFloat(clip.dataset.duration) || 5;
 
-            // 절대 시간이 유효한지 확인
-            if (isNaN(absoluteTime)) {
-              console.warn("키프레임의 절대 시간이 유효하지 않습니다:", keyframe.dataset);
-              return;
-            }
-
-            // MotionTimeline의 updateKeyframesInClip과 동일한 방식으로 계산
-            const timeRulerContainer = document.querySelector('.time-ruler-container');
-            if (timeRulerContainer) {
-              const timeRulerRect = timeRulerContainer.getBoundingClientRect();
-              const timeRulerWidth = timeRulerRect.width;
-
-              // 키프레임 시간에 해당하는 절대 픽셀 위치
-              const absolutePixelPosition = (absoluteTime / this.timelineSettings.totalSeconds) * timeRulerWidth;
-
-              // 클립 시작 픽셀 위치
-              const clipStartPixelPosition = (currentLeft / 100) * timeRulerWidth;
-
-              // 클립 내에서의 상대 픽셀 위치
-              const relativePixelPosition = absolutePixelPosition - clipStartPixelPosition;
-
-              // 키프레임의 CSS 위치 업데이트
-              keyframe.style.left = `${relativePixelPosition}px`;
-              keyframe.dataset.pixelPosition = relativePixelPosition.toString();
-            }
+            // 키프레임의 클립 내에서의 상대적 위치를 %로 계산
+            const keyframePercent = (keyframeTime / clipDuration) * 100;
+            keyframe.style.left = `${keyframePercent}%`;
           });
-        });
-
-        // 줌 변경 후 모든 타임라인 인스턴스의 키프레임 위치 업데이트
-        Object.values(this.timelines).forEach(timeline => {
-          if (timeline.updateKeyframesAfterZoom) {
-            timeline.updateKeyframesAfterZoom();
-          }
         });
       });
     });

@@ -156,6 +156,20 @@ export class BaseTimeline {
     });
   }
 
+  // 줌 변경 후 키프레임 위치 업데이트 (기본 구현)
+  updateKeyframesAfterZoom() {
+    const tracks = this.container.querySelectorAll('.timeline-track');
+
+    tracks.forEach(track => {
+      const sprites = track.querySelectorAll('.animation-sprite');
+
+      sprites.forEach(sprite => {
+        // 각 클립의 키프레임 위치를 updateKeyframesInClip 방식으로 업데이트
+        this.updateKeyframesInClip(track, sprite);
+      });
+    });
+  }
+
   initUI() {
     this.tracks = new Map();
     this.selectedKeyframe = null;
