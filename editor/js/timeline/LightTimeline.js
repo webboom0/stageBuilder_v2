@@ -36,6 +36,8 @@ const TARGET_PROPERTIES = {
 
 // editor/timeline/LightTimeline.js
 export class LightTimeline extends BaseTimeline {
+  // 클립 범위 체크용 오차 범위 (초 단위) - 클립 0 위치 근처 키프레임 선택 허용
+  static CLIP_RANGE_TOLERANCE = 0.5;
   constructor(editor, options) {
     super(editor, options);
     this.selectedObject = null;
@@ -56,6 +58,14 @@ export class LightTimeline extends BaseTimeline {
 
     // TimelineData 초기화 (BaseTimeline에서 이미 초기화됨)
     this.setupTimelineDataEvents();
+
+    // 디바운싱을 위한 변수들
+    this.updateTimeout = null;
+    this.lastUpdateTime = 0;
+    this.isDragging = false;
+
+    // 객체 변경 리스너 설정 (키프레임 선택 시 속성 변경 감지)
+    this.setupObjectChangeListener();
 
     // 전역에서 테스트할 수 있도록 window 객체에 추가
     if (typeof window !== 'undefined') {
@@ -660,20 +670,8 @@ export class LightTimeline extends BaseTimeline {
     });
 
     sprite.addEventListener("click", () => {
-      // 클립 선택 처리
-      const allSprites = document.querySelectorAll(".animation-sprite");
-      allSprites.forEach(s => s.classList.remove("selected"));
-      sprite.classList.add("selected");
-
-      // 조명 객체 선택
-      const objectToSelect = this.editor.scene.getObjectByName(track.objectId);
-      if (objectToSelect) {
-        this.editor.select(objectToSelect);
-        this.selectedObject = objectToSelect;
-        this.selectedLightType = track.lightType;
-        this.updatePropertyPanelForLightType(track.lightType);
-        console.log("조명 객체 선택:", objectToSelect.name);
-      }
+      // 클립 선택 처리 - 공통 메서드 사용
+      this.selectClip(sprite);
     });
   }
 
@@ -840,20 +838,8 @@ export class LightTimeline extends BaseTimeline {
 
     // 타겟 스프라이트 클릭 이벤트
     targetSprite.addEventListener("click", () => {
-      // 타겟 클립 선택 처리
-      const allSprites = document.querySelectorAll(".animation-sprite");
-      allSprites.forEach(s => s.classList.remove("selected"));
-      targetSprite.classList.add("selected");
-
-      // 타겟 객체 선택
-      const targetObject = this.editor.scene.getObjectByName(`${lightId}_Target`);
-      if (targetObject) {
-        this.editor.select(targetObject);
-        this.selectedObject = targetObject;
-        this.selectedLightType = "Target";
-        this.updatePropertyPanelForTarget();
-        console.log("타겟 객체 선택:", targetObject.name);
-      }
+      // 타겟 클립 선택 처리 - 공통 메서드 사용
+      this.selectClip(targetSprite);
     });
 
     console.log("타겟 트랙 생성 완료:", targetTrack);
@@ -986,14 +972,30 @@ export class LightTimeline extends BaseTimeline {
   }
 
   updatePropertyPanelForLightType(lightType) {
-    if (!lightType || !this.propertyPanel) return;
+    console.log("=== updatePropertyPanelForLightType 시작 ===", {
+      lightType,
+      hasPropertyPanel: !!this.propertyPanel
+    });
+
+    if (!lightType || !this.propertyPanel) {
+      console.warn("속성 패널 업데이트 실패:", { lightType, hasPropertyPanel: !!this.propertyPanel });
+      return;
+    }
 
     // 기존 UI 제거
     this.propertyPanel.clear();
     this.propertyRows = {};
 
     const properties = LIGHT_PROPERTIES[lightType];
-    if (!properties) return;
+    if (!properties) {
+      console.warn("조명 속성을 찾을 수 없음:", lightType);
+      return;
+    }
+
+    console.log("조명 속성 패널 생성:", {
+      lightType,
+      properties: Object.keys(properties)
+    });
 
     // 조명 속성 표시
     const separator = new UIRow();
@@ -1001,12 +1003,14 @@ export class LightTimeline extends BaseTimeline {
     this.propertyPanel.add(separator);
 
     Object.entries(properties).forEach(([propertyName, propertyConfig]) => {
+      console.log("속성 행 생성:", { propertyName, propertyConfig });
       const row = this.createPropertyRow(propertyName, propertyConfig);
       this.propertyPanel.add(row);
       this.propertyRows[propertyName] = row;
     });
 
     this.propertyPanel.dom.style.display = "";
+    console.log("속성 패널 표시 완료");
   }
 
   // 타겟 전용 속성 패널
@@ -1032,31 +1036,51 @@ export class LightTimeline extends BaseTimeline {
   }
 
   createPropertyRow(propertyName, config) {
+    // console.log("=== createPropertyRow 시작 ===", { propertyName, config });
+
     const row = new UIRow();
     row.add(new UIText(this.formatPropertyName(propertyName)));
 
     switch (config.type) {
       case 'number':
+        // console.log("숫자 입력 생성:", { propertyName, config });
         const numberInput = new UINumber(config.default).setRange(config.range[0], config.range[1]);
+
+        // 마우스 이벤트 리스너 추가
+        this.addMouseEventListeners(numberInput.dom, propertyName, () => numberInput.getValue());
+
         numberInput.onChange(() => {
+          // console.log("숫자 입력 변경:", { propertyName, value: numberInput.getValue() });
           this.updateLightProperty(propertyName, numberInput.getValue());
         });
         row.add(numberInput);
         break;
 
       case 'color':
+        // console.log("색상 입력 생성:", { propertyName, config });
         const colorInput = new UIColor("#ffffff");
+
+        // 마우스 이벤트 리스너 추가
+        this.addMouseEventListeners(colorInput.dom, propertyName, () => new THREE.Color(colorInput.getValue()));
+
         colorInput.onChange(() => {
           const color = new THREE.Color(colorInput.getValue());
+          // console.log("색상 입력 변경:", { propertyName, value: color });
           this.updateLightProperty(propertyName, color);
         });
         row.add(colorInput);
         break;
 
       case 'vector3':
+        // console.log("벡터 입력 생성:", { propertyName, config });
         const xInput = new UINumber(0);
         const yInput = new UINumber(0);
         const zInput = new UINumber(0);
+
+        // 각 입력 필드에 마우스 이벤트 리스너 추가
+        this.addMouseEventListeners(xInput.dom, propertyName, () => xInput.getValue(), 'x');
+        this.addMouseEventListeners(yInput.dom, propertyName, () => yInput.getValue(), 'y');
+        this.addMouseEventListeners(zInput.dom, propertyName, () => zInput.getValue(), 'z');
 
         xInput.onChange(() => this.updateLightProperty(propertyName, 'x', xInput.getValue()));
         yInput.onChange(() => this.updateLightProperty(propertyName, 'y', yInput.getValue()));
@@ -1068,7 +1092,50 @@ export class LightTimeline extends BaseTimeline {
         break;
     }
 
+    // console.log("속성 행 생성 완료:", { propertyName, configType: config.type });
     return row;
+  }
+
+  // 마우스 이벤트 리스너 추가 메서드
+  addMouseEventListeners(element, propertyName, getValueCallback, axis = null) {
+    let isDragging = false;
+
+    const handleMouseDown = (e) => {
+      isDragging = true;
+      this.isDragging = true;
+      console.log("마우스 다운 - 드래그 시작:", { propertyName, axis });
+    };
+
+    const handleMouseMove = (e) => {
+      if (isDragging) {
+        // 드래그 중에는 업데이트하지 않음
+        console.log("마우스 무브 - 드래그 중:", { propertyName, axis });
+      }
+    };
+
+    const handleMouseUp = (e) => {
+      if (isDragging) {
+        isDragging = false;
+        this.isDragging = false;
+        console.log("마우스 업 - 드래그 종료, 업데이트 실행:", { propertyName, axis });
+
+        // 마우스 업 시 즉시 업데이트
+        const value = getValueCallback();
+        if (axis) {
+          this.updateLightProperty(propertyName, axis, value);
+        } else {
+          this.updateLightProperty(propertyName, value);
+        }
+      }
+    };
+
+    // 이벤트 리스너 추가
+    element.addEventListener('mousedown', handleMouseDown);
+    element.addEventListener('mousemove', handleMouseMove);
+    element.addEventListener('mouseup', handleMouseUp);
+
+    // 전역 마우스 이벤트도 추가 (드래그가 요소 밖에서 끝날 경우)
+    document.addEventListener('mouseup', handleMouseUp);
   }
 
   createTargetPropertyRow(propertyName, config) {
@@ -1095,6 +1162,11 @@ export class LightTimeline extends BaseTimeline {
   }
 
   updateLightProperty(propertyName, value, axis = null) {
+    console.log("=== updateLightProperty 시작 ===", {
+      propertyName,
+      value,
+      axis
+    });
     if (!this.selectedObject) return;
 
     // 선택된 객체가 타겟인 경우 조명 객체를 찾아서 업데이트
@@ -1124,25 +1196,25 @@ export class LightTimeline extends BaseTimeline {
     } else {
       // 일반 속성 업데이트
       switch (propertyName) {
-        case 'intensity':
+        case 'intensity': // 강도 속성
           light.intensity = value;
           break;
-        case 'color':
+        case 'color': // 색상 속성
           light.color.copy(value);
           break;
-        case 'distance':
+        case 'distance': // 거리 속성
           light.distance = value;
           break;
-        case 'angle':
+        case 'angle': // 각도 속성
           light.angle = value;
           break;
-        case 'penumbra':
+        case 'penumbra': // 펜유브라 속성
           light.penumbra = value;
           break;
-        case 'decay':
+        case 'decay': // 감쇠 속성
           light.decay = value;
           break;
-        case 'position':
+        case 'position': // 위치 속성
           light.position.copy(value);
           break;
         case 'target':
@@ -1155,22 +1227,141 @@ export class LightTimeline extends BaseTimeline {
 
     // 선택된 키프레임이 있으면 해당 키프레임 값 업데이트 (scene.userData에서 확인)
     const selectedKeyframeData = this.editor.scene.userData?.lightTimeline?.selectedKeyframe;
-    if (selectedKeyframeData && selectedKeyframeData.property === propertyName && selectedKeyframeData.lightId === lightId) {
-      console.log("선택된 키프레임 값 업데이트:", {
+
+    // 선택된 키프레임이 있는지 확인
+    let isSelectedKeyframe = false;
+    if (selectedKeyframeData) {
+      if (selectedKeyframeData.lightId.includes('_Target')) {
+        // 타겟 키프레임인 경우 - 원래 선택된 객체의 이름과 비교
+        isSelectedKeyframe = (selectedKeyframeData.lightId === this.selectedObject.name);
+      } else {
+        // 일반 조명 키프레임인 경우 - base light ID로 매칭
+        const selectedBaseLightId = selectedKeyframeData.lightId.split('_').slice(0, 2).join('_'); // 'light_0_intensity' -> 'light_0'
+        isSelectedKeyframe = (selectedBaseLightId === lightId);
+      }
+    }
+
+    if (isSelectedKeyframe) {
+      console.log("선택된 키프레임이 있음 - 속성 업데이트:", {
         lightId,
         propertyName,
         value,
-        selectedKeyframe: selectedKeyframeData
+        selectedKeyframe: selectedKeyframeData,
+        isTarget: this.selectedObject.name.includes('_Target')
       });
-      this.updateSelectedKeyframeValue(lightId, propertyName, this.getPropertyValue(light, propertyName));
+
+      if (this.selectedObject.name.includes('_Target')) {
+        // 타겟 키프레임인 경우 - position 속성만 업데이트
+        const targetId = this.selectedObject.name;
+        const trackData = this.timelineData.getTrackById(targetId, 'position');
+
+        if (trackData) {
+          const vectorValue = this.selectedObject.position.clone();
+          const selectedKeyframeIndex = selectedKeyframeData.index;
+
+          if (selectedKeyframeIndex !== undefined) {
+            const success = trackData.updateKeyframeValue(selectedKeyframeIndex, vectorValue);
+            if (success) {
+              console.log(`✅ 타겟 키프레임 업데이트 성공: ${targetId} position at index ${selectedKeyframeIndex}`);
+              this.timelineData.dirty = true;
+            } else {
+              console.warn(`❌ 타겟 키프레임 업데이트 실패: ${targetId} position at index ${selectedKeyframeIndex}`);
+            }
+          }
+        } else {
+          console.warn(`타겟 트랙을 찾을 수 없습니다: ${targetId}`);
+        }
+      } else {
+        // 일반 조명 키프레임인 경우 - 선택된 키프레임의 모든 속성을 업데이트
+        console.log("일반 조명 키프레임 - 모든 속성 업데이트:", { lightId, propertyName, value });
+
+        // 조명의 모든 속성을 업데이트
+        const properties = ['intensity', 'color', 'distance', 'angle', 'penumbra', 'decay'];
+
+        properties.forEach(prop => {
+          const uniqueTrackId = `${lightId}_${prop}`;
+          let trackData = this.timelineData.getTrackById(uniqueTrackId, prop);
+          if (!trackData) {
+            trackData = this.timelineData.getTrackByUuid(light.uuid, prop);
+          }
+
+          if (trackData) {
+            // 현재 조명 객체에서 속성 값 가져오기
+            let propValue;
+            switch (prop) {
+              case 'intensity':
+                propValue = new THREE.Vector3(light.intensity, 0, 0);
+                break;
+              case 'color':
+                propValue = new THREE.Vector3(light.color.r, light.color.g, light.color.b);
+                break;
+              case 'distance':
+                propValue = new THREE.Vector3(light.distance, 0, 0);
+                break;
+              case 'angle':
+                propValue = new THREE.Vector3(light.angle, 0, 0);
+                break;
+              case 'penumbra':
+                propValue = new THREE.Vector3(light.penumbra, 0, 0);
+                break;
+              case 'decay':
+                propValue = new THREE.Vector3(light.decay, 0, 0);
+                break;
+              default:
+                propValue = new THREE.Vector3(0, 0, 0);
+            }
+
+            // 선택된 키프레임의 인덱스 찾기
+            const selectedKeyframeIndex = selectedKeyframeData.index;
+            if (selectedKeyframeIndex !== undefined) {
+              // 선택된 키프레임의 값 업데이트
+              const success = trackData.updateKeyframeValue(selectedKeyframeIndex, propValue);
+              if (success) {
+                console.log(`✅ 키프레임 업데이트 성공: ${lightId} ${prop} at index ${selectedKeyframeIndex}`);
+              } else {
+                console.warn(`❌ 키프레임 업데이트 실패: ${lightId} ${prop} at index ${selectedKeyframeIndex}`);
+              }
+            }
+          } else {
+            console.warn(`트랙을 찾을 수 없습니다: ${lightId} ${prop}`);
+          }
+        });
+
+        this.timelineData.dirty = true;
+      }
+
+      // TimelineData 상태 업데이트 (성능 최적화 - 필요할 때만 호출)
+      if (this.timelineData.dirty) {
+        this.timelineData.precomputeAnimationData();
+        this.timelineData.dirty = false;
+        // UI 업데이트는 필요할 때만
+        this.updateUI();
+      }
+
     } else {
       // 선택된 키프레임이 없으면 새 키프레임 추가
       this.addKeyframeForProperty(lightId, propertyName, this.currentTime, this.getPropertyValue(light, propertyName));
     }
 
-    if (this.editor.signals?.objectChanged) {
-      this.editor.signals.objectChanged.dispatch(light);
+    // objectChanged 시그널은 제거 - 무한 루프 방지
+    // if (this.editor.signals?.objectChanged) {
+    //   this.editor.signals.objectChanged.dispatch(light);
+    // }
+  }
+
+  // 디바운싱된 키프레임 업데이트 메서드
+  debouncedUpdateKeyframe(propertyName, newValue) {
+    // 기존 타임아웃이 있으면 취소
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
     }
+
+    // 새로운 타임아웃 설정 (300ms 후에 업데이트)
+    this.updateTimeout = setTimeout(() => {
+      console.log("디바운싱된 키프레임 업데이트 실행:", { propertyName, newValue });
+      this.updateLightProperty(propertyName, newValue);
+      this.updateTimeout = null;
+    }, 300);
   }
 
   updateTargetProperty(propertyName, axis, value) {
@@ -1228,9 +1419,10 @@ export class LightTimeline extends BaseTimeline {
       }
     }
 
-    if (this.editor.signals?.objectChanged) {
-      this.editor.signals.objectChanged.dispatch(light);
-    }
+    // objectChanged 시그널은 제거 - 무한 루프 방지
+    // if (this.editor.signals?.objectChanged) {
+    //   this.editor.signals.objectChanged.dispatch(light);
+    // }
   }
 
   // 모든 속성을 포함하는 키프레임 추가 메서드
@@ -1548,9 +1740,15 @@ export class LightTimeline extends BaseTimeline {
     // 타겟인 경우 타겟 스프라이트, 조명인 경우 조명 스프라이트 사용
     let targetSprite = null;
     if (lightId.includes('_Target')) {
-      // 타겟 키프레임인 경우 - 타겟 스프라이트에 표시
-      targetSprite = track.sprite;
-      console.log(`🎯 타겟 스프라이트:`, targetSprite);
+      // 타겟 키프레임인 경우 - 타겟 트랙의 스프라이트에 표시
+      const targetTrack = this.tracks.get(lightId);
+      if (targetTrack && targetTrack.sprite) {
+        targetSprite = targetTrack.sprite;
+        console.log(`🎯 타겟 스프라이트:`, targetSprite);
+      } else {
+        console.warn(`❌ 타겟 트랙을 찾을 수 없음: ${lightId}`);
+        return;
+      }
     } else {
       // 조명 키프레임인 경우 - 조명 스프라이트에 표시
       targetSprite = track.sprite;
@@ -1609,6 +1807,7 @@ export class LightTimeline extends BaseTimeline {
     keyframe.dataset.time = time.toFixed(2);
     keyframe.dataset.property = propertyName;
     keyframe.dataset.lightId = lightId;
+    keyframe.setAttribute('data-light-id', lightId); // updateKeyframeUI에서 사용
 
     // 키프레임을 스프라이트에 추가
     console.log(`🔄 키프레임을 스프라이트에 추가 시도:`, {
@@ -1621,6 +1820,34 @@ export class LightTimeline extends BaseTimeline {
 
     targetSprite.appendChild(keyframe);
     console.log(`✅ 키프레임 UI 생성 완료: ${lightId} ${propertyName} at ${time}`, keyframe);
+
+    // 키프레임 클릭 이벤트 추가
+    keyframe.addEventListener("click", (e) => {
+      e.stopPropagation();
+
+      // 타겟 키프레임과 조명 키프레임 구분하여 lightId 생성
+      let timelineDataLightId;
+      if (lightId.includes('_Target')) {
+        // 타겟 키프레임인 경우 이미 올바른 형태 (light_0_Target)
+        timelineDataLightId = lightId;
+        console.log(`타겟 키프레임 클릭: ${lightId} ${propertyName} at ${time}`, {
+          originalLightId: lightId,
+          timelineDataLightId: timelineDataLightId
+        });
+      } else {
+        // 조명 키프레임인 경우 propertyName 추가 (light_0_intensity)
+        timelineDataLightId = `${lightId}_${propertyName}`;
+        console.log(`조명 키프레임 클릭: ${lightId} ${propertyName} at ${time}`, {
+          originalLightId: lightId,
+          timelineDataLightId: timelineDataLightId
+        });
+      }
+
+      this.selectKeyframe(timelineDataLightId, time, keyframe, propertyName);
+    });
+
+    // 키프레임 드래그 기능 추가
+    this.makeKeyframeDraggable(keyframe, track, time, propertyName);
 
     // 실제 DOM에 추가되었는지 확인
     const addedKeyframe = targetSprite.querySelector(`[data-time="${time.toFixed(2)}"][data-property="${propertyName}"]`);
@@ -1735,11 +1962,11 @@ export class LightTimeline extends BaseTimeline {
     }
 
     if (this.editor.signals?.objectChanged) {
-      // 모든 조명 객체에 대해 objectChanged 시그널 발생
+      // 모든 조명 객체에 대해 objectChanged 시그널 발생 (fromAnimation 플래그로 무한 루프 방지)
       this.tracks.forEach((track) => {
         const object = this.editor.scene.getObjectByName(track.objectId);
         if (object && track.lightType) {
-          this.editor.signals.objectChanged.dispatch(object);
+          this.editor.signals.objectChanged.dispatch(object, { fromAnimation: true });
         }
       });
     }
@@ -1826,17 +2053,17 @@ export class LightTimeline extends BaseTimeline {
       const object = this.editor.scene.getObjectByName(track.objectId);
       if (!object) {
         if (!this.isPlaying) {
-          console.log(`❌ 조명 객체를 찾을 수 없음: ${track.objectId} `);
+          console.log(`❌ 조명 객체를 찾을 수 없음: ${track.objectId}`);
         }
         // 객체가 없어도 트랙은 유지 (UI 트랙이므로)
         // this.tracks.delete(track.objectId); // 트랙 삭제 제거
-        console.log(`⚠️ 조명 객체 없음, 트랙은 유지: ${track.objectId} `);
+        console.log(`⚠️ 조명 객체 없음, 트랙은 유지: ${track.objectId}`);
         return;
       }
 
       if (!track.lightType) {
         if (!this.isPlaying) {
-          console.log(`❌ 조명 타입이 설정되지 않음: ${track.objectId} `);
+          console.log(`❌ 조명 타입이 설정되지 않음: ${track.objectId}`);
         }
         return;
       }
@@ -1848,11 +2075,11 @@ export class LightTimeline extends BaseTimeline {
       Object.keys(properties).forEach((propertyType) => {
         // 성능 최적화: 로그 출력 최소화
         if (!this.isPlaying) {
-          console.log(`  💡 속성 체크: ${propertyType} `);
+          console.log(`  💡 속성 체크: ${propertyType}`);
         }
 
         // UI 트랙 ID를 고유 식별자로 사용하여 트랙 찾기
-        const uniqueTrackId = `${track.objectId}_${propertyType} `;
+        const uniqueTrackId = `${track.objectId}_${propertyType}`;
         let trackData = this.timelineData.getTrackById(uniqueTrackId, propertyType);
 
         // ID로 찾지 못하면 UUID 기반으로 시도
@@ -1894,20 +2121,20 @@ export class LightTimeline extends BaseTimeline {
 
         if (!trackData) {
           if (!this.isPlaying) {
-            console.log(`    ❌ 트랙 데이터 없음: ${track.objectId} ${propertyType} `);
+            console.log(`    ❌ 트랙 데이터 없음: ${track.objectId} ${propertyType}`);
           }
           return;
         }
 
         if (trackData.getKeyframeCount() === 0) {
           if (!this.isPlaying) {
-            console.log(`    ⚠️ 키프레임 없음: ${track.objectId} ${propertyType} `);
+            console.log(`    ⚠️ 키프레임 없음: ${track.objectId} ${propertyType}`);
           }
           return;
         }
 
         if (!this.isPlaying) {
-          console.log(`    ✅ 트랙 데이터 찾음: ${track.objectId} ${propertyType} `, {
+          console.log(`    ✅ 트랙 데이터 찾음: ${track.objectId} ${propertyType}`, {
             keyframeCount: trackData.getKeyframeCount(),
             times: Array.from(trackData.times.slice(0, trackData.keyframeCount))
           });
@@ -1922,7 +2149,7 @@ export class LightTimeline extends BaseTimeline {
           totalUpdates++;
 
           if (!this.isPlaying) {
-            console.log(`    ✅ 조명 속성 업데이트 성공: ${track.objectId} ${propertyType} `, {
+            console.log(`    ✅ 조명 속성 업데이트 성공: ${track.objectId} ${propertyType}`, {
               before: beforeValue,
               after: value,
               time: this.currentTime
@@ -1930,7 +2157,7 @@ export class LightTimeline extends BaseTimeline {
           }
         } else {
           if (!this.isPlaying) {
-            console.log(`    ❌ 보간된 값이 null: ${track.objectId} ${propertyType} `);
+            console.log(`    ❌ 보간된 값이 null: ${track.objectId} ${propertyType}`);
           }
         }
       });
@@ -1939,21 +2166,21 @@ export class LightTimeline extends BaseTimeline {
 
       if (hasChanges) {
         if (!this.isPlaying) {
-          console.log(`    🔄 객체 변경 시그널 발생: ${track.objectId} `);
+          console.log(`    🔄 객체 변경 시그널 발생: ${track.objectId}`);
         }
 
-        // 성능 최적화: 시그널 발생 최소화
+        // 성능 최적화: 시그널 발생 최소화 (fromAnimation 플래그로 무한 루프 방지)
         if (this.editor.signals?.objectChanged) {
-          this.editor.signals.objectChanged.dispatch(object);
+          this.editor.signals.objectChanged.dispatch(object, { fromAnimation: true });
         }
       } else {
         if (!this.isPlaying) {
-          console.log(`    ⚠️ 변경사항 없음: ${track.objectId} `);
+          console.log(`    ⚠️ 변경사항 없음: ${track.objectId}`);
         }
       }
     });
 
-    console.log(`🎬 === LightTimeline updateFrame 완료 === `, {
+    console.log(`🎬 === LightTimeline updateFrame 완료 ===`, {
       totalTracks,
       totalUpdates,
       currentTime: this.currentTime,
@@ -2031,7 +2258,7 @@ export class LightTimeline extends BaseTimeline {
     if (trackData.getKeyframeCount() === 0) {
       console.log(`⚠️ 타겟 키프레임 없음: ${track.objectId} `, {
         trackData,
-        uniqueTrackId,
+        trackId: track.objectId,
         hasTrackData: !!trackData
       });
       return;
@@ -2063,9 +2290,9 @@ export class LightTimeline extends BaseTimeline {
         changed: !beforeValue.equals(targetValue)
       });
 
-      // 객체 변경 시그널 발생
+      // 객체 변경 시그널 발생 (fromAnimation 플래그로 무한 루프 방지)
       if (this.editor.signals?.objectChanged) {
-        this.editor.signals.objectChanged.dispatch(targetObject);
+        this.editor.signals.objectChanged.dispatch(targetObject, { fromAnimation: true });
       }
     } else {
       console.log(`❌ 타겟 보간된 값이 null: ${track.objectId} `);
@@ -2762,6 +2989,29 @@ export class LightTimeline extends BaseTimeline {
       keyframeElement
     });
 
+    // 클립 범위 체크 - 클립 밖의 키프레임은 선택하지 않음 (허용 범위 추가)
+    if (keyframeElement) {
+      const sprite = keyframeElement.closest('.light-sprite');
+      if (sprite) {
+        const spriteLeft = parseFloat(sprite.style.left) || 0;
+        const clipStartTime = (spriteLeft / 100) * this.options.totalSeconds;
+        const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+        const clipEndTime = clipStartTime + clipDuration;
+
+        // 허용 범위 추가
+        const tolerance = LightTimeline.CLIP_RANGE_TOLERANCE;
+        if (time !== 0 && (time < clipStartTime - tolerance || time > clipEndTime + tolerance)) {
+          console.log("클립 범위 밖의 키프레임이므로 선택하지 않습니다:", {
+            time,
+            clipStartTime,
+            clipEndTime,
+            tolerance
+          });
+          return;
+        }
+      }
+    }
+
     // 이전에 선택된 모든 키프레임 선택 해제
     this.container.querySelectorAll('.keyframe').forEach(el => {
       if (el.dataset.lightId.includes('_Target')) {
@@ -2840,32 +3090,72 @@ export class LightTimeline extends BaseTimeline {
     console.log("선택된 키프레임 데이터 (메모리):", this.selectedKeyframe);
     console.log("선택된 키프레임 데이터 (scene.userData):", this.editor.scene.userData.lightTimeline.selectedKeyframe);
 
-    // 객체 선택 (에디터에서)
-    let objectToSelect = null;
-    if (lightId.includes('_Target')) {
-      // 타겟 키프레임인 경우 타겟 객체 선택
-      objectToSelect = this.editor.scene.getObjectByName(lightId);
-    } else {
-      // 조명 키프레임인 경우 조명 객체 선택
-      objectToSelect = this.editor.scene.getObjectByName(lightId);
-    }
+    // 키프레임 선택 시 부모 클립도 함께 선택
+    if (keyframeElement) {
+      // 키프레임이 속한 클립(스프라이트) 찾기 - 타겟과 조명 구분
+      let sprite = null;
+      if (lightId.includes('_Target')) {
+        // 타겟 키프레임인 경우 타겟 스프라이트 찾기
+        // lightId가 'light_0_Target' 형태이므로 직접 타겟 스프라이트 찾기
+        const targetSprite = document.querySelector(`[data-object-id="${lightId}"] .target-sprite`);
+        if (targetSprite) {
+          sprite = targetSprite;
+          console.log("키프레임 선택 - 타겟 스프라이트 찾음:", sprite);
+        } else {
+          // fallback: closest로 찾기
+          sprite = keyframeElement.closest('.target-sprite');
+          console.log("키프레임 선택 - fallback으로 타겟 스프라이트 찾기:", sprite);
+        }
+      } else {
+        // 조명 키프레임인 경우 조명 스프라이트 찾기
+        // lightId가 'light_0_intensity' 형태이므로 base light ID 추출
+        const baseLightId = lightId.split('_').slice(0, 2).join('_'); // 'light_0_intensity' -> 'light_0'
+        console.log("키프레임 선택 - 조명 스프라이트 찾기 시도:", {
+          originalLightId: lightId,
+          baseLightId: baseLightId
+        });
 
-    if (objectToSelect && this.editor.select) {
-      this.editor.select(objectToSelect);
-      this.selectedObject = objectToSelect;
-      this.selectedLightType = this.tracks.get(lightId)?.lightType;
-      this.updatePropertyPanelForLightType(this.selectedLightType);
-      console.log("키프레임 선택으로 인한 객체 선택:", objectToSelect.name);
+        // base light ID로 조명 스프라이트 찾기
+        const lightSprite = document.querySelector(`[data-object-id="${baseLightId}"] .light-sprite`);
+        if (lightSprite) {
+          sprite = lightSprite;
+          console.log("키프레임 선택 - 조명 스프라이트 찾음:", sprite);
+        } else {
+          // fallback: closest로 찾기
+          sprite = keyframeElement.closest('.light-sprite');
+          console.log("키프레임 선택 - fallback으로 조명 스프라이트 찾기:", sprite);
+        }
+      }
+
+      if (sprite) {
+        console.log("키프레임 선택 - 부모 클립 찾음:", sprite);
+        // 공통 selectClip 메서드 사용
+        const selectResult = this.selectClip(sprite);
+        console.log("키프레임 선택 - selectClip 결과:", selectResult);
+      } else {
+        console.warn("키프레임 선택 - 부모 클립을 찾을 수 없음:", {
+          keyframeElement: keyframeElement,
+          keyframeClasses: keyframeElement.className,
+          lightId: lightId,
+          isTarget: lightId.includes('_Target')
+        });
+      }
     }
 
     // playhead를 키프레임 시간 위치로 이동
-    const frame = Math.floor(time * this.options.framesPerSecond);
-    if (this.editor.signals?.currentTimeChanged) {
-      this.editor.signals.currentTimeChanged.dispatch(frame);
-    }
+    this.movePlayheadToTime(time);
 
     // 키프레임 값으로 객체 속성 업데이트
-    this.setPropertyValueFromKeyframe(objectToSelect, propertyName, value);
+    // selectClip에서 선택된 객체를 사용
+    if (this.selectedObject) {
+      this.setPropertyValueFromKeyframe(this.selectedObject, propertyName, value);
+    } else {
+      console.warn("키프레임 선택 시 객체가 선택되지 않음:", {
+        lightId,
+        propertyName,
+        selectedObject: this.selectedObject
+      });
+    }
   }
 
   // 키프레임 값으로 객체 속성 업데이트
@@ -2904,48 +3194,66 @@ export class LightTimeline extends BaseTimeline {
       }
     }
 
-    // 객체 변경 시그널 발생
+    // 객체 변경 시그널 발생 (fromTimeline 플래그로 무한 루프 방지)
     if (this.editor.signals?.objectChanged) {
-      this.editor.signals.objectChanged.dispatch(object, { fromTimeline: true });
+      this.editor.signals.objectChanged.dispatch(object, { fromTimeline: true, fromAnimation: true });
     }
   }
 
   // 선택된 키프레임 값 업데이트
   updateSelectedKeyframeValue(lightId, propertyName, newValue) {
-    if (!this.selectedKeyframe || this.selectedKeyframe.property !== propertyName) {
+    // console.log("=== updateSelectedKeyframeValue 시작 ===", {
+    //   lightId,
+    //   propertyName,
+    //   newValue,
+    //   selectedKeyframe: this.selectedKeyframe
+    // });
+
+    if (!this.selectedKeyframe) {
+      // console.warn("선택된 키프레임이 없음");
       return;
     }
 
-    console.log("=== 선택된 키프레임 값 업데이트 시작 ===", {
-      lightId,
-      propertyName,
-      newValue,
-      selectedKeyframe: this.selectedKeyframe
-    });
+    // 선택된 키프레임의 lightId와 업데이트하려는 lightId가 일치하는지 확인
+    const selectedLightId = this.selectedKeyframe.lightId;
+    const expectedLightId = lightId.includes('_Target') ? lightId : `${lightId.split('_').slice(0, 2).join('_')}_${propertyName}`;
+
+    if (selectedLightId !== expectedLightId) {
+      console.warn("선택된 키프레임과 lightId 불일치:", {
+        selectedLightId,
+        expectedLightId,
+        propertyName
+      });
+      return;
+    }
+
+    // console.log("=== 선택된 키프레임 값 업데이트 시작 ===", {
+    //   lightId,
+    //   propertyName,
+    //   newValue,
+    //   selectedKeyframe: this.selectedKeyframe
+    // });
 
     // TimelineData에서 트랙 찾기
+    // console.log("트랙 찾기 시도:", { lightId, propertyName });
     let trackData = this.timelineData.getTrackById(lightId, propertyName);
     if (!trackData) {
-      const object = this.editor.scene.getObjectByName(lightId);
+      // console.log("ID 기반으로 트랙을 찾지 못함, fallback 시도");
+      // fallback: base light ID로 찾기 시도
+      const baseLightId = lightId.split('_').slice(0, 2).join('_'); // 'light_0_intensity' -> 'light_0'
+      const object = this.editor.scene.getObjectByName(baseLightId);
       if (object) {
         trackData = this.timelineData.getTrackByUuid(object.uuid, propertyName);
+        // console.log("UUID 기반으로 트랙 찾기 시도:", { baseLightId, objectUuid: object.uuid, found: !!trackData });
       }
+    } else {
+      // console.log("ID 기반으로 트랙 찾음:", { lightId, propertyName });
     }
 
     if (!trackData) {
-      console.warn("트랙을 찾을 수 없습니다:", { lightId, propertyName });
+      // console.warn("트랙을 찾을 수 없습니다:", { lightId, propertyName });
       return;
     }
-
-    // 업데이트 전 트랙 상태 출력
-    console.log("업데이트 전 트랙 상태:", {
-      lightId,
-      propertyName,
-      keyframeCount: trackData.getKeyframeCount(),
-      times: Array.from(trackData.times.slice(0, trackData.keyframeCount)),
-      values: Array.from(trackData.values.slice(0, trackData.keyframeCount * 3)),
-      selectedIndex: this.selectedKeyframe.index
-    });
 
     // 값 타입에 따라 Vector3로 변환
     let vectorValue;
@@ -2958,35 +3266,195 @@ export class LightTimeline extends BaseTimeline {
     } else if (newValue instanceof THREE.Vector3) {
       vectorValue = newValue.clone();
       console.log("Vector3 값 복사:", { original: newValue, converted: vectorValue });
+    } else if (newValue && typeof newValue === 'object' && 'x' in newValue && 'y' in newValue && 'z' in newValue) {
+      // {x, y, z} 형태의 객체를 Vector3로 변환
+      vectorValue = new THREE.Vector3(newValue.x, newValue.y, newValue.z);
+      console.log("객체 값을 Vector3로 변환:", { original: newValue, converted: vectorValue });
     } else {
       console.warn('지원하지 않는 값 타입:', typeof newValue, newValue);
       return;
     }
 
     // 선택된 키프레임의 값 업데이트
+    // console.log("키프레임 값 업데이트 시도:", {
+    //   index: this.selectedKeyframe.index,
+    //   vectorValue,
+    //   trackDataExists: !!trackData
+    // });
+
     const success = trackData.updateKeyframeValue(this.selectedKeyframe.index, vectorValue);
     if (success) {
-      console.log(`키프레임 값 업데이트 성공: ${lightId} ${propertyName} at index ${this.selectedKeyframe.index} `);
+      // console.log(`키프레임 값 업데이트 성공: ${lightId} ${propertyName} at index ${this.selectedKeyframe.index}`);
 
-      // 업데이트 후 트랙 상태 출력
-      console.log("업데이트 후 트랙 상태:", {
-        lightId,
-        propertyName,
-        keyframeCount: trackData.getKeyframeCount(),
-        times: Array.from(trackData.times.slice(0, trackData.keyframeCount)),
-        values: Array.from(trackData.values.slice(0, trackData.keyframeCount * 3))
-      });
-
-      // selectedKeyframe의 값도 업데이트
-      this.selectedKeyframe.value = vectorValue;
-
-      // 전체 TimelineData 상태 출력
-      this.logTimelineDataState();
+      // TimelineData 상태 업데이트 (성능 최적화)
+      this.timelineData.dirty = true;
+      // precomputeAnimationData와 updateUI는 필요할 때만 호출
+      this.updateKeyframeUI(lightId, propertyName);
     } else {
-      console.warn(`키프레임 값 업데이트 실패: ${lightId} ${propertyName} at index ${this.selectedKeyframe.index} `);
+      console.warn(`키프레임 값 업데이트 실패: ${lightId} ${propertyName} at index ${this.selectedKeyframe.index}`);
     }
 
-    console.log("=== 선택된 키프레임 값 업데이트 완료 ===");
+    // console.log("=== 선택된 키프레임 값 업데이트 완료 ===");
+  }
+
+  // 클립 선택 메서드 - 클립 클릭과 키프레임 선택에서 공통으로 사용
+  selectClip(sprite) {
+    console.log("=== selectClip 메서드 시작 ===", { sprite });
+
+    if (!sprite) {
+      console.warn("selectClip: sprite가 null입니다.");
+      return false;
+    }
+
+    // 1. 모든 스프라이트 선택 해제
+    const allSprites = document.querySelectorAll(".animation-sprite");
+    allSprites.forEach(s => s.classList.remove("selected"));
+
+    // 2. 현재 스프라이트 선택
+    sprite.classList.add("selected");
+
+    // 3. 클립이 속한 트랙 찾기
+    const trackElement = sprite.closest('.motion-tracks');
+    if (!trackElement) {
+      console.warn("selectClip: 트랙 요소를 찾을 수 없습니다.", { sprite });
+      return false;
+    }
+
+    const trackObjectId = trackElement.dataset.objectId;
+    const trackObjectName = trackElement.dataset.objectName;
+
+    console.log("selectClip: 트랙 정보 찾기:", {
+      trackObjectId,
+      trackObjectName,
+      sprite: sprite
+    });
+
+    // 4. 객체 선택
+    let objectToSelect = null;
+    let lightType = null;
+
+    if (trackObjectId.includes('_Target')) {
+      // 타겟 클립인 경우
+      objectToSelect = this.editor.scene.getObjectByName(trackObjectId);
+      lightType = "Target";
+      console.log("selectClip: 타겟 객체 선택 시도:", trackObjectId, objectToSelect);
+    } else {
+      // 조명 클립인 경우
+      objectToSelect = this.editor.scene.getObjectByName(trackObjectId);
+      // 트랙에서 lightType 가져오기
+      const track = this.tracks.get(trackObjectId);
+      lightType = track?.lightType;
+      console.log("selectClip: 조명 객체 선택 시도:", {
+        trackObjectId,
+        foundObject: objectToSelect,
+        lightType: lightType,
+        track: track
+      });
+    }
+
+    if (objectToSelect && this.editor.select) {
+      this.editor.select(objectToSelect);
+      this.selectedObject = objectToSelect;
+      this.selectedLightType = lightType;
+
+      // 속성 패널 업데이트
+      if (lightType === "Target") {
+        this.updatePropertyPanelForTarget();
+      } else {
+        this.updatePropertyPanelForLightType(lightType);
+      }
+
+      console.log("selectClip: 객체 선택 완료:", {
+        objectName: objectToSelect.name,
+        lightType: this.selectedLightType
+      });
+
+      return true;
+    } else {
+      console.warn("selectClip: 객체 선택 실패:", {
+        objectToSelect: objectToSelect,
+        hasEditorSelect: !!this.editor.select,
+        trackObjectId: trackObjectId
+      });
+      return false;
+    }
+  }
+
+  // playhead를 특정 시간으로 이동하는 메서드
+  movePlayheadToTime(time) {
+    console.log("=== LightTimeline movePlayheadToTime 시작 ===", { time });
+
+    // 시간 범위 제한
+    const clampedTime = Math.max(0, Math.min(time, this.options.totalSeconds));
+
+    // 현재 시간 업데이트
+    this.currentTime = clampedTime;
+
+    // playhead 위치 계산 (퍼센트)
+    const playheadPercent = (clampedTime / this.options.totalSeconds) * 100;
+
+    // Timeline.js의 updatePlayheadPosition 메서드 호출 (time-box 업데이트 포함)
+    if (this.editor.scene?.userData?.timeline?.updatePlayheadPosition) {
+      console.log("Timeline.js updatePlayheadPosition 호출:", playheadPercent);
+      this.editor.scene.userData.timeline.updatePlayheadPosition(playheadPercent);
+    } else {
+      // Timeline.js의 updatePlayheadPosition이 없으면 직접 업데이트
+      const playhead = document.querySelector(".playhead");
+      if (playhead) {
+        playhead.style.left = `${playheadPercent}%`;
+
+        // time-box 직접 업데이트
+        const timeBox = playhead.querySelector(".time-box");
+        if (timeBox) {
+          timeBox.textContent = `${clampedTime.toFixed(2)}s`;
+          console.log("time-box 직접 업데이트:", timeBox.textContent);
+        }
+
+        console.log("playhead 위치 직접 업데이트:", {
+          time: clampedTime,
+          percent: playheadPercent,
+          left: playhead.style.left
+        });
+      } else {
+        console.warn("playhead 요소를 찾을 수 없습니다.");
+      }
+    }
+
+    // Timeline.js와 동기화
+    if (this.editor.scene?.userData?.timeline) {
+      this.editor.scene.userData.timeline.currentSeconds = clampedTime;
+    }
+
+    // currentTimeChanged 시그널 발생 (다른 타임라인들과 동기화)
+    const frame = Math.floor(clampedTime * this.options.framesPerSecond);
+    if (this.editor.signals?.currentTimeChanged) {
+      this.editor.signals.currentTimeChanged.dispatch(frame);
+    }
+
+    console.log("=== LightTimeline movePlayheadToTime 완료 ===", {
+      originalTime: time,
+      clampedTime,
+      playheadPercent,
+      frame
+    });
+  }
+
+  // 키프레임 UI 업데이트 메서드
+  updateKeyframeUI(lightId, propertyName) {
+    console.log("키프레임 UI 업데이트:", { lightId, propertyName });
+
+    // 해당 키프레임 요소 찾기
+    const keyframeElement = document.querySelector(`[data-light-id="${lightId}"][data-property="${propertyName}"]`);
+    if (keyframeElement) {
+      console.log("키프레임 UI 요소 찾음:", keyframeElement);
+      // 키프레임 UI가 업데이트되었음을 시각적으로 표시
+      keyframeElement.style.transform = "translate(-50%, -50%) scale(1.2)";
+      setTimeout(() => {
+        keyframeElement.style.transform = "translate(-50%, -50%) scale(1)";
+      }, 200);
+    } else {
+      console.warn("키프레임 UI 요소를 찾을 수 없음:", { lightId, propertyName });
+    }
   }
 
   // 테스트용 메서드: 키프레임 수동 추가
@@ -3120,6 +3588,363 @@ export class LightTimeline extends BaseTimeline {
     });
 
     console.log("=== 키프레임 삭제 완료 ===");
+  }
+
+  // 키프레임을 드래그 가능하게 만드는 메서드 (MotionTimeline과 동일한 기능)
+  makeKeyframeDraggable(keyframeElement, track, time, property) {
+    let isDragging = false;
+    let isOutsideClip = false;
+    let startX = 0;
+    let startY = 0;
+    const REMOVE_THRESHOLD = 50; // 삭제를 위한 드래그 거리 임계값
+
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+
+      const dy = e.clientY - startY;
+      const dx = e.clientX - startX;
+
+      // 드래그 거리 계산
+      const dragDistance = Math.sqrt(dx * dx + dy * dy);
+
+      // 클립 정보 가져오기
+      const sprite = keyframeElement.closest('.light-sprite');
+      let isOutsideClipRange = false;
+
+      if (sprite) {
+        const spriteLeft = parseFloat(sprite.style.left) || 0;
+        const clipStartTime = (spriteLeft / 100) * this.options.totalSeconds;
+        const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+        const clipEndTime = clipStartTime + clipDuration;
+
+        // 허용 범위 추가
+        const tolerance = 0.5; // 0.5초 허용 범위
+        isOutsideClipRange = time < clipStartTime - tolerance || time > clipEndTime + tolerance;
+      }
+
+      // 아래로 충분히 드래그되면 삭제 모드로 전환
+      if (dy > REMOVE_THRESHOLD) {
+        console.log("아래로 충분히 드래그됨 - 삭제 조건 충족");
+        if (!isOutsideClip) {
+          isOutsideClip = true;
+          console.log("isOutsideClip을 true로 변경");
+          keyframeElement.classList.add("delete-preview");
+          keyframeElement.style.opacity = "0.5";
+        }
+      } else {
+        if (isOutsideClip) {
+          isOutsideClip = false;
+          console.log("isOutsideClip을 false로 변경 - 클립 안으로 돌아옴");
+          keyframeElement.style.opacity = "1";
+          keyframeElement.style.background = "#f90";
+          keyframeElement.classList.remove("delete-preview");
+        }
+      }
+
+      // 키프레임 위치 업데이트 (수평 이동만)
+      const timeRulerContainer = document.querySelector('.time-ruler-container');
+      if (timeRulerContainer) {
+        const timeRulerRect = timeRulerContainer.getBoundingClientRect();
+        const newLeft = Math.max(0, Math.min(timeRulerRect.width, e.clientX - timeRulerRect.left));
+        const newTime = (newLeft / timeRulerRect.width) * this.options.totalSeconds;
+
+        // 클립 범위 내에서만 이동 허용
+        if (!isOutsideClipRange) {
+          keyframeElement.style.left = `${newLeft}px`;
+          keyframeElement.dataset.time = newTime.toFixed(2);
+        }
+      }
+    };
+
+    const handleMouseUp = (e) => {
+      console.log("=== handleMouseUp 호출됨 ===");
+      console.log("isDragging:", isDragging);
+      console.log("isOutsideClip:", isOutsideClip);
+
+      if (isDragging) {
+        isDragging = false;
+        keyframeElement.classList.remove("dragging");
+        console.log("드래그 종료 - isOutsideClip:", isOutsideClip);
+
+        if (isOutsideClip) {
+          console.log("=== 키프레임 삭제 분기 진입! ===");
+
+          // 모든 속성의 키프레임 삭제
+          const properties = ['position', 'intensity', 'color', 'distance', 'angle', 'penumbra', 'decay'];
+          let allDeleted = true;
+
+          properties.forEach(prop => {
+            const trackData = this.timelineData.tracks.get(track.lightId)?.get(prop);
+            if (trackData) {
+              console.log(`${prop} 삭제할 키프레임 시간:`, time);
+              if (trackData.removeKeyframe(time)) {
+                console.log(`${prop} 키프레임 삭제 완료!`);
+              } else {
+                console.warn(`${prop} 키프레임 삭제 실패!`);
+                allDeleted = false;
+              }
+            }
+          });
+
+          if (allDeleted) {
+            console.log("모든 속성의 키프레임 삭제 완료!");
+          } else {
+            console.error("일부 속성의 키프레임 삭제에 실패했습니다!");
+          }
+
+          keyframeElement.remove();
+          console.log("UI에서 키프레임 요소 제거됨");
+          this.timelineData.dirty = true;
+          this.timelineData.precomputeAnimationData();
+          this.updateAnimation();
+          console.log("=== 키프레임 삭제 완료 ===");
+        } else {
+          console.log("키프레임 이동 분기 - 삭제하지 않음");
+          this.timelineData.dirty = true;
+          this.timelineData.precomputeAnimationData();
+          this.updateAnimation();
+        }
+
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        console.log("이벤트 리스너 제거 완료");
+      } else {
+        console.log("isDragging이 false - 드래그가 아닌 상태");
+      }
+    };
+
+    keyframeElement.addEventListener("mousedown", (e) => {
+      console.log("=== 키프레임 mousedown 시작 ===");
+      e.stopPropagation();
+      isDragging = true;
+      keyframeElement.classList.add("dragging");
+
+      startX = e.clientX;
+      startY = e.clientY;
+      const startLeft = parseFloat(keyframeElement.style.left) || 0;
+      const dragStartTime = parseFloat(keyframeElement.dataset.time);
+
+      console.log("드래그 시작 정보:", {
+        startX,
+        startY,
+        startLeft,
+        dragStartTime,
+        lightId: track.lightId,
+        property
+      });
+
+      if (track.lightId) {
+        // 키프레임 인덱스 찾기
+        const trackData = this.timelineData.tracks.get(track.lightId)?.get(property);
+        let dragStartIndex = -1;
+
+        if (trackData) {
+          dragStartIndex = trackData.findKeyframeIndex(dragStartTime);
+          console.log("dragStartIndex:", dragStartIndex);
+        } else {
+          console.warn("트랙 데이터를 찾을 수 없음:", track.lightId);
+        }
+      }
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      console.log("이벤트 리스너 등록 완료");
+    });
+  }
+
+  // 키프레임 선택 시 속성 변경 감지 및 저장
+  setupObjectChangeListener() {
+    if (this._objectChangeListenerSetup) return;
+    this._objectChangeListenerSetup = true;
+
+    // 객체 변경 시그널 감지
+    this.editor.signals.objectChanged.add((object, options = {}) => {
+      this.onObjectChanged(object, options);
+    });
+
+    // Transform Controls 변경 시그널 감지
+    if (this.editor.signals.transformChanged) {
+      this.editor.signals.transformChanged.add((object) => {
+        this.onObjectChanged(object, { fromTransform: true });
+      });
+    }
+
+    // 속성 패널 변경 시그널 감지
+    if (this.editor.signals.propertyChanged) {
+      this.editor.signals.propertyChanged.add((object, property, value) => {
+        this.onObjectChanged(object, { fromProperty: true, property, value });
+      });
+    }
+  }
+
+  // 객체 변경 처리 메서드
+  onObjectChanged(object, options = {}) {
+    // console.log("=== onObjectChanged 호출됨 ===", {
+    //   objectName: object?.name,
+    //   selectedKeyframe: this.selectedKeyframe,
+    //   options
+    // });
+
+    // fromTimeline 플래그가 있으면 무시 (타임라인에서 발생한 변경)
+    if (options.fromTimeline || options.fromAnimation) {
+      // console.log("타임라인/애니메이션에서 발생한 변경으로 무시됨:", options);
+      return;
+    }
+
+    if (!this.selectedKeyframe) {
+      // console.log("선택된 키프레임이 없음");
+      return;
+    }
+
+    const selectedLightId = this.selectedKeyframe.lightId;
+    const selectedProperty = this.selectedKeyframe.property;
+    const selectedKeyframeElement = this.selectedKeyframe.element;
+
+    // 선택된 키프레임과 관련된 객체인지 확인
+    let isRelatedObject = false;
+    let trackObjectId = null;
+
+    // 클립을 통해 트랙 정보 찾기
+    if (selectedKeyframeElement) {
+      let sprite = null;
+      if (selectedLightId.includes('_Target')) {
+        // 타겟 키프레임인 경우 타겟 스프라이트 찾기
+        sprite = selectedKeyframeElement.closest('.target-sprite');
+        console.log("onObjectChanged - 타겟 스프라이트 찾기:", sprite);
+      } else {
+        // 조명 키프레임인 경우 조명 스프라이트 찾기
+        // selectedLightId가 'light_0_intensity' 형태이므로 base light ID 추출
+        const baseLightId = selectedLightId.split('_').slice(0, 2).join('_'); // 'light_0_intensity' -> 'light_0'
+        console.log("onObjectChanged - 조명 스프라이트 찾기:", {
+          selectedLightId,
+          baseLightId
+        });
+
+        // base light ID로 조명 스프라이트 찾기
+        const lightSprite = document.querySelector(`[data-object-id="${baseLightId}"] .light-sprite`);
+        if (lightSprite) {
+          sprite = lightSprite;
+          console.log("onObjectChanged - 조명 스프라이트 찾음:", sprite);
+        } else {
+          // fallback: closest로 찾기
+          sprite = selectedKeyframeElement.closest('.light-sprite');
+          console.log("onObjectChanged - fallback으로 조명 스프라이트 찾기:", sprite);
+        }
+      }
+
+      if (sprite) {
+        const trackElement = sprite.closest('.motion-tracks');
+        if (trackElement) {
+          trackObjectId = trackElement.dataset.objectId;
+          console.log("클립을 통해 트랙 정보 찾기:", {
+            trackObjectId,
+            objectName: object.name,
+            selectedLightId,
+            isTarget: selectedLightId.includes('_Target')
+          });
+        }
+      }
+    }
+
+    // 트랙 정보를 통해 객체 매칭
+    if (trackObjectId) {
+      if (trackObjectId.includes('_Target')) {
+        // 타겟 키프레임인 경우
+        isRelatedObject = (object.name === trackObjectId);
+      } else {
+        // 조명 키프레임인 경우 - trackObjectId는 base light ID (light_0)
+        isRelatedObject = (object.name === trackObjectId);
+      }
+    } else {
+      // 클립을 통해 찾지 못한 경우 기존 방식으로 시도
+      if (selectedLightId.includes('_Target')) {
+        isRelatedObject = (object.name === selectedLightId);
+      } else {
+        const baseLightId = selectedLightId.split('_').slice(0, 2).join('_');
+        isRelatedObject = (object.name === baseLightId);
+      }
+    }
+
+    console.log("객체 매칭 결과:", {
+      objectName: object.name,
+      selectedLightId,
+      trackObjectId,
+      isRelatedObject,
+      isTarget: selectedLightId.includes('_Target')
+    });
+
+    if (isRelatedObject) {
+      // console.log("선택된 키프레임과 관련된 객체가 변경됨:", object.name, selectedProperty, options);
+
+      // 객체의 현재 속성 값 가져오기
+      let newValue = null;
+      switch (selectedProperty) {
+        case 'position':
+          newValue = new THREE.Vector3(
+            object.position.x,
+            object.position.y,
+            object.position.z
+          );
+          break;
+        case 'intensity':
+          if (object.intensity !== undefined) {
+            newValue = object.intensity; // 단일 숫자 값
+          }
+          break;
+        case 'color':
+          if (object.color) {
+            newValue = new THREE.Color(
+              object.color.r,
+              object.color.g,
+              object.color.b
+            );
+          }
+          break;
+        case 'distance':
+          if (object.distance !== undefined) {
+            newValue = object.distance; // 단일 숫자 값
+          }
+          break;
+        case 'angle':
+          if (object.angle !== undefined) {
+            newValue = object.angle; // 단일 숫자 값
+          }
+          break;
+        case 'penumbra':
+          if (object.penumbra !== undefined) {
+            newValue = object.penumbra; // 단일 숫자 값
+          }
+          break;
+        case 'decay':
+          if (object.decay !== undefined) {
+            newValue = object.decay; // 단일 숫자 값
+          }
+          break;
+      }
+
+      if (newValue) {
+        // 드래그 중이 아닐 때만 즉시 업데이트, 드래그 중이면 마우스 업 후에 업데이트
+        if (!this.isDragging) {
+          console.log("즉시 키프레임 업데이트:", { selectedProperty, newValue });
+          this.updateLightProperty(selectedProperty, newValue);
+        } else {
+          console.log("드래그 중 - 업데이트 지연:", { selectedProperty, newValue });
+          // 드래그 중이면 디바운싱 적용
+          this.debouncedUpdateKeyframe(selectedProperty, newValue);
+        }
+      } else {
+        console.warn("속성 값이 null이거나 undefined:", {
+          selectedProperty,
+          objectName: object.name,
+          hasIntensity: object.intensity !== undefined,
+          hasColor: !!object.color,
+          hasDistance: object.distance !== undefined,
+          hasAngle: object.angle !== undefined,
+          hasPenumbra: object.penumbra !== undefined,
+          hasDecay: object.decay !== undefined
+        });
+      }
+    }
   }
 }
 
