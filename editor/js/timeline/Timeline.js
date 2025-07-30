@@ -1086,7 +1086,7 @@ class Timeline {
 
     // MotionTimeline의 play() 메서드 호출
     if (this.timelines.motion) {
-      console.log("MotionTimeline play() 호출");
+      // console.log("MotionTimeline play() 호출");
       // 현재 playhead 위치를 MotionTimeline에 전달
       const currentTimeInSeconds = currentFrame / this.timelineSettings.framesPerSecond;
       this.timelines.motion.currentTime = currentTimeInSeconds;
@@ -1096,7 +1096,7 @@ class Timeline {
 
     // LightTimeline의 play() 메서드 호출
     if (this.timelines.light) {
-      console.log("LightTimeline play() 호출");
+      // console.log("LightTimeline play() 호출");
       // 현재 playhead 위치를 LightTimeline에 전달
       const currentTimeInSeconds = currentFrame / this.timelineSettings.framesPerSecond;
       this.timelines.light.currentTime = currentTimeInSeconds;
@@ -1269,7 +1269,7 @@ class Timeline {
 
     // LightTimeline의 updateAnimation 호출하여 조명 애니메이션 처리
     if (this.timelines.light && updateAnimation) {
-      console.log("LightTimeline updateAnimation 호출");
+      // console.log("LightTimeline updateAnimation 호출");
       this.timelines.light.currentTime = currentTime;
       this.timelines.light.updateAnimation(currentTime);
     }
@@ -1387,7 +1387,7 @@ class Timeline {
 
     // 플레이헤드 위치 업데이트 함수
     const updatePlayheadPosition = (percent) => {
-      console.log("Timeline.js updatePlayheadPosition", percent);
+      // console.log("Timeline.js updatePlayheadPosition", percent);
 
       // 룰러의 플레이헤드 위치 업데이트
       ph.style.left = `${percent}%`;
@@ -1404,7 +1404,7 @@ class Timeline {
 
       // MotionTimeline의 playhead도 동기화
       if (this.timelines && this.timelines.motion) {
-        console.log("MotionTimeline playhead 동기화:", percent);
+        // console.log("MotionTimeline playhead 동기화:", percent);
         this.timelines.motion.updatePlayheadPosition(percent);
       }
     };
@@ -1469,7 +1469,7 @@ class Timeline {
   }
 
   updateKeyframesInClip(track, clip) {
-    console.log("updateKeyframesInClip");
+    // console.log("updateKeyframesInClip");
     // 클립 내의 키프레임들 가져오기
     const keyframes = Array.from(clip.querySelectorAll(".keyframe"))
       .map((kf) => ({
