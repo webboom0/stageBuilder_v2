@@ -6,7 +6,7 @@ export class KeyboardShortcuts {
     constructor(motionTimeline) {
         this.motionTimeline = motionTimeline;
         this.isEnabled = true;
-        
+
         // 단축키 정의
         this.shortcuts = {
             'Space': {
@@ -26,6 +26,15 @@ export class KeyboardShortcuts {
             'KeyD': {
                 description: '선택된 키프레임 삭제',
                 action: () => this.deleteSelectedKeyframe(),
+                preventDefault: true,
+                conditions: {
+                    ctrlKey: false,
+                    metaKey: false
+                }
+            },
+            'KeyM': {
+                description: 'Playhead 위치 이동',
+                action: () => this.showPlayheadMoveDialog(),
                 preventDefault: true,
                 conditions: {
                     ctrlKey: false,
@@ -85,7 +94,7 @@ export class KeyboardShortcuts {
     // 재생/일시정지 토글
     togglePlayPause() {
         console.log("KeyboardShortcuts - 재생/일시정지 토글");
-        
+
         if (!this.motionTimeline.isPlaying) {
             console.log("재생 시작");
             this.motionTimeline.play();
@@ -98,7 +107,7 @@ export class KeyboardShortcuts {
     // 키프레임 추가
     addKeyframe() {
         console.log("KeyboardShortcuts - 키프레임 추가");
-        
+
         // 현재 선택된 객체가 있는지 확인
         const selectedObject = this.motionTimeline.editor.selected;
         if (!selectedObject) {
@@ -152,7 +161,7 @@ export class KeyboardShortcuts {
                 time: currentTime,
                 value: value
             });
-            
+
             const success = this.motionTimeline.addKeyframe(selectedObject.uuid, 'position', currentTime, value);
             if (success) {
                 console.log("키프레임 추가 성공!");
@@ -170,7 +179,7 @@ export class KeyboardShortcuts {
     // 선택된 키프레임 삭제
     deleteSelectedKeyframe() {
         console.log("KeyboardShortcuts - 선택된 키프레임 삭제");
-        
+
         // 선택된 키프레임이 있는지 확인
         if (!this.motionTimeline.selectedKeyframe) {
             console.warn("삭제할 키프레임이 선택되지 않았습니다.");
@@ -180,10 +189,10 @@ export class KeyboardShortcuts {
 
         // 삭제 전에 선택된 키프레임 정보 저장
         const wasSelected = !!this.motionTimeline.selectedKeyframe;
-        
+
         // 키프레임 삭제 실행
         this.motionTimeline.deleteSelectedKeyframeByIndex();
-        
+
         // 삭제가 성공했는지 확인 (selectedKeyframe이 null이 되었는지)
         if (wasSelected && !this.motionTimeline.selectedKeyframe) {
             // 성공 메시지 표시
@@ -195,6 +204,194 @@ export class KeyboardShortcuts {
     stop() {
         console.log("KeyboardShortcuts - 정지");
         this.motionTimeline.stop();
+    }
+
+    // Playhead 이동 다이얼로그 표시
+    showPlayheadMoveDialog() {
+        console.log("KeyboardShortcuts - Playhead 이동 다이얼로그 표시");
+
+        // 기존 다이얼로그가 있으면 제거
+        const existingDialog = document.querySelector('.playhead-move-dialog');
+        if (existingDialog) {
+            existingDialog.remove();
+        }
+
+        // 현재 시간 정보 가져오기
+        const currentTime = this.motionTimeline.currentTime || 0;
+        const totalSeconds = this.motionTimeline.options?.totalSeconds || 180;
+        const currentFrame = Math.round(currentTime * (this.motionTimeline.options?.framesPerSecond || 30));
+
+        const dialogContainer = document.createElement('div');
+        dialogContainer.className = 'playhead-move-dialog';
+        dialogContainer.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 1000;
+            min-width: 350px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            color: #fff;
+        `;
+
+        dialogContainer.innerHTML = `
+            <div style="margin-bottom: 15px;">
+                <h3 style="margin: 0 0 15px 0; color: #fff; border-bottom: 1px solid #444; padding-bottom: 10px;">
+                    🎯 Playhead 위치 이동
+                </h3>
+                <div style="margin-bottom: 15px; color: #888; font-size: 12px;">
+                    원하는 시간으로 Playhead를 이동할 수 있습니다.
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; color: #ccc;">시간 (초):</label>
+                        <input type="number" id="playhead-time-input" min="0" max="${totalSeconds}" step="0.1" value="${currentTime.toFixed(1)}" 
+                               style="width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+                        <span style="color: #888; font-size: 11px;">0초 ~ ${totalSeconds}초 (${Math.floor(totalSeconds / 60)}분)</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; color: #ccc;">프레임:</label>
+                        <input type="number" id="playhead-frame-input" min="0" max="${Math.round(totalSeconds * (this.motionTimeline.options?.framesPerSecond || 30))}" value="${currentFrame}" 
+                               style="width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+                        <span style="color: #888; font-size: 11px;">0 ~ ${Math.round(totalSeconds * (this.motionTimeline.options?.framesPerSecond || 30))} 프레임</span>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px; padding: 10px; background: #333; border-radius: 4px;">
+                    <span style="color: #ccc; font-size: 12px;">현재 위치: <span style="color: #4CAF50; font-weight: bold;">${this.formatTime(currentTime)}</span> (프레임 ${currentFrame})</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="playhead-move-cancel" style="padding: 8px 16px; background: #555; border: none; color: #fff; border-radius: 4px; cursor: pointer;">취소</button>
+                <button id="playhead-move-apply" style="padding: 8px 16px; background: #007acc; border: none; color: #fff; border-radius: 4px; cursor: pointer;">이동</button>
+            </div>
+        `;
+
+        document.body.appendChild(dialogContainer);
+
+        // 입력 필드 참조
+        const timeInput = dialogContainer.querySelector('#playhead-time-input');
+        const frameInput = dialogContainer.querySelector('#playhead-frame-input');
+        const fps = this.motionTimeline.options?.framesPerSecond || 30;
+
+        // 시간 입력 시 프레임 자동 업데이트
+        timeInput.addEventListener('input', () => {
+            const time = parseFloat(timeInput.value) || 0;
+            const frame = Math.round(time * fps);
+            frameInput.value = frame;
+        });
+
+        // 프레임 입력 시 시간 자동 업데이트
+        frameInput.addEventListener('input', () => {
+            const frame = parseInt(frameInput.value) || 0;
+            const time = frame / fps;
+            timeInput.value = time.toFixed(1);
+        });
+
+        // 이동 버튼 이벤트
+        const applyBtn = dialogContainer.querySelector('#playhead-move-apply');
+        applyBtn.addEventListener('click', () => {
+            const time = parseFloat(timeInput.value) || 0;
+            const clampedTime = Math.max(0, Math.min(totalSeconds, time));
+
+            console.log(`Playhead를 ${clampedTime}초로 이동`);
+
+            // Playhead 이동 - 메인 Timeline 인스턴스 사용
+            const mainTimeline = this.motionTimeline.editor?.timeline;
+            if (mainTimeline && mainTimeline.setCurrentFrame) {
+                mainTimeline.setCurrentFrame(Math.round(clampedTime * fps), true);
+            } else {
+                // 대안: MotionTimeline의 직접적인 방법 사용
+                const frame = Math.round(clampedTime * fps);
+                this.motionTimeline.setCurrentFrame?.(frame, true);
+                this.motionTimeline.updatePlayheadPosition?.(clampedTime / totalSeconds * 100);
+            }
+
+            // 속성패널 닫기
+            const propertyPanel = document.querySelector('.property-panel');
+            if (propertyPanel) {
+                propertyPanel.style.display = 'none';
+            }
+
+            // 다이얼로그 닫기
+            dialogContainer.remove();
+
+            // 성공 메시지 표시
+            this.showSuccess(`Playhead가 ${this.formatTime(clampedTime)}로 이동되었습니다.`);
+        });
+
+        // 취소 버튼 이벤트
+        const cancelBtn = dialogContainer.querySelector('#playhead-move-cancel');
+        cancelBtn.addEventListener('click', () => {
+            dialogContainer.remove();
+        });
+
+        // ESC 키로 닫기
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                dialogContainer.remove();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+
+        // 외부 클릭으로 닫기
+        const closeOnOutsideClick = (e) => {
+            if (!dialogContainer.contains(e.target)) {
+                dialogContainer.remove();
+                document.removeEventListener('click', closeOnOutsideClick);
+            }
+        };
+        document.addEventListener('click', closeOnOutsideClick);
+
+        // Enter 키로 이동
+        const handleEnter = (e) => {
+            if (e.key === 'Enter') {
+                const time = parseFloat(timeInput.value) || 0;
+                const clampedTime = Math.max(0, Math.min(totalSeconds, time));
+
+                // Playhead 이동 - 메인 Timeline 인스턴스 사용
+                const mainTimeline = this.motionTimeline.editor?.timeline;
+                if (mainTimeline && mainTimeline.setCurrentFrame) {
+                    mainTimeline.setCurrentFrame(Math.round(clampedTime * fps), true);
+                } else {
+                    // 대안: MotionTimeline의 직접적인 방법 사용
+                    const frame = Math.round(clampedTime * fps);
+                    this.motionTimeline.setCurrentFrame?.(frame, true);
+                    this.motionTimeline.updatePlayheadPosition?.(clampedTime / totalSeconds * 100);
+                }
+
+                // 속성패널 닫기
+                const propertyPanel = document.querySelector('.property-panel');
+                if (propertyPanel) {
+                    propertyPanel.style.display = 'none';
+                }
+
+                dialogContainer.remove();
+                this.showSuccess(`Playhead가 ${this.formatTime(clampedTime)}로 이동되었습니다.`);
+
+                document.removeEventListener('keydown', handleEnter);
+            }
+        };
+        document.addEventListener('keydown', handleEnter);
+
+        // 포커스를 시간 입력 필드에 설정
+        timeInput.focus();
+        timeInput.select();
+    }
+
+    // 시간 포맷팅 헬퍼 메서드
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        const milliseconds = Math.floor((seconds % 1) * 100);
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
     }
 
     // 도움말 표시
@@ -278,6 +475,7 @@ export class KeyboardShortcuts {
             'Space': 'Space',
             'KeyK': 'K',
             'KeyD': 'D',
+            'KeyM': 'M',
             'Escape': 'ESC',
             'F1': 'F1'
         };

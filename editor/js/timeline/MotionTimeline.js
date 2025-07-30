@@ -1562,6 +1562,10 @@ export class MotionTimeline extends BaseTimeline {
             const animationDuration = object.animations[0]?.duration || 5;
             const totalFrames = Math.floor(animationDuration * this.options.framesPerSecond);
 
+            // 현재 playhead 위치 가져오기
+            const currentTime = this.currentTime || 0;
+            const currentPercent = (currentTime / this.options.totalSeconds) * 100;
+
             sprite = document.createElement("div");
             sprite.className = "animation-sprite selected";
             sprite.dataset.duration = animationDuration;
@@ -1576,16 +1580,28 @@ export class MotionTimeline extends BaseTimeline {
 
             const spriteWidth = (totalFrames / (this.options.totalSeconds * this.options.framesPerSecond)) * 100;
             sprite.style.width = `${spriteWidth}%`;
-            sprite.style.left = "0%";
-            sprite.dataset.initialLeft = "0";
+
+            // 클립이 타임라인 끝을 벗어나지 않도록 위치 조정
+            const maxLeft = 100 - spriteWidth;
+            const adjustedLeft = Math.max(0, Math.min(maxLeft, currentPercent));
+            sprite.style.left = `${adjustedLeft}%`;
+            sprite.dataset.initialLeft = adjustedLeft.toString();
         } else {
             // FBX 애니메이션이 없는 경우 기본 스프라이트 생성
+            // 현재 playhead 위치 가져오기
+            const currentTime = this.currentTime || 0;
+            const currentPercent = (currentTime / this.options.totalSeconds) * 100;
+
             sprite = document.createElement("div");
             sprite.className = "animation-sprite selected";
             sprite.dataset.duration = "5"; // 기본 5초
             sprite.style.width = "20%"; // 기본 20% 너비
-            sprite.style.left = "0%";
-            sprite.dataset.initialLeft = "0";
+
+            // 클립이 타임라인 끝을 벗어나지 않도록 위치 조정
+            const maxLeft = 100 - 20; // 20% 너비
+            const adjustedLeft = Math.max(0, Math.min(maxLeft, currentPercent));
+            sprite.style.left = `${adjustedLeft}%`;
+            sprite.dataset.initialLeft = adjustedLeft.toString();
             sprite.innerHTML = `
                 <div class="sprite-handle left"></div>
                 <div class="sprite-content">
@@ -1637,14 +1653,17 @@ export class MotionTimeline extends BaseTimeline {
                 this.updateTrackUI(track.element, this.currentTime);
             }, 50);
         } else if (trackData && !skipInitialKeyframe) {
-            // 초기 키프레임 추가 (시간 0에서 position만) - skipInitialKeyframe이 false일 때만
+            // 초기 키프레임 추가 (현재 playhead 위치에서 position만) - skipInitialKeyframe이 false일 때만
             const position = new THREE.Vector3(
                 object.position.x,
                 object.position.y,
                 object.position.z
             );
-            console.log("초기 키프레임을 추가합니다:", { objectUuid, position });
-            this.addKeyframe(objectUuid, 'position', 0, position);
+
+            // 현재 playhead 위치에서 키프레임 추가
+            const currentTime = this.currentTime || 0;
+            console.log("초기 키프레임을 추가합니다:", { objectUuid, position, currentTime });
+            this.addKeyframe(objectUuid, 'position', currentTime, position);
 
             // 초기 키프레임 추가 후 UI 업데이트 강제 실행
             setTimeout(() => {
