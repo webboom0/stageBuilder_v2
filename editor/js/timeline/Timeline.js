@@ -198,10 +198,14 @@ class Timeline {
         const objectUuid = track.dataset.uuid;
         console.log("트랙 삭제", { objectId, objectUuid });
 
-        // MotionTimeline의 완전한 트랙 삭제 메서드 호출
+        // 타임라인 타입에 따라 적절한 삭제 메서드 호출
         if (this.timelines.motion && objectUuid) {
           const removedCount = this.timelines.motion.removeTrackCompletely(objectUuid);
-          console.log(`완전 삭제 완료: ${removedCount}개 트랙 제거됨`);
+          console.log(`Motion 완전 삭제 완료: ${removedCount}개 트랙 제거됨`);
+        } else if (this.timelines.audio && objectId) {
+          // AudioTimeline 트랙 삭제
+          const removed = this.timelines.audio.removeTrack(objectId);
+          console.log(`Audio 트랙 삭제 완료: ${removed}`);
         } else {
           // 기존 방식으로 삭제 (하위 호환성)
           const wasDeleted = this.timelines.motion.timelineData.removeTrackById(objectId, 'position') ||
@@ -833,6 +837,23 @@ class Timeline {
 
         // 현재 프레임 업데이트 (애니메이션은 이미 위에서 처리됨)
         this.setCurrentFrame(frame, false); // 애니메이션 업데이트 건너뛰기
+
+        // playhead 드래그 시 오디오 정지
+        if (this.timelines.audio) {
+          const audioTracks = Array.from(this.timelines.audio.tracks.values());
+          audioTracks.forEach((track) => {
+            const objectId = typeof track.objectId === "string" ? parseInt(track.objectId) : track.objectId;
+            const audioObject = this.editor.scene.getObjectById(objectId);
+            if (audioObject && audioObject.userData && audioObject.userData.audioElement) {
+              const audio = audioObject.userData.audioElement;
+              if (!audio.paused) {
+                audio.pause();
+                audio._playRequested = false;
+              }
+            }
+          });
+        }
+
         // 플레이헤드 위치 업데이트
         this.updatePlayheadPosition(percent * 100);
       });
@@ -866,6 +887,22 @@ class Timeline {
 
         // 현재 프레임 업데이트 (애니메이션은 이미 위에서 처리됨)
         this.setCurrentFrame(frame, false);
+
+        // 눈금 클릭 시 오디오 정지
+        if (this.timelines.audio) {
+          const audioTracks = Array.from(this.timelines.audio.tracks.values());
+          audioTracks.forEach((track) => {
+            const objectId = typeof track.objectId === "string" ? parseInt(track.objectId) : track.objectId;
+            const audioObject = this.editor.scene.getObjectById(objectId);
+            if (audioObject && audioObject.userData && audioObject.userData.audioElement) {
+              const audio = audioObject.userData.audioElement;
+              if (!audio.paused) {
+                audio.pause();
+                audio._playRequested = false;
+              }
+            }
+          });
+        }
 
         // 플레이헤드 위치 업데이트
         this.updatePlayheadPosition(percent * 100);
@@ -1063,7 +1100,7 @@ class Timeline {
     // 재생 속도 조절 (1로 설정하여 정상 속도로 재생)
     const playbackSpeed = 1; // 정상 속도로 재생
 
-    // 오디오 재생 처리
+    // 오디오 재생 처리 (클립 시작/끝 시간 반영)
     if (this.timelines.audio) {
       const audioTracks = Array.from(this.timelines.audio.tracks.values());
       audioTracks.forEach((track) => {
@@ -1079,21 +1116,88 @@ class Timeline {
           audioObject.userData.audioElement
         ) {
           const audio = audioObject.userData.audioElement;
-          audio.currentTime =
-            currentFrame / this.timelineSettings.framesPerSecond;
-          audio.volume = audioObject.userData.volume || 1.0;
-          audio.playbackRate = audioObject.userData.playbackRate || 1.0;
-          audio.muted = audioObject.userData.mute || false;
+          const sprite = track.element.querySelector(".audio-sprite");
 
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                console.log("오디오 재생 시작됨");
-              })
-              .catch((error) => {
-                console.error("오디오 재생 실패:", error);
-              });
+          if (sprite) {
+            // 클립의 시작 시간과 지속 시간 가져오기
+            const clipStartTime = parseFloat(sprite.dataset.startTime) || 0;
+            const clipDuration = parseFloat(sprite.dataset.duration) || audio.duration;
+            const clipEndTime = clipStartTime + clipDuration;
+
+            // 현재 타임라인 시간 (초)
+            const currentTimeInSeconds = currentFrame / this.timelineSettings.framesPerSecond;
+
+            // 클립 범위 내에 있는지 확인
+            if (currentTimeInSeconds >= clipStartTime && currentTimeInSeconds <= clipEndTime) {
+              // 클립 내에서의 상대적 시간 계산
+              const relativeTime = currentTimeInSeconds - clipStartTime;
+
+              // 오디오 편집 시간 적용
+              const audioStartTime = audioObject.userData.audioStartTime || 0;
+              const audioEndTime = audioObject.userData.audioEndTime || audio.duration;
+              const effectiveAudioStartTime = Math.max(0, Math.min(audioStartTime, audio.duration));
+              const effectiveAudioEndTime = Math.max(effectiveAudioStartTime, Math.min(audioEndTime, audio.duration));
+
+              // 오디오 재생 위치 계산 (편집 시간 반영)
+              const audioPlayTime = effectiveAudioStartTime + (relativeTime % (effectiveAudioEndTime - effectiveAudioStartTime));
+
+              // 오디오 설정 (재생 위치는 큰 차이가 있을 때만 업데이트)
+              const timeDifference = Math.abs(audio.currentTime - audioPlayTime);
+              if (timeDifference > 0.1) { // 0.1초 이상 차이가 날 때만 업데이트
+                audio.currentTime = audioPlayTime;
+              }
+
+              audio.volume = audioObject.userData.volume || 1.0;
+              audio.playbackRate = audioObject.userData.playbackRate || 1.0;
+              audio.muted = audioObject.userData.mute || false;
+
+              // 재생 요청이 진행 중이 아니면 재생 시작
+              if (!audio._playRequested) {
+                audio._playRequested = true;
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                  playPromise
+                    .then(() => {
+                      console.log("오디오 재생 시작됨 (클립 범위 내)");
+                      audio._playRequested = false;
+                    })
+                    .catch((error) => {
+                      console.error("오디오 재생 실패:", error);
+                      audio._playRequested = false;
+                    });
+                }
+              }
+            } else {
+              // 클립 범위 밖이면 오디오 정지
+              if (!audio.paused) {
+                audio.pause();
+                audio._playRequested = false;
+                console.log("오디오 정지 (클립 범위 밖)");
+              }
+            }
+          } else {
+            // 스프라이트가 없으면 기존 방식으로 처리
+            audio.currentTime = currentTimeInSeconds;
+            audio.volume = audioObject.userData.volume || 1.0;
+            audio.playbackRate = audioObject.userData.playbackRate || 1.0;
+            audio.muted = audioObject.userData.mute || false;
+
+            // 재생 요청이 진행 중이 아니면 재생 시작
+            if (!audio._playRequested) {
+              audio._playRequested = true;
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                playPromise
+                  .then(() => {
+                    console.log("오디오 재생 시작됨");
+                    audio._playRequested = false;
+                  })
+                  .catch((error) => {
+                    console.error("오디오 재생 실패:", error);
+                    audio._playRequested = false;
+                  });
+              }
+            }
           }
         }
       });
@@ -1195,7 +1299,7 @@ class Timeline {
         ) {
           const audio = audioObject.userData.audioElement;
           audio.pause();
-          audio.currentTime = 0;
+          audio._playRequested = false; // 재생 요청 플래그 초기화
         }
       });
     }
@@ -1247,6 +1351,7 @@ class Timeline {
           const audio = audioObject.userData.audioElement;
           audio.pause();
           audio.currentTime = 0;
+          audio._playRequested = false; // 재생 요청 플래그 초기화
         }
       });
     }
@@ -1298,12 +1403,13 @@ class Timeline {
     // 시간 표시 업데이트
     this.updateTimeDisplay(frame);
 
-    // 각 타임라인 업데이트
+    // 각 타임라인 업데이트 (재생 중일 때만 오디오 업데이트)
     Object.values(this.timelines).forEach((timeline) => {
       console.log("타임라인 업데이트:", {
         timelineType: timeline.constructor.name,
         hasUpdateFrame: !!timeline.updateFrame,
-        currentTime: currentTime
+        currentTime: currentTime,
+        updateAnimation: updateAnimation
       });
 
       if (timeline.updateFrame) {
@@ -1312,7 +1418,15 @@ class Timeline {
           timeline.currentTime = currentTime;
           console.log("LightTimeline currentTime 설정:", currentTime);
         }
-        timeline.updateFrame(frame);
+
+        // 오디오 타임라인은 재생 중일 때만 업데이트
+        if (timeline.constructor.name === 'AudioTimeline') {
+          if (updateAnimation && this.isPlaying) {
+            timeline.updateFrame(frame);
+          }
+        } else {
+          timeline.updateFrame(frame);
+        }
       }
     });
 

@@ -1,11 +1,198 @@
 import { BaseTimeline } from "./BaseTimeline.js";
 import { UIPanel, UIRow, UINumber, UIText, UIElement } from "../libs/ui.js";
 import * as THREE from "three";
+
 // editor/timeline/AudioTimeline.js
-const AUDIO_FILE = {
-  path: "../files/music/SUJESHUN.mp3",
-  name: "SUJESHUN",
-};
+// 사용 가능한 음악 파일 목록
+const AUDIO_FILES = [
+  {
+    path: "../files/music/SUJESHUN.mp3",
+    name: "SUJESHUN",
+    displayName: "수제순"
+  },
+  {
+    path: "../files/music/DRAMA.mp3",
+    name: "DRAMA",
+    displayName: "드라마"
+  }
+];
+
+// 음악 asset 선택을 위한 UI 클래스
+class UIAudioAssetSelector extends UIElement {
+  constructor(audioFiles, onSelect) {
+    const dom = document.createElement("div");
+    super(dom);
+
+    this.dom.className = "audio-asset-selector";
+    this.audioFiles = audioFiles;
+    this.onSelect = onSelect;
+
+    this.createUI();
+  }
+
+  createUI() {
+    // 헤더
+    const header = document.createElement("div");
+    header.className = "asset-selector-header";
+    header.innerHTML = `
+      <h3>음악 선택</h3>
+      <button class="close-btn">&times;</button>
+    `;
+    this.dom.appendChild(header);
+
+    // 음악 목록 컨테이너
+    const listContainer = document.createElement("div");
+    listContainer.className = "audio-list-container";
+    this.dom.appendChild(listContainer);
+
+    // 음악 목록 생성
+    this.audioFiles.forEach((audioFile) => {
+      const audioItem = document.createElement("div");
+      audioItem.className = "audio-item";
+      audioItem.innerHTML = `
+        <div class="audio-info">
+          <span class="audio-name">${audioFile.displayName}</span>
+          <span class="audio-filename">${audioFile.name}.mp3</span>
+        </div>
+        <button class="add-audio-btn">추가</button>
+      `;
+
+      // 추가 버튼 클릭 이벤트
+      const addBtn = audioItem.querySelector(".add-audio-btn");
+      addBtn.addEventListener("click", () => {
+        this.onSelect(audioFile);
+        this.hide();
+      });
+
+      listContainer.appendChild(audioItem);
+    });
+
+    // 닫기 버튼 이벤트
+    const closeBtn = header.querySelector(".close-btn");
+    closeBtn.addEventListener("click", () => {
+      this.hide();
+    });
+
+    // 스타일 추가
+    this.addStyles();
+  }
+
+  addStyles() {
+    const style = document.createElement("style");
+    style.textContent = `
+      .audio-asset-selector {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 20px;
+        min-width: 300px;
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 10000;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      }
+
+      .asset-selector-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #444;
+      }
+
+      .asset-selector-header h3 {
+        margin: 0;
+        color: #fff;
+        font-size: 16px;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .close-btn:hover {
+        background: #444;
+        border-radius: 4px;
+      }
+
+      .audio-list-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .audio-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        background: #333;
+        border-radius: 6px;
+        border: 1px solid #555;
+      }
+
+      .audio-item:hover {
+        background: #3a3a3a;
+        border-color: #666;
+      }
+
+      .audio-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .audio-name {
+        color: #fff;
+        font-weight: bold;
+        font-size: 14px;
+      }
+
+      .audio-filename {
+        color: #aaa;
+        font-size: 12px;
+      }
+
+      .add-audio-btn {
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .add-audio-btn:hover {
+        background: #45a049;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  show() {
+    this.dom.style.display = "block";
+  }
+
+  hide() {
+    this.dom.style.display = "none";
+  }
+}
 
 // 볼륨 컨트롤을 위한 커스텀 UIElement 클래스
 class UIVolumeControl extends UIElement {
@@ -56,13 +243,140 @@ export class AudioTimeline extends BaseTimeline {
     super(editor, options);
     this.selectedObject = null;
     this.selectedProperty = null;
+    this.assetSelector = null;
     this.propertyPanel = this.createPropertyPanel();
     this.container.appendChild(this.propertyPanel.dom);
 
+    // asset 선택기 초기화
+    this.initAssetSelector();
+
     // Timeline.js에서 이미 한 번 초기화되므로, 여기서는 한 번만 실행
     if (!this.tracks.size) {
-      this.initAudioTracks();
+      // 기본 오디오 트랙은 더 이상 자동으로 생성하지 않음
+      // 사용자가 asset 선택기를 통해 직접 추가하도록 변경
     }
+  }
+
+  // asset 선택기 초기화
+  initAssetSelector() {
+    this.assetSelector = new UIAudioAssetSelector(AUDIO_FILES, (selectedAudio) => {
+      this.addAudioFromAsset(selectedAudio);
+    });
+
+    // DOM에 추가하되 숨김 상태로
+    this.assetSelector.dom.style.display = "none";
+    document.body.appendChild(this.assetSelector.dom);
+  }
+
+  // asset에서 오디오 추가
+  addAudioFromAsset(audioFile) {
+    console.log("선택된 오디오 asset:", audioFile);
+
+    // 이미 같은 오디오가 있는지 확인
+    const existingTrack = Array.from(this.tracks.values()).find(
+      track => track.name === audioFile.name
+    );
+
+    if (existingTrack) {
+      console.warn("이미 같은 오디오가 추가되어 있습니다:", audioFile.name);
+      return;
+    }
+
+    // 오디오 로드 및 트랙 생성
+    this.loadAudioFile(audioFile);
+  }
+
+  // 오디오 파일 로드
+  loadAudioFile(audioFile) {
+    console.log("오디오 파일 로드 시작:", audioFile.path);
+
+    fetch(audioFile.path)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.blob();
+      })
+      .then((blob) => {
+        // Blob URL 생성
+        const audioUrl = URL.createObjectURL(blob);
+        const audioElement = new Audio();
+        audioElement.src = audioUrl;
+        audioElement.preload = "auto";
+
+        audioElement.addEventListener("loadedmetadata", () => {
+          console.log("오디오 메타데이터 로드됨:", audioElement.duration);
+
+          // 오디오 트랙 생성
+          const MIN_DURATION = 5;
+          const MAX_DURATION = 180; // 3분
+          const effectiveDuration = Math.min(
+            MAX_DURATION,
+            Math.max(MIN_DURATION, audioElement.duration)
+          );
+
+          const audioObject = new THREE.Object3D();
+          audioObject.name = audioFile.name;
+
+          // userData에 오디오 엘리먼트 저장
+          audioObject.userData = {
+            audioElement: audioElement,
+            volume: 1.0,
+            mute: false,
+            playbackRate: 1.0,
+            type: "audio",
+            audioUrl: audioUrl,
+            audioFile: audioFile, // 원본 파일 정보 저장
+            audioStartTime: 0, // 오디오 시작 시간 (편집용) - 처음에는 0
+            audioEndTime: audioElement.duration, // 오디오 끝 시간 (편집용) - 처음에는 전체 길이
+            startTime: 0, // 클립 시작 시간 (타임라인상 위치)
+            duration: effectiveDuration, // 클립 지속 시간 (타임라인상 길이)
+          };
+
+          // Scene에 오디오 객체 추가
+          this.editor.scene.add(audioObject);
+          console.log("오디오 객체 생성됨:", audioObject);
+
+          // addTrack 호출 시 필요한 모든 정보를 전달
+          const trackData = {
+            name: audioFile.displayName || audioFile.name,
+            type: "audio",
+            duration: effectiveDuration,
+            element: this.createTrackElement(effectiveDuration, audioFile.displayName || audioFile.name, audioFile.path),
+            audioElement: audioElement,
+          };
+
+          // 트랙 생성
+          const track = this.addTrack(audioObject.id, trackData);
+          console.log("오디오 트랙 생성됨:", track);
+
+          // 오디오 로드 완료 테스트
+          audioElement.addEventListener("canplaythrough", () => {
+            console.log("오디오 재생 준비 완료:", audioFile.name);
+          });
+
+          // Scene의 userData에도 오디오 정보 저장
+          if (!this.editor.scene.userData.audio) {
+            this.editor.scene.userData.audio = {};
+          }
+          this.editor.scene.userData.audio[audioObject.id] = {
+            volume: 1.0,
+            mute: false,
+            playbackRate: 1.0,
+            audioFile: audioFile,
+          };
+
+          // input 필드 초기화
+          this.updateInputFields(0, audioElement.duration);
+        });
+
+        audioElement.addEventListener("error", (e) => {
+          console.error("오디오 로드 에러:", e);
+        });
+      })
+      .catch((error) => {
+        console.error("오디오 파일 로드 실패:", error);
+      });
   }
 
   // 타임라인 설정 업데이트
@@ -208,8 +522,15 @@ export class AudioTimeline extends BaseTimeline {
       }
     }
 
+    // 기본 오디오 파일 (첫 번째 파일)을 로드
+    const defaultAudioFile = AUDIO_FILES[0];
+    if (!defaultAudioFile) {
+      console.warn("사용 가능한 오디오 파일이 없습니다");
+      return;
+    }
+
     // Fetch를 사용하여 전체 오디오 파일을 한 번에 로드
-    fetch(AUDIO_FILE.path)
+    fetch(defaultAudioFile.path)
       .then((response) => response.blob())
       .then((blob) => {
         // Blob URL 생성
@@ -222,7 +543,7 @@ export class AudioTimeline extends BaseTimeline {
           console.log("오디오 메타데이터 로드됨:", audioElement.duration);
 
           const audioObject = new THREE.Object3D();
-          audioObject.name = AUDIO_FILE.name;
+          audioObject.name = defaultAudioFile.name;
 
           // userData에 오디오 엘리먼트 저장
           audioObject.userData = {
@@ -232,6 +553,7 @@ export class AudioTimeline extends BaseTimeline {
             playbackRate: 1.0,
             type: "audio",
             audioUrl: audioUrl, // Blob URL 저장
+            audioFile: defaultAudioFile, // 원본 파일 정보 저장
           };
 
           // Scene에 오디오 객체 추가
@@ -248,10 +570,10 @@ export class AudioTimeline extends BaseTimeline {
 
           // addTrack 호출 시 필요한 모든 정보를 전달
           const trackData = {
-            name: AUDIO_FILE.name,
+            name: defaultAudioFile.displayName || defaultAudioFile.name,
             type: "audio",
             duration: effectiveDuration,
-            element: this.createTrackElement(effectiveDuration),
+            element: this.createTrackElement(effectiveDuration, defaultAudioFile.displayName || defaultAudioFile.name, defaultAudioFile.path),
             audioElement: audioElement,
           };
 
@@ -272,6 +594,7 @@ export class AudioTimeline extends BaseTimeline {
             volume: 1.0,
             mute: false,
             playbackRate: 1.0,
+            audioFile: defaultAudioFile,
           };
         });
 
@@ -285,7 +608,7 @@ export class AudioTimeline extends BaseTimeline {
   }
 
   // 트랙 엘리먼트 생성을 위한 별도 메서드
-  createTrackElement(duration) {
+  createTrackElement(duration, trackName = "Audio", audioPath = null) {
     const trackTopArea = document.createElement("div");
     trackTopArea.className = "audio-tracks";
 
@@ -293,7 +616,7 @@ export class AudioTimeline extends BaseTimeline {
     trackHeader.className = "track-header";
     trackHeader.innerHTML = `
       <div class="track-info">
-        <span class="track-name">${AUDIO_FILE.name}</span>
+        <span class="track-name">${trackName}</span>
       </div>
     `;
     trackTopArea.appendChild(trackHeader);
@@ -309,6 +632,9 @@ export class AudioTimeline extends BaseTimeline {
     sprite.style.width = `${spriteWidth}%`;
     sprite.style.left = "0%";
     sprite.dataset.duration = duration;
+    sprite.dataset.startTime = "0"; // 클립 시작 시간 (타임라인상 위치)
+    sprite.dataset.audioStartTime = "0"; // 오디오 편집 시작 시간
+    sprite.dataset.audioEndTime = duration.toString(); // 오디오 편집 끝 시간
     sprite.dataset.minWidth = (5 / this.options.totalSeconds) * 100;
     sprite.dataset.maxWidth = (180 / this.options.totalSeconds) * 100;
 
@@ -322,30 +648,35 @@ export class AudioTimeline extends BaseTimeline {
     spriteContent.appendChild(waveformCanvas);
 
     sprite.innerHTML = `
-      <div class="sprite-handle left"></div>
-      <div class="sprite-name">${AUDIO_FILE.name}</div>
-      <div class="sprite-handle right"></div>
+      <div class="sprite-name">${trackName}</div>
     `;
-    sprite.insertBefore(spriteContent, sprite.children[1]);
+    sprite.insertBefore(spriteContent, sprite.children[0]);
 
     trackContent.appendChild(sprite);
     trackTopArea.appendChild(trackContent);
 
-    // 파형 그리기
-    this.drawWaveform(sprite.querySelector("canvas"));
+    // 파형 그리기 (audioPath가 제공된 경우에만)
+    if (audioPath) {
+      this.drawWaveform(sprite.querySelector("canvas"), audioPath);
+    }
 
-    // 스프라이트 이벤트 바인딩
-    this.bindSpriteEvents(sprite);
+    // 스프라이트 이벤트 바인딩 (track 객체를 찾아서 전달)
+    const trackId = trackTopArea.querySelector('.track-header')?.dataset?.objectId;
+    const track = trackId ? this.tracks.get(trackId) : null;
+    this.bindSpriteEvents(sprite, track);
 
     return trackTopArea;
   }
 
   // 파형 그리기 메서드 추가
-  async drawWaveform(canvas) {
+  async drawWaveform(canvas, audioPath = null) {
     try {
       const audioContext = new (window.AudioContext ||
         window.webkitAudioContext)();
-      const response = await fetch(AUDIO_FILE.path);
+
+      // audioPath가 제공되지 않으면 기본 경로 사용
+      const path = audioPath || AUDIO_FILES[0].path;
+      const response = await fetch(path);
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
@@ -409,9 +740,21 @@ export class AudioTimeline extends BaseTimeline {
   }
 
   updateFrame(frame) {
+    // 재생 중이 아니면 오디오 재생 관련 업데이트를 하지 않음
+    const isPlaying = this.editor.scene?.userData?.timeline?.isPlaying;
+    if (!isPlaying) {
+      console.log("AudioTimeline updateFrame: 재생 중이 아니므로 오디오 재생 업데이트 건너뜀");
+      return;
+    }
+
     this.tracks.forEach((track) => {
       const object = this.editor.scene.getObjectById(parseInt(track.objectId));
-      if (!object) return;
+      if (!object) {
+        // 오디오 객체가 없으면 트랙도 삭제
+        console.warn("오디오 객체가 없어서 트랙 삭제:", track.objectId);
+        this.removeTrack(track.objectId);
+        return;
+      }
 
       let hasChanges = false;
 
@@ -453,17 +796,89 @@ export class AudioTimeline extends BaseTimeline {
         }
       });
 
-      // 오디오 요소 업데이트
-      if (hasChanges && object.userData.audioElement) {
+      // 오디오 요소 업데이트 (클립 시작/끝 시간 반영)
+      if (object.userData.audioElement) {
         const audioElement = object.userData.audioElement;
-        audioElement.volume = object.userData.volume || 1.0;
-        audioElement.muted = object.userData.mute || false;
-        audioElement.playbackRate = object.userData.playbackRate || 1.0;
 
-        // 현재 프레임이 오디오 시작 시간과 일치하면 재생
-        if (frame === 0 && !audioElement.playing) {
-          audioElement.currentTime = 0;
-          audioElement.play().catch(console.error);
+        // 오디오 요소가 유효한지 확인
+        if (!audioElement || audioElement.readyState === 0) {
+          console.warn("오디오 요소가 유효하지 않아서 트랙 삭제:", track.objectId);
+          this.removeTrack(track.objectId);
+          return;
+        }
+
+        const sprite = track.element.querySelector(".audio-sprite");
+
+        if (sprite) {
+          // 클립의 시작 시간과 지속 시간 가져오기
+          const clipStartTime = parseFloat(sprite.dataset.startTime) || 0;
+          const clipDuration = parseFloat(sprite.dataset.duration) || audioElement.duration;
+          const clipEndTime = clipStartTime + clipDuration;
+
+          // 현재 타임라인 시간 (초)
+          const currentTimeInSeconds = frame / this.options.framesPerSecond;
+
+          // 클립 범위 내에 있는지 확인
+          if (currentTimeInSeconds >= clipStartTime && currentTimeInSeconds <= clipEndTime) {
+            // 클립 내에서의 상대적 시간 계산
+            const relativeTime = currentTimeInSeconds - clipStartTime;
+
+            // 오디오 편집 시간 적용
+            const audioStartTime = object.userData.audioStartTime || 0;
+            const audioEndTime = object.userData.audioEndTime || audioElement.duration;
+            const effectiveAudioStartTime = Math.max(0, Math.min(audioStartTime, audioElement.duration));
+            const effectiveAudioEndTime = Math.max(effectiveAudioStartTime, Math.min(audioEndTime, audioElement.duration));
+
+            // 오디오 요소 업데이트
+            audioElement.volume = object.userData.volume || 1.0;
+            audioElement.muted = object.userData.mute || false;
+            audioElement.playbackRate = object.userData.playbackRate || 1.0;
+
+            // 오디오 재생 위치 계산 (편집 시간 반영)
+            const audioPlayTime = effectiveAudioStartTime + (relativeTime % (effectiveAudioEndTime - effectiveAudioStartTime));
+
+            // 오디오 재생 위치는 큰 차이가 있을 때만 업데이트 (버벅임 방지)
+            const timeDifference = Math.abs(audioElement.currentTime - audioPlayTime);
+            if (timeDifference > 0.1) { // 0.1초 이상 차이가 날 때만 업데이트
+              audioElement.currentTime = audioPlayTime;
+            }
+
+            // 오디오가 재생 중이 아니면 재생 시작 (한 번만)
+            if (audioElement.paused && !audioElement._playRequested) {
+              audioElement._playRequested = true;
+              audioElement.play().then(() => {
+                audioElement._playRequested = false;
+              }).catch((error) => {
+                console.error("AudioTimeline에서 오디오 재생 실패:", error);
+                audioElement._playRequested = false;
+              });
+            }
+
+            hasChanges = true;
+          } else {
+            // 클립 범위 밖이면 오디오 정지
+            if (!audioElement.paused) {
+              audioElement.pause();
+              audioElement._playRequested = false;
+            }
+          }
+        } else {
+          // 스프라이트가 없으면 기존 방식으로 처리
+          audioElement.volume = object.userData.volume || 1.0;
+          audioElement.muted = object.userData.mute || false;
+          audioElement.playbackRate = object.userData.playbackRate || 1.0;
+
+          // 현재 프레임이 오디오 시작 시간과 일치하면 재생
+          if (frame === 0 && audioElement.paused && !audioElement._playRequested) {
+            audioElement._playRequested = true;
+            audioElement.currentTime = 0;
+            audioElement.play().then(() => {
+              audioElement._playRequested = false;
+            }).catch((error) => {
+              console.error("오디오 재생 실패:", error);
+              audioElement._playRequested = false;
+            });
+          }
         }
       }
 
@@ -527,6 +942,23 @@ export class AudioTimeline extends BaseTimeline {
     const panel = new UIPanel();
     panel.setClass("property-edit-panel");
 
+    // 음악 추가 버튼
+    const addMusicRow = new UIRow();
+    addMusicRow.add(new UIText("음악 추가"));
+
+    const addMusicButton = document.createElement("button");
+    addMusicButton.textContent = "음악 선택";
+    addMusicButton.className = "add-music-btn";
+    addMusicButton.addEventListener("click", () => {
+      console.log("음악 추가 버튼 클릭됨");
+      if (this.assetSelector) {
+        this.assetSelector.show();
+      }
+    });
+
+    addMusicRow.add(new UIElement(addMusicButton));
+    panel.add(addMusicRow);
+
     // 전체 볼륨 조절 UI
     const volumeRow = new UIRow();
     volumeRow.add(new UIText("전체 볼륨"));
@@ -564,6 +996,95 @@ export class AudioTimeline extends BaseTimeline {
     volumeRow.add(volumeControl);
     panel.add(volumeRow);
 
+    // 오디오 편집 UI 추가
+    const audioEditRow = new UIRow();
+    audioEditRow.add(new UIText("오디오 편집"));
+    panel.add(audioEditRow);
+
+    // 오디오 시작 시간 조절
+    const startTimeRow = new UIRow();
+    startTimeRow.add(new UIText("시작 시간"));
+
+    const startTimeInput = document.createElement("input");
+    startTimeInput.type = "text";
+    startTimeInput.className = "time-input";
+    startTimeInput.placeholder = "00:00.00";
+
+    startTimeInput.addEventListener("change", (e) => {
+      const timeString = e.target.value;
+      const startTime = this.parseFrameToSeconds(timeString);
+      this.updateAudioStartTime(startTime);
+    });
+
+    // input 필드를 클래스 변수로 저장
+    this.startTimeInput = startTimeInput;
+
+    startTimeRow.add(new UIElement(startTimeInput));
+    panel.add(startTimeRow);
+
+    // 오디오 끝 시간 조절
+    const endTimeRow = new UIRow();
+    endTimeRow.add(new UIText("끝 시간"));
+
+    const endTimeInput = document.createElement("input");
+    endTimeInput.type = "text";
+    endTimeInput.className = "time-input";
+    endTimeInput.placeholder = "00:00.00";
+
+    endTimeInput.addEventListener("change", (e) => {
+      const timeString = e.target.value;
+      const endTime = this.parseFrameToSeconds(timeString);
+      this.updateAudioEndTime(endTime);
+    });
+
+    // input 필드를 클래스 변수로 저장
+    this.endTimeInput = endTimeInput;
+
+    endTimeRow.add(new UIElement(endTimeInput));
+    panel.add(endTimeRow);
+
+    // 클립 위치 조절 UI 추가
+    const clipPositionRow = new UIRow();
+    clipPositionRow.add(new UIText("클립 위치"));
+    panel.add(clipPositionRow);
+
+    // 클립 시작 위치 조절
+    const clipStartRow = new UIRow();
+    clipStartRow.add(new UIText("시작 위치"));
+
+    const clipStartInput = document.createElement("input");
+    clipStartInput.type = "text";
+    clipStartInput.className = "time-input";
+    clipStartInput.placeholder = "00:00.00";
+
+    clipStartInput.addEventListener("change", (e) => {
+      const timeString = e.target.value;
+      const startTime = this.parseFrameToSeconds(timeString);
+      this.updateClipStartTime(startTime);
+    });
+
+    // input 필드를 클래스 변수로 저장
+    this.clipStartInput = clipStartInput;
+
+    clipStartRow.add(new UIElement(clipStartInput));
+    panel.add(clipStartRow);
+
+    // 클립 길이 조절 (자동 계산)
+    const clipDurationRow = new UIRow();
+    clipDurationRow.add(new UIText("클립 길이 (자동)"));
+
+    const clipDurationInput = document.createElement("input");
+    clipDurationInput.type = "text";
+    clipDurationInput.className = "time-input";
+    clipDurationInput.placeholder = "00:00.00";
+    clipDurationInput.readOnly = true; // 읽기 전용으로 설정
+
+    // input 필드를 클래스 변수로 저장
+    this.clipDurationInput = clipDurationInput;
+
+    clipDurationRow.add(new UIElement(clipDurationInput));
+    panel.add(clipDurationRow);
+
     // 볼륨 컨트롤 스타일 추가
     const style = document.createElement("style");
     style.textContent = `
@@ -597,10 +1118,481 @@ export class AudioTimeline extends BaseTimeline {
         text-align: right;
         color: #fff;
       }
+
+      .add-music-btn {
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 10px;
+      }
+
+      .add-music-btn:hover {
+        background: #45a049;
+      }
+
+      .time-input {
+        background: #333;
+        border: 1px solid #555;
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        width: 120px;
+        font-size: 12px;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+      }
+
+      .time-input:focus {
+        border-color: #4CAF50;
+        outline: none;
+      }
+
+      .time-input[readonly] {
+        background-color: #2a2a2a !important;
+        color: #888 !important;
+        cursor: not-allowed;
+        border-color: #555;
+      }
+
+      .time-input[readonly]:focus {
+        border-color: #555;
+      }
+
+      .audio-edit-section {
+        border-top: 1px solid #444;
+        padding-top: 10px;
+        margin-top: 10px;
+      }
+
+      .audio-sprite.selected {
+        border: 2px solid #ffd700;
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+      }
+
+      .audio-sprite {
+        cursor: grab;
+        transition: all 0.2s ease;
+      }
+
+      .audio-sprite:hover {
+        background: rgba(76, 175, 80, 0.4);
+      }
     `;
     document.head.appendChild(style);
 
     return panel;
+  }
+
+  // 오디오 시작 시간 업데이트
+  updateAudioStartTime(startTime) {
+    console.log("오디오 시작 시간 업데이트:", startTime);
+
+    // 선택된 클립 찾기
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    if (!selectedSprite) {
+      console.warn("선택된 클립이 없습니다");
+      return;
+    }
+
+    // 선택된 클립의 트랙 찾기
+    let targetTrack = null;
+    for (const [trackId, track] of this.tracks.entries()) {
+      if (track.element && track.element.contains(selectedSprite)) {
+        targetTrack = track;
+        break;
+      }
+    }
+
+    if (!targetTrack) {
+      console.error("선택된 클립의 트랙을 찾을 수 없습니다");
+      return;
+    }
+
+    const audioObject = this.editor.scene.getObjectById(parseInt(targetTrack.objectId));
+    if (!audioObject || !audioObject.userData.audioElement) {
+      console.error("오디오 객체를 찾을 수 없습니다");
+      return;
+    }
+
+    const audio = audioObject.userData.audioElement;
+
+    // 시작 시간 제한: 0 ~ (오디오 길이 - 최소 클립 길이)
+    const MIN_CLIP_DURATION = 5; // 최소 5초
+    const maxStartTime = Math.max(0, audio.duration - MIN_CLIP_DURATION);
+    const clampedStartTime = Math.max(0, Math.min(maxStartTime, startTime));
+
+    // 오디오 객체에 시작 시간 저장
+    audioObject.userData.audioStartTime = clampedStartTime;
+
+    // 스프라이트 데이터 업데이트
+    selectedSprite.dataset.audioStartTime = clampedStartTime.toString();
+
+    // 클립 길이 자동 조정 (오디오 편집 시간에 맞춰)
+    const currentAudioEndTime = audioObject.userData.audioEndTime || audio.duration;
+    const newClipDuration = currentAudioEndTime - clampedStartTime;
+
+    if (newClipDuration >= MIN_CLIP_DURATION) {
+      // 클립 길이 업데이트
+      const newWidth = (newClipDuration / this.options.totalSeconds) * 100;
+      selectedSprite.style.width = `${newWidth}%`;
+      selectedSprite.dataset.duration = newClipDuration.toString();
+      audioObject.userData.duration = newClipDuration;
+
+      // 클립 input 필드도 업데이트
+      const clipStartTime = parseFloat(selectedSprite.dataset.startTime) || 0;
+      this.updateClipInputFields(clipStartTime, newClipDuration);
+    }
+
+    console.log("오디오 시작 시간 설정됨:", {
+      objectId: audioObject.id,
+      startTime: clampedStartTime,
+      newClipDuration: newClipDuration,
+      audioDuration: audio.duration
+    });
+
+    // input 필드 업데이트
+    const audioEndTime = audioObject.userData.audioEndTime || audio.duration;
+    this.updateInputFields(clampedStartTime, audioEndTime);
+  }
+
+  // 오디오 끝 시간 업데이트
+  updateAudioEndTime(endTime) {
+    console.log("오디오 끝 시간 업데이트:", endTime);
+
+    // 선택된 클립 찾기
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    if (!selectedSprite) {
+      console.warn("선택된 클립이 없습니다");
+      return;
+    }
+
+    // 선택된 클립의 트랙 찾기
+    let targetTrack = null;
+    for (const [trackId, track] of this.tracks.entries()) {
+      if (track.element && track.element.contains(selectedSprite)) {
+        targetTrack = track;
+        break;
+      }
+    }
+
+    if (!targetTrack) {
+      console.error("선택된 클립의 트랙을 찾을 수 없습니다");
+      return;
+    }
+
+    const audioObject = this.editor.scene.getObjectById(parseInt(targetTrack.objectId));
+    if (!audioObject || !audioObject.userData.audioElement) {
+      console.error("오디오 객체를 찾을 수 없습니다");
+      return;
+    }
+
+    const audio = audioObject.userData.audioElement;
+
+    // 끝 시간 제한: (시작 시간 + 최소 클립 길이) ~ 오디오 길이
+    const currentStartTime = audioObject.userData.audioStartTime || 0;
+    const MIN_CLIP_DURATION = 5; // 최소 5초
+    const minEndTime = currentStartTime + MIN_CLIP_DURATION;
+    const clampedEndTime = Math.max(minEndTime, Math.min(audio.duration, endTime));
+
+    // 오디오 객체에 끝 시간 저장
+    audioObject.userData.audioEndTime = clampedEndTime;
+
+    // 스프라이트 데이터 업데이트
+    selectedSprite.dataset.audioEndTime = clampedEndTime.toString();
+
+    // 클립 길이 자동 조정 (오디오 편집 시간에 맞춰)
+    const newClipDuration = clampedEndTime - currentStartTime;
+
+    if (newClipDuration >= MIN_CLIP_DURATION) {
+      // 클립 길이 업데이트
+      const newWidth = (newClipDuration / this.options.totalSeconds) * 100;
+      selectedSprite.style.width = `${newWidth}%`;
+      selectedSprite.dataset.duration = newClipDuration.toString();
+      audioObject.userData.duration = newClipDuration;
+
+      // 클립 input 필드도 업데이트
+      const clipStartTime = parseFloat(selectedSprite.dataset.startTime) || 0;
+      this.updateClipInputFields(clipStartTime, newClipDuration);
+    }
+
+    console.log("오디오 끝 시간 설정됨:", {
+      objectId: audioObject.id,
+      endTime: clampedEndTime,
+      newClipDuration: newClipDuration,
+      audioDuration: audio.duration
+    });
+
+    // input 필드 업데이트
+    this.updateInputFields(currentStartTime, clampedEndTime);
+  }
+
+  // 시간을 분:초.프레임 형식으로 변환하는 유틸리티 함수
+  formatTimeToFrame(seconds) {
+    console.log("formatTimeToFrame 입력:", seconds);
+
+    const fps = this.options.framesPerSecond || 30;
+    const totalFrames = Math.round(seconds * fps);
+
+    const minutes = Math.floor(totalFrames / (fps * 60));
+    const secs = Math.floor((totalFrames % (fps * 60)) / fps);
+    const frames = totalFrames % fps;
+
+    const result = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${frames.toString().padStart(2, '0')}`;
+
+    console.log("formatTimeToFrame 결과:", {
+      seconds,
+      fps,
+      totalFrames,
+      minutes,
+      secs,
+      frames,
+      result
+    });
+
+    return result;
+  }
+
+  // 분:초.프레임 형식을 초 단위로 변환하는 유틸리티 함수
+  parseFrameToSeconds(timeString) {
+    console.log("parseFrameToSeconds 입력:", timeString);
+
+    // 빈 문자열이나 null 체크
+    if (!timeString || timeString.trim() === '') {
+      console.warn("빈 시간 문자열");
+      return 0;
+    }
+
+    const parts = timeString.split(':');
+    console.log("분할된 부분:", parts);
+
+    if (parts.length !== 2) {
+      console.warn("잘못된 형식:", timeString, "예상: MM:SS.FF");
+      return 0;
+    }
+
+    const minutes = parseInt(parts[0]) || 0;
+    const secondsAndFrames = parts[1].split('.');
+    console.log("초와 프레임 부분:", secondsAndFrames);
+
+    const seconds = parseInt(secondsAndFrames[0]) || 0;
+    const frames = parseInt(secondsAndFrames[1]) || 0;
+
+    const fps = this.options.framesPerSecond || 30;
+    const result = minutes * 60 + seconds + frames / fps;
+
+    console.log("파싱 결과:", {
+      minutes,
+      seconds,
+      frames,
+      fps,
+      result
+    });
+
+    return result;
+  }
+
+  // input 필드 값 업데이트 메서드
+  updateInputFields(audioStartTime, audioEndTime) {
+    if (this.startTimeInput) {
+      this.startTimeInput.value = this.formatTimeToFrame(audioStartTime);
+    }
+    if (this.endTimeInput) {
+      this.endTimeInput.value = this.formatTimeToFrame(audioEndTime);
+    }
+  }
+
+  // 클립 input 필드 값 업데이트 메서드
+  updateClipInputFields(startTime, duration) {
+    if (this.clipStartInput) {
+      this.clipStartInput.value = this.formatTimeToFrame(startTime);
+    }
+    if (this.clipDurationInput) {
+      this.clipDurationInput.value = this.formatTimeToFrame(duration);
+    }
+  }
+
+  // 클립 시작 시간 업데이트
+  updateClipStartTime(startTime) {
+    console.log("클립 시작 시간 업데이트:", startTime);
+
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    if (!selectedSprite) {
+      console.warn("선택된 클립이 없습니다");
+      return;
+    }
+
+    // 모든 트랙에서 선택된 스프라이트를 찾기
+    let targetTrack = null;
+    for (const [trackId, track] of this.tracks.entries()) {
+      if (track.element && track.element.contains(selectedSprite)) {
+        targetTrack = track;
+        break;
+      }
+    }
+
+    if (!targetTrack) {
+      console.error("클립에 해당하는 트랙을 찾을 수 없습니다");
+      return;
+    }
+
+    const audioObject = this.editor.scene.getObjectById(parseInt(targetTrack.objectId));
+    if (!audioObject) {
+      console.error("오디오 객체를 찾을 수 없습니다");
+      return;
+    }
+
+    // 제한: 0초 이상, 타임라인 끝을 넘지 않도록
+    const maxStartTime = this.options.totalSeconds - parseFloat(selectedSprite.dataset.duration);
+    const clampedStartTime = Math.max(0, Math.min(maxStartTime, startTime));
+
+    // 스프라이트 위치 업데이트
+    const newLeft = (clampedStartTime / this.options.totalSeconds) * 100;
+    selectedSprite.style.left = `${newLeft}%`;
+    selectedSprite.dataset.startTime = clampedStartTime.toString();
+
+    // 오디오 객체 업데이트
+    audioObject.userData.startTime = clampedStartTime;
+
+    console.log("클립 시작 시간 설정됨:", {
+      startTime: clampedStartTime,
+      newLeft: `${newLeft}%`
+    });
+  }
+
+  // 클립 길이 업데이트
+  updateClipDuration(duration) {
+    console.log("클립 길이 업데이트:", duration);
+
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    if (!selectedSprite) {
+      console.warn("선택된 클립이 없습니다");
+      return;
+    }
+
+    // 모든 트랙에서 선택된 스프라이트를 찾기
+    let targetTrack = null;
+    for (const [trackId, track] of this.tracks.entries()) {
+      if (track.element && track.element.contains(selectedSprite)) {
+        targetTrack = track;
+        break;
+      }
+    }
+
+    if (!targetTrack) {
+      console.error("클립에 해당하는 트랙을 찾을 수 없습니다");
+      return;
+    }
+
+    const audioObject = this.editor.scene.getObjectById(parseInt(targetTrack.objectId));
+    if (!audioObject) {
+      console.error("오디오 객체를 찾을 수 없습니다");
+      return;
+    }
+
+    // 제한: 최소 5초, 최대 3분, 타임라인 끝을 넘지 않도록
+    const MIN_DURATION = 5;
+    const MAX_DURATION = 180;
+    const currentStartTime = parseFloat(selectedSprite.dataset.startTime) || 0;
+    const maxDuration = this.options.totalSeconds - currentStartTime;
+
+    const clampedDuration = Math.max(
+      MIN_DURATION,
+      Math.min(MAX_DURATION, maxDuration, duration)
+    );
+
+    // 스프라이트 너비 업데이트
+    const newWidth = (clampedDuration / this.options.totalSeconds) * 100;
+    selectedSprite.style.width = `${newWidth}%`;
+    selectedSprite.dataset.duration = clampedDuration.toString();
+
+    // 오디오 객체 업데이트
+    audioObject.userData.duration = clampedDuration;
+
+    console.log("클립 길이 설정됨:", {
+      duration: clampedDuration,
+      newWidth: `${newWidth}%`
+    });
+  }
+
+  // 트랙 삭제 메서드
+  removeTrack(objectId) {
+    console.log("AudioTimeline 트랙 삭제:", objectId);
+
+    const track = this.tracks.get(objectId);
+    if (!track) {
+      console.warn("삭제할 트랙을 찾을 수 없습니다:", objectId);
+      return false;
+    }
+
+    // 오디오 객체 찾기
+    const audioObject = this.editor.scene.getObjectById(parseInt(objectId));
+    if (audioObject && audioObject.userData.audioElement) {
+      const audioElement = audioObject.userData.audioElement;
+
+      // 오디오 정지
+      if (!audioElement.paused) {
+        audioElement.pause();
+        audioElement._playRequested = false;
+        console.log("오디오 정지됨:", audioElement.src);
+      }
+
+      // Blob URL 정리
+      if (audioObject.userData.audioUrl) {
+        URL.revokeObjectURL(audioObject.userData.audioUrl);
+        console.log("Blob URL 정리됨:", audioObject.userData.audioUrl);
+      }
+
+      // Scene에서 오디오 객체 제거
+      this.editor.scene.remove(audioObject);
+      console.log("Scene에서 오디오 객체 제거됨:", objectId);
+    }
+
+    // 트랙 UI 요소 제거
+    if (track.element && track.element.parentNode) {
+      track.element.parentNode.removeChild(track.element);
+      console.log("트랙 UI 요소 제거됨");
+    }
+
+    // 트랙 데이터에서 제거
+    this.tracks.delete(objectId);
+    console.log("트랙 데이터에서 제거됨");
+
+    // Scene의 userData에서도 제거
+    if (this.editor.scene.userData.audio && this.editor.scene.userData.audio[objectId]) {
+      delete this.editor.scene.userData.audio[objectId];
+      console.log("Scene userData에서 오디오 정보 제거됨");
+    }
+
+    // 선택된 클립이 삭제된 클립이면 선택 해제
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    if (selectedSprite && track.element && track.element.contains(selectedSprite)) {
+      selectedSprite.classList.remove('selected');
+      console.log("선택된 클립 선택 해제됨");
+    }
+
+    console.log("AudioTimeline 트랙 삭제 완료:", objectId);
+    return true;
+  }
+
+  // 모든 트랙 삭제 메서드
+  removeAllTracks() {
+    console.log("AudioTimeline 모든 트랙 삭제");
+
+    const trackIds = Array.from(this.tracks.keys());
+    let removedCount = 0;
+
+    trackIds.forEach(objectId => {
+      if (this.removeTrack(objectId)) {
+        removedCount++;
+      }
+    });
+
+    console.log(`AudioTimeline ${removedCount}개 트랙 삭제 완료`);
+    return removedCount;
   }
 
   updatePropertyValue(propertyType, value) {
@@ -874,21 +1866,61 @@ export class AudioTimeline extends BaseTimeline {
     });
   }
 
-  bindSpriteEvents(sprite, track) {
+  bindSpriteEvents(sprite, track = null) {
+    // track 객체가 전달되지 않았으면 sprite에서 찾기
+    if (!track) {
+      const trackElement = sprite.closest('.timeline-track');
+      const trackId = trackElement?.dataset?.objectId;
+      track = trackId ? this.tracks.get(trackId) : null;
+
+      // track을 찾지 못한 경우 모든 tracks에서 해당 sprite를 포함하는 track 찾기
+      if (!track) {
+        for (const [trackId, trackData] of this.tracks.entries()) {
+          if (trackData.element && trackData.element.contains(sprite)) {
+            track = trackData;
+            break;
+          }
+        }
+      }
+    }
+
+    console.log("bindSpriteEvents - track 찾기 결과:", { track, sprite });
     let isDragging = false;
     let dragStartX = 0;
     let startLeft = 0;
     let startWidth = 0;
-    let dragHandle = null;
     let isMovingSprite = false;
-    const MIN_WIDTH = 5; // 최소 5초
-    const MAX_WIDTH = 180; // 최대 3분
 
-    // 스프라이트 전체 드래그 이벤트
+    // 스프라이트 클릭 이벤트 (선택)
+    sprite.addEventListener("click", (e) => {
+      e.stopPropagation();
+
+      // 다른 스프라이트 선택 해제
+      document.querySelectorAll('.audio-sprite').forEach(s => s.classList.remove('selected'));
+
+      // 현재 스프라이트 선택
+      sprite.classList.add('selected');
+
+      // 선택된 스프라이트 정보를 input 필드에 표시
+      if (track) {
+        const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+        if (audioObject) {
+          const startTime = parseFloat(sprite.dataset.startTime) || 0;
+          const duration = parseFloat(sprite.dataset.duration) || 0;
+          const audioStartTime = audioObject.userData.audioStartTime || 0;
+          const audioEndTime = audioObject.userData.audioEndTime || audioObject.userData.audioElement.duration;
+
+          // input 필드 업데이트
+          this.updateInputFields(audioStartTime, audioEndTime);
+
+          // 클립 위치/길이 input 필드도 업데이트 (새로 추가할 예정)
+          this.updateClipInputFields(startTime, duration);
+        }
+      }
+    });
+
+    // 스프라이트 전체 드래그 이벤트 (위치 이동만)
     sprite.addEventListener("mousedown", (e) => {
-      // 핸들을 클릭한 경우는 무시
-      if (e.target.classList.contains("sprite-handle")) return;
-
       e.stopPropagation();
       isDragging = true;
       isMovingSprite = true;
@@ -901,26 +1933,9 @@ export class AudioTimeline extends BaseTimeline {
       sprite.style.cursor = "grabbing";
     });
 
-    // 왼쪽/오른쪽 핸들 드래그 이벤트
-    const handles = sprite.querySelectorAll(".sprite-handle");
-    handles.forEach((handle) => {
-      handle.addEventListener("mousedown", (e) => {
-        e.stopPropagation();
-        isDragging = true;
-        isMovingSprite = false;
-        dragHandle = handle;
-        dragStartX = e.clientX;
-        startLeft = parseFloat(sprite.style.left) || 0;
-        startWidth = parseFloat(sprite.style.width) || 0;
-
-        // 드래그 중인 핸들 스타일 변경
-        handle.style.backgroundColor = "#4CAF50";
-      });
-    });
-
     // 드래그 중 이벤트
     document.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
+      if (!isDragging || !isMovingSprite) return;
 
       const container = sprite.closest(".timeline-viewport");
       const containerRect = container.getBoundingClientRect();
@@ -929,76 +1944,23 @@ export class AudioTimeline extends BaseTimeline {
       // 드래그 거리 계산 (퍼센트로)
       const dragDelta = ((e.clientX - dragStartX) / containerWidth) * 100;
 
-      if (isMovingSprite) {
-        // 스프라이트 전체 이동
-        const newLeft = Math.max(
-          0,
-          Math.min(startLeft + dragDelta, 100 - startWidth)
-        );
-        sprite.style.left = `${newLeft}%`;
+      // 스프라이트 전체 이동
+      const newLeft = Math.max(
+        0,
+        Math.min(startLeft + dragDelta, 100 - startWidth)
+      );
+      sprite.style.left = `${newLeft}%`;
 
-        // 시작 시간 업데이트
-        const startTime = (newLeft / 100) * this.options.totalSeconds;
-        sprite.dataset.startTime = startTime.toString();
+      // 시작 시간 업데이트
+      const startTime = (newLeft / 100) * this.options.totalSeconds;
+      sprite.dataset.startTime = startTime.toString();
 
-        // 오디오 객체 업데이트
-        if (track && track.audioObject) {
-          track.audioObject.userData.startTime = startTime;
+      // 오디오 객체 업데이트
+      if (track) {
+        const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+        if (audioObject) {
+          audioObject.userData.startTime = startTime;
         }
-      } else if (dragHandle) {
-        if (dragHandle.classList.contains("left")) {
-          // 왼쪽 핸들 드래그: 시작 위치와 길이 변경
-          const newLeft = Math.max(
-            0,
-            Math.min(
-              startLeft + dragDelta,
-              startLeft +
-              startWidth -
-              (MIN_WIDTH / this.options.totalSeconds) * 100
-            )
-          );
-          const newWidth = startWidth - (newLeft - startLeft);
-
-          if (newWidth >= (MIN_WIDTH / this.options.totalSeconds) * 100) {
-            sprite.style.left = `${newLeft}%`;
-            sprite.style.width = `${newWidth}%`;
-
-            // 시작 시간 업데이트
-            const startTime = (newLeft / 100) * this.options.totalSeconds;
-            sprite.dataset.startTime = startTime.toString();
-
-            // 오디오 객체 업데이트
-            if (track && track.audioObject) {
-              track.audioObject.userData.startTime = startTime;
-            }
-          }
-        } else if (dragHandle.classList.contains("right")) {
-          // 오른쪽 핸들 드래그: 길이만 변경
-          const newWidth = Math.max(
-            (MIN_WIDTH / this.options.totalSeconds) * 100,
-            Math.min(
-              startWidth + dragDelta,
-              (MAX_WIDTH / this.options.totalSeconds) * 100
-            )
-          );
-
-          sprite.style.width = `${newWidth}%`;
-
-          // 지속 시간 업데이트
-          const duration = (newWidth / 100) * this.options.totalSeconds;
-          sprite.dataset.duration = duration.toString();
-
-          // 오디오 객체 업데이트
-          if (track && track.audioObject) {
-            track.audioObject.userData.duration = duration;
-          }
-        }
-      }
-
-      // 파형 다시 그리기
-      const canvas = sprite.querySelector(".waveform-canvas");
-      if (canvas) {
-        this.drawWaveform(canvas);
       }
     });
 
@@ -1013,33 +1975,42 @@ export class AudioTimeline extends BaseTimeline {
       sprite.style.opacity = "";
       sprite.style.cursor = "grab";
 
-      if (dragHandle) {
-        dragHandle.style.backgroundColor = "";
-        dragHandle = null;
-      }
-
       // 변경사항 저장
-      if (track && track.audioObject) {
-        const audioObject = track.audioObject;
-        const startTime = parseFloat(sprite.dataset.startTime) || 0;
-        const duration = parseFloat(sprite.dataset.duration) || 0;
+      if (track) {
+        const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+        if (audioObject) {
+          const startTime = parseFloat(sprite.dataset.startTime) || 0;
+          const duration = parseFloat(sprite.dataset.duration) || 0;
 
-        // 오디오 요소 업데이트
-        if (audioObject.userData.audioElement) {
-          const audio = audioObject.userData.audioElement;
-          audio.currentTime = startTime;
-        }
+          console.log("클립 변경사항 저장:", {
+            startTime: startTime,
+            duration: duration,
+            endTime: startTime + duration
+          });
 
-        // 씬 데이터 업데이트
-        if (!this.editor.scene.userData.audio) {
-          this.editor.scene.userData.audio = {};
-        }
-        if (!this.editor.scene.userData.audio[audioObject.id]) {
-          this.editor.scene.userData.audio[audioObject.id] = {};
-        }
+          // 오디오 객체 userData 업데이트
+          audioObject.userData.startTime = startTime;
+          audioObject.userData.duration = duration;
 
-        this.editor.scene.userData.audio[audioObject.id].startTime = startTime;
-        this.editor.scene.userData.audio[audioObject.id].duration = duration;
+          // 씬 데이터 업데이트
+          if (!this.editor.scene.userData.audio) {
+            this.editor.scene.userData.audio = {};
+          }
+          if (!this.editor.scene.userData.audio[audioObject.id]) {
+            this.editor.scene.userData.audio[audioObject.id] = {};
+          }
+
+          this.editor.scene.userData.audio[audioObject.id].startTime = startTime;
+          this.editor.scene.userData.audio[audioObject.id].duration = duration;
+          this.editor.scene.userData.audio[audioObject.id].audioStartTime = audioObject.userData.audioStartTime;
+          this.editor.scene.userData.audio[audioObject.id].audioEndTime = audioObject.userData.audioEndTime;
+
+          // input 필드 동기화
+          const audioStartTime = audioObject.userData.audioStartTime || 0;
+          const audioEndTime = audioObject.userData.audioEndTime || audioObject.userData.audioElement.duration;
+          this.updateInputFields(audioStartTime, audioEndTime);
+          this.updateClipInputFields(startTime, duration);
+        }
       }
 
       // 타임라인 업데이트 시그널 발생
@@ -1047,69 +2018,5 @@ export class AudioTimeline extends BaseTimeline {
         this.editor.signals.timelineChanged.dispatch();
       }
     });
-
-    // 스프라이트 스타일 업데이트
-    // const style = document.createElement("style");
-    // style.textContent = `
-    //   .audio-sprite {
-    //     position: relative;
-    //     height: 30px;
-    //     background: rgba(76, 175, 80, 0.3);
-    //     border: 1px solid #4CAF50;
-    //     border-radius: 4px;
-    //     cursor: grab;
-    //     user-select: none;
-    //     transition: opacity 0.2s;
-    //   }
-
-    //   .audio-sprite:hover {
-    //     background: rgba(76, 175, 80, 0.4);
-    //   }
-
-    //   .sprite-handle {
-    //     position: absolute;
-    //     top: 0;
-    //     width: 8px;
-    //     height: 100%;
-    //     background: #4CAF50;
-    //     cursor: ew-resize;
-    //     opacity: 0.5;
-    //     transition: opacity 0.2s;
-    //     z-index: 1;
-    //   }
-
-    //   .sprite-handle:hover {
-    //     opacity: 1;
-    //   }
-
-    //   .sprite-handle.left {
-    //     left: 0;
-    //     border-radius: 4px 0 0 4px;
-    //   }
-
-    //   .sprite-handle.right {
-    //     right: 0;
-    //     border-radius: 0 4px 4px 0;
-    //   }
-
-    //   .sprite-content {
-    //     position: absolute;
-    //     top: 0;
-    //     left: 8px;
-    //     right: 8px;
-    //     height: 100%;
-    //     display: flex;
-    //     align-items: center;
-    //     justify-content: center;
-    //     pointer-events: none;
-    //   }
-
-    //   .waveform-canvas {
-    //     width: 100%;
-    //     height: 100%;
-    //     pointer-events: none;
-    //   }
-    // `;
-    // document.head.appendChild(style);
   }
 }
