@@ -3,19 +3,65 @@ import { UIPanel, UIRow, UINumber, UIText, UIElement } from "../libs/ui.js";
 import * as THREE from "three";
 
 // editor/timeline/AudioTimeline.js
-// 사용 가능한 음악 파일 목록
-const AUDIO_FILES = [
-  {
-    path: "../files/music/SUJESHUN.mp3",
-    name: "SUJESHUN",
-    displayName: "수제순"
-  },
-  {
-    path: "../files/music/DRAMA.mp3",
-    name: "DRAMA",
-    displayName: "드라마"
+// 사용 가능한 음악 파일 목록 (동적으로 로드됨)
+let AUDIO_FILES = [];
+
+// 음악 파일 목록을 동적으로 로드하는 함수
+async function loadAudioFilesFromFolder() {
+  try {
+    console.log("음악 폴더 스캔 시작...");
+
+    // files/music 폴더의 파일 목록을 가져오기
+    const response = await fetch('../files/music/');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const html = await response.text();
+
+    // HTML에서 파일 링크 추출
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const links = doc.querySelectorAll('a[href]');
+
+    const audioFiles = [];
+    const supportedFormats = ['.mp3', '.wav', '.ogg', '.m4a', '.aac'];
+
+    links.forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && supportedFormats.some(format => href.toLowerCase().endsWith(format))) {
+        const fileName = href.split('/').pop(); // 파일명만 추출
+        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, ""); // 확장자 제거
+
+        audioFiles.push({
+          path: `../files/music/${fileName}`,
+          name: nameWithoutExt,
+          displayName: nameWithoutExt // 파일명을 그대로 표시명으로 사용
+        });
+      }
+    });
+
+    console.log(`음악 파일 ${audioFiles.length}개 발견:`, audioFiles);
+    return audioFiles;
+
+  } catch (error) {
+    console.error("음악 폴더 스캔 실패:", error);
+
+    // 폴더 스캔이 실패하면 기본 파일 목록 사용
+    // return [
+    //   {
+    //     path: "../files/music/SUJESHUN.mp3",
+    //     name: "SUJESHUN",
+    //     displayName: "수제순"
+    //   },
+    //   {
+    //     path: "../files/music/DRAMA.mp3",
+    //     name: "DRAMA",
+    //     displayName: "드라마"
+    //   }
+    // ];
   }
-];
+}
 
 // 음악 asset 선택을 위한 UI 클래스
 class UIAudioAssetSelector extends UIElement {
@@ -247,13 +293,36 @@ export class AudioTimeline extends BaseTimeline {
     this.propertyPanel = this.createPropertyPanel();
     this.container.appendChild(this.propertyPanel.dom);
 
-    // asset 선택기 초기화
-    this.initAssetSelector();
+    // 음악 파일 목록을 동적으로 로드하고 asset 선택기 초기화
+    this.initAudioTimeline();
+  }
 
-    // Timeline.js에서 이미 한 번 초기화되므로, 여기서는 한 번만 실행
-    if (!this.tracks.size) {
-      // 기본 오디오 트랙은 더 이상 자동으로 생성하지 않음
-      // 사용자가 asset 선택기를 통해 직접 추가하도록 변경
+  // AudioTimeline 초기화
+  async initAudioTimeline() {
+    try {
+      // 음악 파일 목록 동적 로드
+      AUDIO_FILES = await loadAudioFilesFromFolder();
+      console.log("동적으로 로드된 음악 파일:", AUDIO_FILES);
+
+      // asset 선택기 초기화
+      this.initAssetSelector();
+
+    } catch (error) {
+      console.error("AudioTimeline 초기화 실패:", error);
+      // 기본 파일 목록으로 초기화
+      AUDIO_FILES = [
+        {
+          path: "../files/music/SUJESHUN.mp3",
+          name: "SUJESHUN",
+          displayName: "수제순"
+        },
+        {
+          path: "../files/music/DRAMA.mp3",
+          name: "DRAMA",
+          displayName: "드라마"
+        }
+      ];
+      this.initAssetSelector();
     }
   }
 
@@ -523,11 +592,12 @@ export class AudioTimeline extends BaseTimeline {
     }
 
     // 기본 오디오 파일 (첫 번째 파일)을 로드
-    const defaultAudioFile = AUDIO_FILES[0];
-    if (!defaultAudioFile) {
+    if (!AUDIO_FILES || AUDIO_FILES.length === 0) {
       console.warn("사용 가능한 오디오 파일이 없습니다");
       return;
     }
+
+    const defaultAudioFile = AUDIO_FILES[0];
 
     // Fetch를 사용하여 전체 오디오 파일을 한 번에 로드
     fetch(defaultAudioFile.path)
@@ -953,6 +1023,19 @@ export class AudioTimeline extends BaseTimeline {
       console.log("음악 추가 버튼 클릭됨");
       if (this.assetSelector) {
         this.assetSelector.show();
+      } else {
+        console.warn("음악 선택기가 아직 초기화되지 않았습니다");
+        addMusicButton.textContent = "로딩 중...";
+        addMusicButton.disabled = true;
+
+        // 잠시 후 다시 시도
+        setTimeout(() => {
+          if (this.assetSelector) {
+            addMusicButton.textContent = "음악 선택";
+            addMusicButton.disabled = false;
+            this.assetSelector.show();
+          }
+        }, 1000);
       }
     });
 
@@ -1132,6 +1215,16 @@ export class AudioTimeline extends BaseTimeline {
 
       .add-music-btn:hover {
         background: #45a049;
+      }
+
+      .add-music-btn:disabled {
+        background: #666;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .add-music-btn:disabled:hover {
+        background: #666;
       }
 
       .time-input {
