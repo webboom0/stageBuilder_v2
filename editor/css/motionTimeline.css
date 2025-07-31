@@ -495,7 +495,7 @@ top: 10px; */
 }
 
 .property-edit-panel input {
-  width: 60px;
+  width: 100px;
   margin: 0 5px;
   background: #000 !important;
   border: 1px solid #1a1a1a;

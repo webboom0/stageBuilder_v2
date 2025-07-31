@@ -1194,7 +1194,6 @@ export class AudioTimeline extends BaseTimeline {
         display: flex;
         align-items: center;
         width: 150px;
-        margin-left: 20px;
       }
       
       .volume-slider {
@@ -1218,6 +1217,7 @@ export class AudioTimeline extends BaseTimeline {
       .volume-value {
         text-align: right;
         color: #fff;
+        width: 30px;
       }
 
       .add-music-btn {
