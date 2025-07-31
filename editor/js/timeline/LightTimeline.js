@@ -943,7 +943,7 @@ export class LightTimeline extends BaseTimeline {
     const z = -30 + row * 50;
     const loader = new OBJLoader();
     loader.load(
-      'https://webboom0.github.io/stageBuilder_v2/files/light.obj',
+      '../files/light.obj',
       (obj) => {
         obj.position.set(x, y, z);
         obj.rotation.set(172.75, 0, 0);

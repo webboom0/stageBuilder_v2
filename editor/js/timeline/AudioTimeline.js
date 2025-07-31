@@ -11,55 +11,31 @@ async function loadAudioFilesFromFolder() {
   try {
     console.log("음악 폴더 스캔 시작...");
 
-    // files/music 폴더의 파일 목록을 가져오기
-    const response = await fetch('../files/music/');
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    // 기본 파일 목록 (Service Worker 캐시 문제를 피하기 위해 단순화)
+    const defaultFiles = [
+      { path: "../files/music/SUJESHUN.mp3", name: "SUJESHUN", displayName: "수제순" },
+      { path: "../files/music/DRAMA.mp3", name: "DRAMA", displayName: "드라마" }
+    ];
 
-    const html = await response.text();
-
-    // HTML에서 파일 링크 추출
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const links = doc.querySelectorAll('a[href]');
-
-    const audioFiles = [];
-    const supportedFormats = ['.mp3', '.wav', '.ogg', '.m4a', '.aac'];
-
-    links.forEach(link => {
-      const href = link.getAttribute('href');
-      if (href && supportedFormats.some(format => href.toLowerCase().endsWith(format))) {
-        const fileName = href.split('/').pop(); // 파일명만 추출
-        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, ""); // 확장자 제거
-
-        audioFiles.push({
-          path: `../files/music/${fileName}`,
-          name: nameWithoutExt,
-          displayName: nameWithoutExt // 파일명을 그대로 표시명으로 사용
-        });
-      }
-    });
-
-    console.log(`음악 파일 ${audioFiles.length}개 발견:`, audioFiles);
-    return audioFiles;
+    console.log("기본 음악 파일 목록 사용:", defaultFiles);
+    return defaultFiles;
 
   } catch (error) {
     console.error("음악 폴더 스캔 실패:", error);
 
-    // 폴더 스캔이 실패하면 기본 파일 목록 사용
-    // return [
-    //   {
-    //     path: "../files/music/SUJESHUN.mp3",
-    //     name: "SUJESHUN",
-    //     displayName: "수제순"
-    //   },
-    //   {
-    //     path: "../files/music/DRAMA.mp3",
-    //     name: "DRAMA",
-    //     displayName: "드라마"
-    //   }
-    // ];
+    // 기본 파일 목록 반환
+    return [
+      {
+        path: "../files/music/SUJESHUN.mp3",
+        name: "SUJESHUN",
+        displayName: "수제순"
+      },
+      {
+        path: "../files/music/DRAMA.mp3",
+        name: "DRAMA",
+        displayName: "드라마"
+      }
+    ];
   }
 }
 
@@ -91,7 +67,30 @@ class UIAudioAssetSelector extends UIElement {
     listContainer.className = "audio-list-container";
     this.dom.appendChild(listContainer);
 
-    // 음악 목록 생성
+    // 음악 목록 생성 (안전성 검사 추가)
+    if (!this.audioFiles || !Array.isArray(this.audioFiles)) {
+      console.warn("음악 파일 목록이 유효하지 않습니다:", this.audioFiles);
+      const noFilesMessage = document.createElement("div");
+      noFilesMessage.className = "no-files-message";
+      noFilesMessage.innerHTML = `
+        <p>사용 가능한 음악 파일이 없습니다.</p>
+        <p>files/music 폴더에 음악 파일을 추가해주세요.</p>
+      `;
+      listContainer.appendChild(noFilesMessage);
+      return;
+    }
+
+    if (this.audioFiles.length === 0) {
+      const noFilesMessage = document.createElement("div");
+      noFilesMessage.className = "no-files-message";
+      noFilesMessage.innerHTML = `
+        <p>사용 가능한 음악 파일이 없습니다.</p>
+        <p>files/music 폴더에 음악 파일을 추가해주세요.</p>
+      `;
+      listContainer.appendChild(noFilesMessage);
+      return;
+    }
+
     this.audioFiles.forEach((audioFile) => {
       const audioItem = document.createElement("div");
       audioItem.className = "audio-item";
@@ -227,6 +226,17 @@ class UIAudioAssetSelector extends UIElement {
       .add-audio-btn:hover {
         background: #45a049;
       }
+
+      .no-files-message {
+        text-align: center;
+        padding: 20px;
+        color: #aaa;
+      }
+
+      .no-files-message p {
+        margin: 5px 0;
+        font-size: 14px;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -301,7 +311,8 @@ export class AudioTimeline extends BaseTimeline {
   async initAudioTimeline() {
     try {
       // 음악 파일 목록 동적 로드
-      AUDIO_FILES = await loadAudioFilesFromFolder();
+      const loadedFiles = await loadAudioFilesFromFolder();
+      AUDIO_FILES = loadedFiles || [];
       console.log("동적으로 로드된 음악 파일:", AUDIO_FILES);
 
       // asset 선택기 초기화
@@ -362,8 +373,9 @@ export class AudioTimeline extends BaseTimeline {
     fetch(audioFile.path)
       .then((response) => {
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`HTTP error! status: ${response.status} - 파일을 찾을 수 없습니다: ${audioFile.path}`);
         }
+        console.log(`음악 파일 로드 성공: ${audioFile.name}`);
         return response.blob();
       })
       .then((blob) => {
@@ -445,6 +457,13 @@ export class AudioTimeline extends BaseTimeline {
       })
       .catch((error) => {
         console.error("오디오 파일 로드 실패:", error);
+
+        // 사용자에게 알림
+        if (error.message.includes('404')) {
+          alert(`음악 파일을 찾을 수 없습니다: ${audioFile.name}\n\n파일이 files/music 폴더에 있는지 확인해주세요.`);
+        } else {
+          alert(`음악 파일 로드 중 오류가 발생했습니다: ${audioFile.name}\n\n${error.message}`);
+        }
       });
   }
 

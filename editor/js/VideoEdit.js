@@ -154,7 +154,7 @@ function VideoEdit(editor) {
 
       const loader = new FBXLoader();
       loader.load(
-        "https://webboom0.github.io/stageBuilder_v2/files/background.fbx",
+        "../files/background.fbx",
         (object) => {
           if (!editor.scene || !editor.scene.children) {
             console.log("Scene or children not initialized yet");

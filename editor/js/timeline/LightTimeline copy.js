@@ -11,7 +11,7 @@ const LIGHT_PROPERTIES = {
     color: { type: 'color', default: 0xffffff },
     position: { type: 'vector3', default: new THREE.Vector3() },
     distance: { type: 'number', range: [0, 1000], default: 200 },
-    angle: { type: 'number', range: [0, Math.PI/2], default: Math.PI/14 },
+    angle: { type: 'number', range: [0, Math.PI / 2], default: Math.PI / 14 },
     penumbra: { type: 'number', range: [0, 1], default: 0.2 },
     decay: { type: 'number', range: [0, 10], default: 0 }
   },
@@ -44,12 +44,12 @@ export class LightTimeline extends BaseTimeline {
     this.propertyPanel = this.createPropertyPanel();
     this.container.appendChild(this.propertyPanel.dom);
     this.currentTime = 0;
-    
+
     // 10개 조명 트랙 자동 생성
     this.lightTracks = [];
     this.createFixedLightTracks();
     this.timelineEl = document.querySelector(".timeline");
-    
+
     // TimelineData 초기화
     this.timelineData = new TimelineData();
     this.setupTimelineDataEvents();
@@ -60,7 +60,7 @@ export class LightTimeline extends BaseTimeline {
     this.timelineData.addEventListener('track_added', (data) => {
       console.log('트랙 추가됨:', data);
     });
-    
+
     this.timelineData.addEventListener('track_removed', (data) => {
       console.log('트랙 제거됨:', data);
     });
@@ -178,10 +178,10 @@ export class LightTimeline extends BaseTimeline {
     trackNameSelect.addEventListener("change", (e) => {
       console.log("trackNameSelect", e.target.value);
       const newType = e.target.value;
-      
+
       // 기존 조명/타겟/obj/클립 삭제
       this.removeExistingLight(lightId);
-      
+
       if (!newType) {
         this.placeLightObjOnly(lightId, row, col);
         this.editor.signals.sceneGraphChanged.dispatch();
@@ -216,13 +216,13 @@ export class LightTimeline extends BaseTimeline {
   removeExistingLight(lightId) {
     const oldLight = this.editor.scene.getObjectByName(lightId);
     if (oldLight) this.editor.scene.remove(oldLight);
-    
+
     const oldTarget = this.editor.scene.getObjectByName(`${lightId}_Target`);
     if (oldTarget) this.editor.scene.remove(oldTarget);
-    
+
     const oldObj = this.editor.scene.getObjectByName(`${lightId}_LightObjOnly`);
     if (oldObj) this.editor.scene.remove(oldObj);
-    
+
     const track = this.tracks.get(lightId);
     if (track) {
       // 조명 클립 제거
@@ -231,18 +231,18 @@ export class LightTimeline extends BaseTimeline {
         track.sprite = null;
       }
     }
-    
+
     this.editor.signals.sceneGraphChanged.dispatch();
   }
 
   addLightToTimelineData(lightId, lightType) {
     const properties = LIGHT_PROPERTIES[lightType];
-    
+
     // 조명 속성에 대해 TimelineData 트랙 생성
     Object.keys(properties).forEach(property => {
       this.timelineData.addTrack(lightId, property, lightId);
     });
-    
+
     // SpotLight와 DirectionalLight는 타겟 트랙도 생성
     if (lightType === "SpotLight" || lightType === "DirectionalLight") {
       const targetId = `${lightId}_Target`;
@@ -258,7 +258,7 @@ export class LightTimeline extends BaseTimeline {
     sprite.dataset.duration = this.options.totalSeconds || 180;
     sprite.style.width = "100%";
     sprite.style.left = "0%";
-    
+
     // 타겟이 있는 조명은 다른 색상으로 표시
     if (hasTarget) {
       sprite.style.background = "#9c6"; // SpotLight/DirectionalLight는 초록색
@@ -266,7 +266,7 @@ export class LightTimeline extends BaseTimeline {
     } else {
       sprite.style.background = "#6cf"; // PointLight는 파란색
     }
-    
+
     const spriteContent = document.createElement("div");
     spriteContent.className = "sprite-content";
     const spriteName = document.createElement("span");
@@ -274,7 +274,7 @@ export class LightTimeline extends BaseTimeline {
     spriteName.textContent = lightName;
     spriteContent.appendChild(spriteName);
     sprite.appendChild(spriteContent);
-    
+
     track.trackContent.appendChild(sprite);
     track.sprite = sprite;
     track.hasTarget = hasTarget;
@@ -321,7 +321,7 @@ export class LightTimeline extends BaseTimeline {
 
     const properties = LIGHT_PROPERTIES[lightType];
     let light;
-    
+
     switch (lightType) {
       case "PointLight":
         light = new THREE.PointLight(
@@ -349,7 +349,7 @@ export class LightTimeline extends BaseTimeline {
         );
         break;
     }
-    
+
     light.name = lightId;
     light.userData.isBackground = false;
     light.userData.sceneHide = false;
@@ -369,7 +369,7 @@ export class LightTimeline extends BaseTimeline {
       scene.add(target);
       light.target = target;
     }
-    
+
     scene.add(light);
     this.editor.signals.sceneGraphChanged.dispatch();
   }
@@ -382,7 +382,7 @@ export class LightTimeline extends BaseTimeline {
     const z = -30 + row * 50;
     const loader = new OBJLoader();
     loader.load(
-      'https://webboom0.github.io/stageBuilder_v2/files/light.obj',
+      '../files/light.obj',
       (obj) => {
         obj.position.set(x, y, z);
         obj.rotation.set(172.75, 0, 0);
@@ -403,54 +403,54 @@ export class LightTimeline extends BaseTimeline {
     const panel = new UIPanel();
     panel.setClass("property-edit-panel");
     panel.dom.style.display = "none";
-    
+
     this.propertyRows = {};
     this.propertyPanel = panel;
-    
+
     return panel;
   }
 
   updatePropertyPanelForLightType(lightType) {
     if (!lightType || !this.propertyPanel) return;
-    
+
     // 기존 UI 제거
     this.propertyPanel.clear();
     this.propertyRows = {};
-    
+
     const properties = LIGHT_PROPERTIES[lightType];
     if (!properties) return;
-    
+
     // 조명 속성 표시
     const separator = new UIRow();
     separator.add(new UIText("=== 조명 속성 ==="));
     this.propertyPanel.add(separator);
-    
+
     Object.entries(properties).forEach(([propertyName, propertyConfig]) => {
       const row = this.createPropertyRow(propertyName, propertyConfig);
       this.propertyPanel.add(row);
       this.propertyRows[propertyName] = row;
     });
-    
+
     // SpotLight와 DirectionalLight는 타겟 속성도 추가
     if (lightType === "SpotLight" || lightType === "DirectionalLight") {
       const targetSeparator = new UIRow();
       targetSeparator.add(new UIText("=== 타겟 속성 ==="));
       this.propertyPanel.add(targetSeparator);
-      
+
       Object.entries(TARGET_PROPERTIES).forEach(([propertyName, propertyConfig]) => {
         const row = this.createTargetPropertyRow(propertyName, propertyConfig);
         this.propertyPanel.add(row);
         this.propertyRows[`target_${propertyName}`] = row;
       });
     }
-    
+
     this.propertyPanel.dom.style.display = "";
   }
 
   createPropertyRow(propertyName, config) {
     const row = new UIRow();
     row.add(new UIText(this.formatPropertyName(propertyName)));
-    
+
     switch (config.type) {
       case 'number':
         const numberInput = new UINumber(config.default).setRange(config.range[0], config.range[1]);
@@ -459,7 +459,7 @@ export class LightTimeline extends BaseTimeline {
         });
         row.add(numberInput);
         break;
-        
+
       case 'color':
         const colorInput = new UIColor("#ffffff");
         colorInput.onChange(() => {
@@ -468,55 +468,55 @@ export class LightTimeline extends BaseTimeline {
         });
         row.add(colorInput);
         break;
-        
+
       case 'vector3':
         const xInput = new UINumber(0);
         const yInput = new UINumber(0);
         const zInput = new UINumber(0);
-        
+
         xInput.onChange(() => this.updateLightProperty(propertyName, 'x', xInput.getValue()));
         yInput.onChange(() => this.updateLightProperty(propertyName, 'y', yInput.getValue()));
         zInput.onChange(() => this.updateLightProperty(propertyName, 'z', zInput.getValue()));
-        
+
         row.add(xInput);
         row.add(yInput);
         row.add(zInput);
         break;
     }
-    
+
     return row;
   }
 
   createTargetPropertyRow(propertyName, config) {
     const row = new UIRow();
     row.add(new UIText(this.formatPropertyName(`target_${propertyName}`)));
-    
+
     switch (config.type) {
       case 'vector3':
         const xInput = new UINumber(0);
         const yInput = new UINumber(0);
         const zInput = new UINumber(0);
-        
+
         xInput.onChange(() => this.updateTargetProperty(propertyName, 'x', xInput.getValue()));
         yInput.onChange(() => this.updateTargetProperty(propertyName, 'y', yInput.getValue()));
         zInput.onChange(() => this.updateTargetProperty(propertyName, 'z', zInput.getValue()));
-        
+
         row.add(xInput);
         row.add(yInput);
         row.add(zInput);
         break;
     }
-    
+
     return row;
   }
 
   updateLightProperty(propertyName, value, axis = null) {
     if (!this.selectedObject) return;
-    
+
     // 선택된 객체가 타겟인 경우 조명 객체를 찾아서 업데이트
     let light = this.selectedObject;
     let lightId = light.name;
-    
+
     if (light.name.includes('_Target')) {
       // 타겟이 선택된 경우, 해당하는 조명 객체를 찾음
       const baseLightId = light.name.replace('_Target', '');
@@ -529,7 +529,7 @@ export class LightTimeline extends BaseTimeline {
         return;
       }
     }
-    
+
     if (axis) {
       // vector3 속성의 개별 축 업데이트
       if (propertyName === 'position') {
@@ -568,13 +568,13 @@ export class LightTimeline extends BaseTimeline {
           break;
       }
     }
-    
+
     // 키프레임 추가
     this.addKeyframeForProperty(lightId, propertyName, this.currentTime, this.getPropertyValue(light, propertyName));
-    
+
     // 키프레임 UI 추가
     this.addKeyframeUI(lightId, propertyName, this.currentTime);
-    
+
     if (this.editor.signals?.objectChanged) {
       this.editor.signals.objectChanged.dispatch(light);
     }
@@ -582,21 +582,21 @@ export class LightTimeline extends BaseTimeline {
 
   updateTargetProperty(propertyName, axis, value) {
     if (!this.selectedObject) return;
-    
+
     // 선택된 객체가 타겟인 경우 직접 업데이트, 조명인 경우 target을 찾아서 업데이트
     let light = this.selectedObject;
     let lightId = light.name;
     let targetId = `${lightId}_Target`;
-    
+
     if (light.name.includes('_Target')) {
       // 타겟이 선택된 경우 직접 업데이트
       if (axis) {
         light.position[axis] = value;
       }
-      
+
       // 키프레임 추가
       this.addKeyframeForProperty(light.name, propertyName, this.currentTime, light.position.clone());
-      
+
       // 키프레임 UI 추가
       this.addKeyframeUI(light.name, propertyName, this.currentTime);
     } else {
@@ -605,18 +605,18 @@ export class LightTimeline extends BaseTimeline {
         console.warn("조명에 타겟이 없습니다:", light.name);
         return;
       }
-      
+
       if (axis) {
         light.target.position[axis] = value;
       }
-      
+
       // 키프레임 추가
       this.addKeyframeForProperty(targetId, propertyName, this.currentTime, light.target.position.clone());
-      
+
       // 키프레임 UI 추가
       this.addKeyframeUI(targetId, propertyName, this.currentTime);
     }
-    
+
     if (this.editor.signals?.objectChanged) {
       this.editor.signals.objectChanged.dispatch(light);
     }
@@ -640,7 +640,7 @@ export class LightTimeline extends BaseTimeline {
         console.warn('지원하지 않는 값 타입:', typeof value, value);
         return;
       }
-      
+
       trackData.addKeyframe(time, vectorValue);
     }
   }
@@ -670,7 +670,7 @@ export class LightTimeline extends BaseTimeline {
     // 현재 시간을 퍼센트로 변환
     const totalDuration = this.options.totalSeconds || 180;
     const timePercent = (time / totalDuration) * 100;
-    
+
     // 키프레임 요소 생성
     const keyframe = document.createElement("div");
     keyframe.className = "keyframe";
@@ -680,7 +680,7 @@ export class LightTimeline extends BaseTimeline {
     keyframe.style.transform = "translate(-50%, -50%)";
     keyframe.style.width = "8px";
     keyframe.style.height = "8px";
-    
+
     // 타겟 키프레임은 다른 색상으로 표시
     if (lightId.includes('_Target')) {
       keyframe.style.backgroundColor = "#f66"; // 타겟 키프레임은 빨간색
@@ -689,21 +689,21 @@ export class LightTimeline extends BaseTimeline {
       keyframe.style.backgroundColor = "#f90"; // 조명 키프레임은 주황색
       keyframe.style.border = "1px solid #c60";
     }
-    
+
     keyframe.style.borderRadius = "50%";
     keyframe.style.cursor = "pointer";
     keyframe.style.zIndex = "10";
     keyframe.dataset.time = time.toFixed(2);
     keyframe.dataset.property = propertyName;
     keyframe.dataset.lightId = lightId;
-    
+
     // 키프레임을 스프라이트에 추가
     targetSprite.appendChild(keyframe);
-    
+
     // 키프레임 클릭 이벤트
     keyframe.addEventListener("click", (e) => {
       e.stopPropagation();
-      
+
       // 모든 키프레임에서 선택 상태 제거
       const allKeyframes = document.querySelectorAll(".keyframe");
       allKeyframes.forEach(k => {
@@ -713,28 +713,28 @@ export class LightTimeline extends BaseTimeline {
           k.style.backgroundColor = "#f90";
         }
       });
-      
+
       // 현재 키프레임 선택
       keyframe.style.backgroundColor = "#ff0";
-      
+
       // 해당 시간으로 타임라인 이동
       const frame = Math.floor(time * this.options.framesPerSecond);
       if (this.editor.signals?.currentTimeChanged) {
         this.editor.signals.currentTimeChanged.dispatch(frame);
       }
     });
-    
+
     // 키프레임 삭제 (우클릭)
     keyframe.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       // TimelineData에서 키프레임 제거
       const trackData = this.timelineData.getTrackById(lightId, propertyName);
       if (trackData) {
         trackData.removeKeyframe(time);
       }
-      
+
       // UI에서 키프레임 제거
       keyframe.remove();
     });
@@ -766,7 +766,7 @@ export class LightTimeline extends BaseTimeline {
 
   updateFrame(frame) {
     this.currentTime = frame / this.options.framesPerSecond;
-    
+
     this.tracks.forEach((track) => {
       const object = this.editor.scene.getObjectByName(track.objectId);
       if (!object || !track.lightType) return;
@@ -862,7 +862,7 @@ export class LightTimeline extends BaseTimeline {
     // scene.userData에서 TimelineData 복원
     if (this.editor.scene.userData?.lightTimeline) {
       this.timelineData.fromJSON(this.editor.scene.userData.lightTimeline);
-      
+
       // 저장된 키프레임 UI 복원
       this.restoreKeyframeUI();
     }
@@ -872,7 +872,7 @@ export class LightTimeline extends BaseTimeline {
     // 모든 트랙의 키프레임 UI 복원
     this.tracks.forEach((track) => {
       if (!track.lightType) return;
-      
+
       const properties = LIGHT_PROPERTIES[track.lightType];
       Object.keys(properties).forEach((propertyName) => {
         const trackData = this.timelineData.getTrackById(track.objectId, propertyName);
@@ -885,7 +885,7 @@ export class LightTimeline extends BaseTimeline {
           }
         }
       });
-      
+
       // 타겟 키프레임 UI 복원 (SpotLight, DirectionalLight)
       if (track.hasTarget) {
         const targetId = `${track.objectId}_Target`;
@@ -922,7 +922,7 @@ export class LightTimeline extends BaseTimeline {
 
         // 현재 시간 가져오기
         const currentTime = this.currentTime;
-        
+
         console.log("키프레임 추가 버튼 클릭:", {
           lightId: track.objectId,
           currentTime: currentTime,
