@@ -119,7 +119,7 @@ function MenubarFile(editor) {
   openProjectInput.type = "file";
   openProjectInput.accept = ".json,.zip";
   openProjectInput.addEventListener("change", async function () {
-     // 파일 선택 즉시 오버레이 UI 띄우기
+    // 파일 선택 즉시 오버레이 UI 띄우기
     if (editor.progressiveLoader && typeof editor.progressiveLoader.createProgressUI === 'function') {
       editor.progressiveLoader.createProgressUI();
     } else {
@@ -137,11 +137,11 @@ function MenubarFile(editor) {
 
       async function onEditorCleared() {
         try {
-                  if (file.name.endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed') {
-          // ZIP 파일 처리
-          console.log("ZIP 파일 감지, 압축 해제 중...");
-          await editor.fromJSON(file); // Blob으로 전달
-        } else {
+          if (file.name.endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed') {
+            // ZIP 파일 처리
+            console.log("ZIP 파일 감지, 압축 해제 중...");
+            await editor.fromJSON(file); // Blob으로 전달
+          } else {
             // JSON 파일 처리
             const json = JSON.parse(await file.text());
             console.log("Loading project:", json); // 불러오는 데이터 확인
@@ -238,7 +238,7 @@ function MenubarFile(editor) {
       loader.loadedItems = 0;
       document.querySelector('#progressive-loader-progress h3').textContent = '프로젝트 저장 중...';
       loader.updateProgress();
-      
+
       // 1단계: 데이터 준비
       loader.loadedItems = 1;
       loader.updateProgress();
@@ -372,7 +372,7 @@ function MenubarFile(editor) {
   fileExportSubmenuTitle.onMouseOut(function () {
     fileExportSubmenu.setDisplay("none");
   });
-  options.add(fileExportSubmenuTitle);
+  // options.add(fileExportSubmenuTitle);
 
   const fileExportSubmenu = new UIPanel()
     .setPosition("fixed")
