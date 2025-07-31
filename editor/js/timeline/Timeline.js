@@ -419,10 +419,18 @@ class Timeline {
 
   // 타임라인 설정 로드 (Scene > localStorage > 기본값 순서)
   loadTimelineSettings() {
-    // 1. Scene의 설정이 있으면 우선 사용
+    // 1. Scene의 설정이 있으면 우선 사용 (단, 재생 상태는 초기화)
     if (this.editor.scene?.userData?.timeline) {
-      console.log('Scene에서 타임라인 설정을 로드했습니다:', this.editor.scene.userData.timeline);
-      return this.editor.scene.userData.timeline;
+      const sceneSettings = this.editor.scene.userData.timeline;
+      // 재생 상태는 항상 false로 초기화
+      const loadedSettings = {
+        ...sceneSettings,
+        isPlaying: false,
+        currentFrame: 0,
+        currentSeconds: 0
+      };
+      console.log('Scene에서 타임라인 설정을 로드했습니다 (재생 상태 초기화):', loadedSettings);
+      return loadedSettings;
     }
 
     // 2. localStorage에서 저장된 설정 불러오기
@@ -437,18 +445,25 @@ class Timeline {
         const loadedSettings = {
           totalSeconds: totalSeconds,
           framesPerSecond: fps,
-          currentFrame: parsed.currentFrame || this.defaultSettings.currentFrame,
+          currentFrame: 0, // 항상 0으로 초기화
+          isPlaying: false, // 항상 false로 초기화
+          currentSeconds: 0 // 항상 0으로 초기화
         };
-        console.log('localStorage에서 타임라인 설정을 로드했습니다:', loadedSettings);
+        console.log('localStorage에서 타임라인 설정을 로드했습니다 (재생 상태 초기화):', loadedSettings);
         return loadedSettings;
       } catch (error) {
         console.warn('localStorage의 타임라인 설정을 불러오는 중 오류 발생:', error);
       }
     }
 
-    // 3. 기본 설정 사용
-    console.log('기본 타임라인 설정을 사용합니다:', this.defaultSettings);
-    return this.defaultSettings;
+    // 3. 기본 설정 사용 (재생 상태 초기화)
+    const defaultSettingsWithReset = {
+      ...this.defaultSettings,
+      isPlaying: false,
+      currentSeconds: 0
+    };
+    console.log('기본 타임라인 설정을 사용합니다 (재생 상태 초기화):', defaultSettingsWithReset);
+    return defaultSettingsWithReset;
   }
 
   // 타임라인 UI 업데이트
@@ -726,6 +741,8 @@ class Timeline {
 
     if (playButton) {
       playButton.addEventListener("click", () => {
+        console.log("재생/일시정지 버튼 클릭됨");
+
         // scene이 없거나 timeline이 초기화되지 않은 경우 처리
         if (!this.editor.scene) {
           this.editor.scene = {
@@ -751,9 +768,13 @@ class Timeline {
         }
 
         const isPlaying = this.editor.scene.userData.timeline.isPlaying;
+        console.log("현재 재생 상태:", isPlaying);
+
         if (!isPlaying) {
+          console.log("재생 시작");
           this.play();
         } else {
+          console.log("일시정지");
           this.pause();
         }
       });
@@ -761,6 +782,7 @@ class Timeline {
 
     if (stopButton) {
       stopButton.addEventListener("click", () => {
+        console.log("정지 버튼 클릭됨");
         this.stop();
         // 정지 시 처음으로 돌아가기
         this.setCurrentFrame(0);
@@ -1016,31 +1038,24 @@ class Timeline {
     this.isPlaying = true;
     this.editor.scene.userData.timeline.isPlaying = true;
 
-    // 현재 playhead 위치에서 시작하도록 currentFrame 설정
+    // 항상 0초부터 시작하도록 currentFrame 설정
     let currentFrame = 0;
 
-    // 1. DOM에서 playhead 위치 가져오기
+    // 현재 playhead 위치가 0이 아닌 경우에만 해당 위치에서 시작
     const playhead = document.querySelector('.playhead');
     if (playhead) {
       const playheadLeft = parseFloat(playhead.style.left) || 0;
-      const playheadPercent = playheadLeft / 100;
-      currentFrame = Math.floor(playheadPercent * this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond);
-      // console.log("DOM에서 playhead 위치로 currentFrame 설정:", {
-      //   playheadLeft,
-      //   playheadPercent,
-      //   currentFrame,
-      //   totalFrames: this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond
-      // });
-    }
-
-    // 2. Timeline.js의 currentSeconds가 있으면 사용
-    if (this.editor.scene?.userData?.timeline?.currentSeconds !== undefined) {
-      const currentSeconds = this.editor.scene.userData.timeline.currentSeconds;
-      currentFrame = Math.floor(currentSeconds * this.timelineSettings.framesPerSecond);
-      // console.log("Timeline.js currentSeconds로 currentFrame 설정:", {
-      //   currentSeconds,
-      //   currentFrame
-      // });
+      if (playheadLeft > 0) {
+        const playheadPercent = playheadLeft / 100;
+        currentFrame = Math.floor(playheadPercent * this.timelineSettings.totalSeconds * this.timelineSettings.framesPerSecond);
+        console.log("현재 playhead 위치에서 재생 시작:", {
+          playheadLeft,
+          playheadPercent,
+          currentFrame
+        });
+      } else {
+        console.log("0초부터 재생 시작");
+      }
     }
     const totalFrames =
       this.timelineSettings.totalSeconds *
@@ -1107,7 +1122,11 @@ class Timeline {
     // 애니메이션 프레임 업데이트 - 실제 시간 기반으로 제어
     let lastTime = performance.now();
     const animate = () => {
-      if (!this.isPlaying) return;
+      // 재생 상태를 더 명확하게 체크
+      if (!this.isPlaying || !this.editor.scene?.userData?.timeline?.isPlaying) {
+        console.log("애니메이션 중단: 재생 상태가 false");
+        return;
+      }
 
       const currentTime = performance.now();
       const deltaTime = (currentTime - lastTime) / 1000; // 초 단위
@@ -1143,6 +1162,7 @@ class Timeline {
   }
 
   pause() {
+    console.log("일시정지 호출됨, 현재 재생 상태:", this.isPlaying);
     if (!this.isPlaying) return;
 
     this.isPlaying = false;
@@ -1193,8 +1213,7 @@ class Timeline {
   }
 
   stop() {
-    if (!this.isPlaying && this.editor.scene.userData.timeline.currentFrame === 0) return;
-
+    // 항상 정지 가능하도록 조건 제거
     this.isPlaying = false;
     this.editor.scene.userData.timeline.isPlaying = false;
     this.editor.scene.userData.timeline.currentFrame = 0;
