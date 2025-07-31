@@ -1033,7 +1033,6 @@ export class AudioTimeline extends BaseTimeline {
 
     // 음악 추가 버튼
     const addMusicRow = new UIRow();
-    addMusicRow.add(new UIText("음악 추가"));
 
     const addMusicButton = document.createElement("button");
     addMusicButton.textContent = "음악 선택";
@@ -1063,7 +1062,8 @@ export class AudioTimeline extends BaseTimeline {
 
     // 전체 볼륨 조절 UI
     const volumeRow = new UIRow();
-    volumeRow.add(new UIText("전체 볼륨"));
+    volumeRow.add(new UIText("volume"));
+    volumeRow.addClass("volume-row");
 
     const volumeControl = new UIVolumeControl();
     volumeControl.onChange((value) => {
@@ -1100,7 +1100,7 @@ export class AudioTimeline extends BaseTimeline {
 
     // 오디오 편집 UI 추가
     const audioEditRow = new UIRow();
-    audioEditRow.add(new UIText("오디오 편집"));
+    // audioEditRow.add(new UIText("오디오 편집"));
     panel.add(audioEditRow);
 
     // 오디오 시작 시간 조절
@@ -1193,8 +1193,8 @@ export class AudioTimeline extends BaseTimeline {
       .volume-control {
         display: flex;
         align-items: center;
-        gap: 10px;
-        width: 200px;
+        width: 150px;
+        margin-left: 20px;
       }
       
       .volume-slider {
@@ -1216,7 +1216,6 @@ export class AudioTimeline extends BaseTimeline {
       }
       
       .volume-value {
-        min-width: 45px;
         text-align: right;
         color: #fff;
       }
@@ -1229,7 +1228,6 @@ export class AudioTimeline extends BaseTimeline {
         border-radius: 4px;
         cursor: pointer;
         font-size: 12px;
-        margin-left: 10px;
       }
 
       .add-music-btn:hover {

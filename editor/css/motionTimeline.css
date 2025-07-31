@@ -484,6 +484,8 @@ top: 10px; */
   border-radius: 0px;
   /* min-width: 200px; */
   display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .keyframe.selected {
@@ -1462,4 +1464,14 @@ border-left: 3px solid #666;
 
 .timeline-settings-modal button:last-of-type {
   background: #007acc;
+}
+
+.volume-row {
+  display: flex;
+  align-items: center;
+}
+
+.volume-value {
+  font-size: 12px;
+  opacity: .5;
 }
