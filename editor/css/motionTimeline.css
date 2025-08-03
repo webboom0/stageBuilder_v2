@@ -39,7 +39,6 @@
   display: flex;
   align-items: center;
   border-bottom: 1px solid #1a1a1a;
-  background: #000;
 }
 
 .keyframe-area {
@@ -343,7 +342,7 @@
 }
 
 .track-controls button {
-  background: none;
+  background: #000;
   border: none;
   color: #ccc;
   cursor: pointer;
@@ -1005,7 +1004,7 @@ border-radius: 5px 5px 2px 2px;
 .track-controls {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 1px;
 }
 
 .prev-keyframe-btn,
@@ -1016,11 +1015,16 @@ border-radius: 5px 5px 2px 2px;
   cursor: pointer;
   padding: 2px 5px;
   font-size: 12px;
+  width: 20px;
 }
 
 .prev-keyframe-btn:hover,
 .next-keyframe-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.next-keyframe-btn {
+  margin-right: 4px;
 }
 
 /* LightTimeline.css */
@@ -1474,4 +1478,8 @@ border-left: 3px solid #666;
 .volume-value {
   font-size: 12px;
   opacity: .5;
+}
+
+.light-timeline .keyframe.selected {
+  background-color: #ffd700 !important;
 }
