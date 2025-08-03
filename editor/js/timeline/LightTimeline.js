@@ -837,7 +837,7 @@ export class LightTimeline extends BaseTimeline {
     targetAddBtn.className = "add-keyframe-btn";
     targetAddBtn.title = "Add Target Keyframe";
     targetAddBtn.textContent = "+";
-    targetAddBtn.style.backgroundColor = "#f66"; // 타겟 버튼도 빨간색
+    // targetAddBtn.style.backgroundColor = "#f66"; // 타겟 버튼도 빨간색
 
     // 타겟 이전/다음 키프레임 버튼 (숨김 처리)
     const targetPrevBtn = document.createElement("button");
