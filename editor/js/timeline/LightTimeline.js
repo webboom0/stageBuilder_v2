@@ -843,13 +843,13 @@ export class LightTimeline extends BaseTimeline {
     const targetPrevBtn = document.createElement("button");
     targetPrevBtn.className = "prev-keyframe-btn";
     targetPrevBtn.title = "Previous Target Keyframe";
-    targetPrevBtn.innerHTML = '<i class="fa fa-step-backward"></i>';
+    targetPrevBtn.innerHTML = '<i class="fa fa-angle-left"></i>';
     targetPrevBtn.style.display = "none"; // 숨김 처리
 
     const targetNextBtn = document.createElement("button");
     targetNextBtn.className = "next-keyframe-btn";
     targetNextBtn.title = "Next Target Keyframe";
-    targetNextBtn.innerHTML = '<i class="fa fa-step-forward"></i>';
+    targetNextBtn.innerHTML = '<i class="fa fa-angle-right"></i>';
     targetNextBtn.style.display = "none"; // 숨김 처리
 
     targetTrackControls.appendChild(targetPrevBtn);

@@ -1490,9 +1490,9 @@ export class MotionTimeline extends BaseTimeline {
         <span class="track-name">${displayName}</span>
       </div>
       <div class="track-controls">
-        <button class="prev-keyframe-btn" title="Previous Keyframe">◀</button>
+        <button class="prev-keyframe-btn" title="Previous Keyframe"><i class="fa fa-angle-left"></i></button>
+        <button class="next-keyframe-btn" title="Next Keyframe"><i class="fa fa-angle-right"></i></button>
         <button class="add-keyframe-btn" title="Add Keyframe">+</button>
-        <button class="next-keyframe-btn" title="Next Keyframe">▶</button>
       </div>
     `;
 

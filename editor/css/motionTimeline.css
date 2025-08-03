@@ -347,6 +347,8 @@
   color: #ccc;
   cursor: pointer;
   padding: 2px;
+  width: 20px;
+  height: 20px;
 }
 
 .track-name {
