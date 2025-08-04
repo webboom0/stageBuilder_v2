@@ -104,6 +104,9 @@ class Timeline {
 
       // MotionTimeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
       editor.motionTimeline = this.timelines.motion;
+
+      // LightTimeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
+      editor.lightTimeline = this.timelines.light;
     }
 
     this.activeTimeline = "motion";
