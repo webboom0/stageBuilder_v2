@@ -3,7 +3,7 @@
  * 큰 데이터를 여러 파일로 분리하여 저장/로드하는 기능 제공
  */
 export class DataSplitter {
-  
+
   /**
    * 프로젝트 데이터를 분리하여 저장
    * @param {Object} projectData - 전체 프로젝트 데이터
@@ -12,7 +12,7 @@ export class DataSplitter {
    */
   static splitProjectData(projectData, options = {}) {
     console.log("=== 프로젝트 데이터 분리 시작 ===");
-    
+
     const {
       splitTimeline = true,
       splitMusic = true,
@@ -90,13 +90,13 @@ export class DataSplitter {
       try {
         const childrenSize = JSON.stringify(baseScene.children).length;
         console.log("children 데이터 크기:", childrenSize, "bytes");
-        
+
         // children 데이터가 1MB 이상이거나 강제 분리가 설정된 경우 분리
         if (childrenSize > 1000000 || forceSplit) {
           console.log("children 데이터가 너무 큽니다. 분리합니다.");
           const childrenFileName = `scene_children_${Date.now()}.json`;
           splitFiles[childrenFileName] = baseScene.children;
-          
+
           // 참조만 남김
           baseScene.children = null;
           baseScene.childrenFile = childrenFileName;
@@ -107,7 +107,7 @@ export class DataSplitter {
             if (this.isLargeGeometry(child)) {
               const fileName = `geometry_${child.uuid || index}.json`;
               splitFiles[fileName] = child;
-              
+
               // 참조만 남김
               return {
                 ...child,
@@ -143,19 +143,19 @@ export class DataSplitter {
    */
   static isLargeGeometry(object) {
     if (!object.geometry) return false;
-    
+
     // 정점 수가 1000개 이상이거나
-    if (object.geometry.attributes.position && 
-        object.geometry.attributes.position.count > 1000) {
+    if (object.geometry.attributes.position &&
+      object.geometry.attributes.position.count > 1000) {
       return true;
     }
-    
+
     // JSON 크기가 50KB 이상이면
     const geometrySize = JSON.stringify(object.geometry).length;
     if (geometrySize > 50000) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -167,7 +167,7 @@ export class DataSplitter {
    */
   static async createProjectZip(splitResult, projectName = "project") {
     console.log("=== ZIP 파일 생성 시작 ===");
-    
+
     try {
       // JSZip 라이브러리 동적 로드
       const JSZip = await this.loadJSZip();
@@ -182,7 +182,7 @@ export class DataSplitter {
         console.error("project.json 생성 실패:", error);
         throw new Error("프로젝트 데이터가 너무 커서 저장할 수 없습니다.");
       }
-      
+
       // 2. 분리된 파일들 추가 (안전한 JSON.stringify)
       for (const [fileName, fileData] of Object.entries(splitResult.splitFiles)) {
         try {
@@ -206,7 +206,7 @@ export class DataSplitter {
       zip.file("project_info.json", JSON.stringify(projectInfo, null, 0));
 
       // 4. ZIP 파일 생성
-      const zipBlob = await zip.generateAsync({ 
+      const zipBlob = await zip.generateAsync({
         type: "blob",
         compression: "DEFLATE",
         compressionOptions: { level: 9 }
@@ -230,7 +230,7 @@ export class DataSplitter {
    */
   static async loadFromProjectZip(zipBlob) {
     console.log("=== ZIP 파일에서 데이터 로드 시작 ===");
-    
+
     try {
       const JSZip = await this.loadJSZip();
       const zip = await JSZip.loadAsync(zipBlob);
@@ -300,10 +300,10 @@ export class DataSplitter {
     console.log("=== mergeSplitData 시작 ===");
     console.log("baseData 키:", Object.keys(baseData));
     console.log("splitFiles 키:", Object.keys(splitFiles));
-    
+
     // DataCompressor 로드
     const { DataCompressor } = await import('./DataCompressor.js');
-    
+
     // baseData는 이미 압축 해제된 데이터이므로 그대로 사용
     const mergedData = { ...baseData };
 
@@ -312,12 +312,12 @@ export class DataSplitter {
       console.log("MotionTimeline 데이터 병합:", baseData.motionTimelineFile);
       mergedData.motionTimeline = splitFiles[baseData.motionTimelineFile];
       delete mergedData.motionTimelineFile;
-      
+
       // MotionTimeline 데이터 압축 해제 (압축된 데이터만)
       try {
         console.log("MotionTimeline 데이터 확인 중...");
         console.log("MotionTimeline 데이터:", mergedData.motionTimeline);
-        
+
         // 압축된 데이터인지 확인 (t, f, tracks 구조를 가지고 있는지)
         if (mergedData.motionTimeline.t && mergedData.motionTimeline.f && mergedData.motionTimeline.tracks) {
           console.log("압축된 MotionTimeline 데이터 해제 중...");
@@ -350,7 +350,7 @@ export class DataSplitter {
       delete mergedData.scene.childrenFile;
       console.log("children 데이터 복원 완료");
     }
-    
+
     // 5. 씬 데이터의 개별 children 파일들 병합 (새로운 방식)
     console.log("largeChildrenFiles 조건 확인:");
     console.log("mergedData.scene 존재:", !!mergedData.scene);
@@ -359,32 +359,32 @@ export class DataSplitter {
     console.log("mergedData.scene.object.largeChildrenFiles 타입:", typeof mergedData.scene?.object?.largeChildrenFiles);
     console.log("mergedData.scene.object.largeChildrenFiles 배열 여부:", Array.isArray(mergedData.scene?.object?.largeChildrenFiles));
     console.log("mergedData.scene.object.largeChildrenFiles 값:", mergedData.scene?.object?.largeChildrenFiles);
-    
+
     if (mergedData.scene && mergedData.scene.object && mergedData.scene.object.largeChildrenFiles && Array.isArray(mergedData.scene.object.largeChildrenFiles)) {
       console.log("개별 children 파일들 복원 중:", mergedData.scene.object.largeChildrenFiles);
       console.log("기존 children 배열:", mergedData.scene.object.children);
-      
+
       // 기존 children 배열이 없으면 빈 배열로 초기화
       if (!mergedData.scene.object.children) {
         mergedData.scene.object.children = [];
       }
-      
+
       // 개별 children 파일들을 올바른 순서로 병합
       const allChildren = [...mergedData.scene.object.children]; // 기존 작은 children들
       console.log("초기 allChildren 배열:", allChildren.length, "개");
-      
+
       for (const fileName of mergedData.scene.object.largeChildrenFiles) {
         console.log(`파일 처리 중: ${fileName}`);
-        
+
         // 파일명에서 인덱스 추출 (scene_child_timestamp_index.json)
         const match = fileName.match(/scene_child_\d+_(\d+)\.json/);
         if (match) {
           const index = parseInt(match[1]);
           console.log(`인덱스 추출: ${index}`);
-          
+
           // 정확한 파일명으로 먼저 찾기
           let foundFile = splitFiles[fileName];
-          
+
           // 정확한 파일명이 없으면 인덱스로 매칭
           if (!foundFile) {
             console.log(`정확한 파일명을 찾을 수 없음, 인덱스 ${index}로 매칭 시도`);
@@ -392,13 +392,13 @@ export class DataSplitter {
               const keyMatch = key.match(/scene_child_\d+_(\d+)\.json/);
               return keyMatch && parseInt(keyMatch[1]) === index;
             });
-            
+
             if (matchingFiles.length > 0) {
               foundFile = splitFiles[matchingFiles[0]];
               console.log(`인덱스 ${index}로 매칭된 파일: ${matchingFiles[0]}`);
             }
           }
-          
+
           if (foundFile) {
             // 인덱스 위치에 삽입 (배열 크기를 늘려서)
             while (allChildren.length <= index) {
@@ -419,10 +419,10 @@ export class DataSplitter {
           }
         }
       }
-      
+
       console.log("병합 후 allChildren 배열:", allChildren.length, "개");
       console.log("null 값 개수:", allChildren.filter(child => child === null).length);
-      
+
       // null 값 제거
       mergedData.scene.object.children = allChildren.filter(child => child !== null);
       console.log("최종 children 배열:", mergedData.scene.object.children.length, "개");
@@ -470,7 +470,7 @@ export class DataSplitter {
       return JSZip;
     } catch (error) {
       console.warn("JSZip 라이브러리를 찾을 수 없습니다. CDN에서 로드합니다.");
-      
+
       // CDN에서 로드
       return new Promise((resolve, reject) => {
         const script = document.createElement('script');

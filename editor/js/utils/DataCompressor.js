@@ -3,7 +3,7 @@
  * JSON 파일 용량을 줄이기 위한 압축/해제 기능 제공
  */
 export class DataCompressor {
-  
+
   /**
    * MotionTimeline 데이터 압축
    * @param {Object} timelineData - 원본 타임라인 데이터
@@ -30,11 +30,11 @@ export class DataCompressor {
       compressed.tracks[objectUuid] = {};
       Object.entries(objectTracks).forEach(([property, trackData]) => {
         console.log(`압축 중 속성 ${property}:`, trackData);
-        
+
         // times 배열이 있으면 키프레임 개수로 사용
         const keyframeCount = trackData.times ? trackData.times.length : 0;
         console.log(`키프레임 개수: ${keyframeCount}`);
-        
+
         if (keyframeCount === 0) {
           console.log(`빈 트랙 건너뛰기: ${objectUuid}.${property}`);
           return; // 빈 트랙은 건너뛰기
@@ -55,13 +55,13 @@ export class DataCompressor {
           v: this.compressNumberArray(values, 2), // 값은 소수점 2자리
           i: interpolations.join(',') // 보간 타입은 정수
         };
-        
+
         console.log(`압축된 데이터:`, compressed.tracks[objectUuid][property]);
       });
     });
 
     const compressedSize = JSON.stringify(compressed).length;
-    const compressionRatio = ((timelineData.tracks.size > 0) ? 
+    const compressionRatio = ((timelineData.tracks.size > 0) ?
       (1 - compressedSize / JSON.stringify(timelineData).length) * 100 : 0).toFixed(1);
 
     console.log("압축된 데이터 크기:", compressedSize, "bytes");
@@ -98,15 +98,15 @@ export class DataCompressor {
       console.log(`properties 타입:`, typeof properties);
       console.log(`properties 키들:`, Object.keys(properties));
       console.log(`properties 값:`, JSON.stringify(properties, null, 2));
-      
+
       decompressed.tracks[objectUuid] = {};
-      
+
       Object.entries(properties).forEach(([property, data]) => {
         console.log(`속성 ${property} 데이터:`, data);
         console.log(`data 타입:`, typeof data);
         console.log(`data 키들:`, Object.keys(data));
         console.log(`data 값:`, JSON.stringify(data, null, 2));
-        
+
         try {
           // 문자열을 숫자 배열로 변환
           const times = this.decompressNumberArray(data.t);
@@ -123,7 +123,7 @@ export class DataCompressor {
             values: values,
             interpolations: interpolations
           };
-          
+
           console.log(`최종 저장된 데이터:`, decompressed.tracks[objectUuid][property]);
         } catch (error) {
           console.error(`트랙 데이터 해제 중 오류 (${objectUuid}.${property}):`, error);
@@ -145,7 +145,7 @@ export class DataCompressor {
    */
   static compressNumberArray(numbers, precision = 2) {
     if (!numbers || numbers.length === 0) return '';
-    
+
     const factor = Math.pow(10, precision);
     return numbers.map(num => Math.round(num * factor) / factor).join(',');
   }
@@ -167,7 +167,7 @@ export class DataCompressor {
    */
   static compressProjectData(projectData) {
     console.log("=== 프로젝트 데이터 압축 시작 ===");
-    
+
     const originalSize = JSON.stringify(projectData).length;
     console.log("원본 프로젝트 크기:", originalSize, "bytes");
 
@@ -177,7 +177,7 @@ export class DataCompressor {
     if (compressed.motionTimeline) {
       const timelineSize = JSON.stringify(compressed.motionTimeline).length;
       console.log("MotionTimeline 데이터 크기:", timelineSize, "bytes");
-      
+
       if (timelineSize > 1000) { // 1KB 이상일 때만 압축
         console.log("MotionTimeline 데이터 압축 적용");
         compressed.motionTimeline = this.compressTimelineData(compressed.motionTimeline);

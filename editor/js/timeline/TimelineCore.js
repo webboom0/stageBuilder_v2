@@ -708,35 +708,57 @@ export class TimelineData {
 
   // ID로 트랙 가져오기
   getTrackById(objectId, property) {
-    // console.log(`🔍 TimelineData.getTrackById 호출:`, {
-    //   objectId,
-    //   property,
-    //   tracksByIdSize: this.tracksById.size,
-    //   tracksByIdKeys: Array.from(this.tracksById.keys()),
-    //   hasObjectId: this.tracksById.has(objectId)
-    // });
+    console.log(`🔍 TimelineData.getTrackById 호출:`, {
+      objectId,
+      property,
+      tracksByIdSize: this.tracksById.size,
+      tracksByIdKeys: Array.from(this.tracksById.keys()),
+      hasObjectId: this.tracksById.has(objectId)
+    });
 
+    // 먼저 objectId로 직접 찾기
     if (this.tracksById.has(objectId)) {
       const objectTracks = this.tracksById.get(objectId);
-      // console.log(`🔍 객체 트랙들:`, {
-      //   objectId,
-      //   objectTracksSize: objectTracks.size,
-      //   objectTracksKeys: Array.from(objectTracks.keys()),
-      //   hasProperty: objectTracks.has(property)
-      // });
+      console.log(`🔍 객체 트랙들:`, {
+        objectId,
+        objectTracksSize: objectTracks.size,
+        objectTracksKeys: Array.from(objectTracks.keys()),
+        hasProperty: objectTracks.has(property)
+      });
 
       const trackData = objectTracks.get(property);
-      // console.log(`🔍 트랙 데이터 찾기 결과:`, {
-      //   objectId,
-      //   property,
-      //   found: !!trackData,
-      //   trackData: trackData
-      // });
+      console.log(`🔍 트랙 데이터 찾기 결과:`, {
+        objectId,
+        property,
+        found: !!trackData,
+        trackData: trackData
+      });
       return trackData;
-    } else {
-      // console.log(`❌ 객체 ID를 찾을 수 없음: ${objectId}`);
-      return undefined;
     }
+
+    // objectId로 찾지 못한 경우, composite key로 찾기 시도
+    const compositeKey = `${objectId}_${property}`;
+    if (this.tracksById.has(compositeKey)) {
+      const objectTracks = this.tracksById.get(compositeKey);
+      console.log(`🔍 Composite key로 객체 트랙들 찾음:`, {
+        compositeKey,
+        objectTracksSize: objectTracks.size,
+        objectTracksKeys: Array.from(objectTracks.keys())
+      });
+
+      // composite key의 경우 property는 보통 'position' 같은 단일 속성
+      const trackData = objectTracks.get(property);
+      console.log(`🔍 Composite key 트랙 데이터 찾기 결과:`, {
+        compositeKey,
+        property,
+        found: !!trackData,
+        trackData: trackData
+      });
+      return trackData;
+    }
+
+    console.log(`❌ 객체 ID를 찾을 수 없음: ${objectId} 또는 ${compositeKey}`);
+    return undefined;
   }
 
   // 모든 트랙 가져오기 (UUID 기반)

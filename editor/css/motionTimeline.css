@@ -1492,13 +1492,14 @@ border-left: 3px solid #666;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* 
 .keyframe:hover {
   transform: translate(-50%, -50%) scale(1.2);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
   z-index: 15;
 }
 
-
+ */
 
 /* 키프레임 툴팁 스타일 */
 .keyframe::before {
