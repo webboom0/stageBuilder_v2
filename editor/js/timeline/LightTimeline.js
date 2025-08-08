@@ -3759,17 +3759,19 @@ export class LightTimeline extends BaseTimeline {
 
             for (let i = 0; i < trackData.keyframeCount; i++) {
               const time = trackData.times[i];
-              const value = trackData.values[i];
+              const x = trackData.values[i * 3];
+              const y = trackData.values[i * 3 + 1];
+              const z = trackData.values[i * 3 + 2];
               const interpolation = trackData.interpolations[i];
 
               keyframes.push({
                 time: time,
                 property: property,
-                value: value,
+                value: { x, y, z },
                 interpolation: interpolation
               });
 
-              console.log(`키프레임 ${i}: 시간=${time}, 속성=${property}, 값=${value}`);
+              console.log(`키프레임 ${i}: 시간=${time}, 속성=${property}, 값=(${x},${y},${z})`);
             }
           });
 
@@ -4229,7 +4231,7 @@ export class LightTimeline extends BaseTimeline {
       savedLightTracks.forEach(([trackKey, trackData], index) => {
         console.log(`처리 중인 트랙 ${index}:`, { trackKey, trackData });
 
-        const lightId = trackData.uuid;
+        const lightId = trackKey;
         const lightType = trackData.lightType;
 
         if (!lightId || !lightType) {
@@ -4452,10 +4454,19 @@ export class LightTimeline extends BaseTimeline {
 
       if (!timelineTrackData) {
         console.log(`TimelineData에 트랙이 없어서 생성: ${objectInScene.name} ${property}`);
-        timelineTrackData = new TrackData();
-        // Add track using the actual UUID of the object in the scene
-        this.timelineData.addTrack(objectInScene.uuid, property, timelineTrackData);
-        console.log(`트랙 추가 결과 (UUID: ${objectInScene.uuid}, Property: ${property}):`, timelineTrackData);
+        const objectIdForIdMap = isTargetKeyframe ? lightId : `${lightId}_${property}`;
+        timelineTrackData = this.timelineData.addTrack(objectInScene.uuid, property, objectIdForIdMap);
+        console.log(`트랙 추가 결과 (UUID: ${objectInScene.uuid}, Property: ${property}, ID: ${objectIdForIdMap})`, timelineTrackData);
+      } else {
+        // 기존 트랙이어도 ID 매핑이 없을 수 있으니 보강
+        const objectIdForIdMap = isTargetKeyframe ? lightId : `${lightId}_${property}`;
+        if (!this.timelineData.tracksById.has(objectIdForIdMap) || !this.timelineData.tracksById.get(objectIdForIdMap).has(property)) {
+          if (!this.timelineData.tracksById.has(objectIdForIdMap)) {
+            this.timelineData.tracksById.set(objectIdForIdMap, new Map());
+          }
+          this.timelineData.tracksById.get(objectIdForIdMap).set(property, timelineTrackData);
+          console.log(`ID 매핑 보강: ${objectIdForIdMap}.${property}`);
+        }
       }
 
       // Clear existing keyframes in the timelineTrackData before adding new ones
@@ -4463,26 +4474,42 @@ export class LightTimeline extends BaseTimeline {
         timelineTrackData.removeKeyframeByIndex(i);
       }
 
-      // Add saved keyframes to timelineTrackData
+      // Add saved keyframes to timelineTrackData (플랫 배열/개별 배열/객체 모두 지원)
       times.forEach((time, index) => {
-        const value = values[index];
-        let vectorValue;
+        let vectorValue = null;
 
-        // Convert value to THREE.Vector3
-        if (Array.isArray(value)) {
-          vectorValue = new THREE.Vector3(value[0], value[1], value[2]);
-        } else if (typeof value === 'number') {
-          vectorValue = new THREE.Vector3(value, 0, 0);
-        } else if (value && typeof value === 'object' && 'x' in value && 'y' in value && 'z' in value) {
-          vectorValue = new THREE.Vector3(value.x, value.y, value.z);
-        } else {
-          console.warn(`지원하지 않는 값 타입: ${typeof value}`, value);
+        if (Array.isArray(values)) {
+          // 플랫 배열 형태인지 검사
+          if (values.length === times.length * 3 && typeof values[0] === 'number') {
+            const vx = values[index * 3];
+            const vy = values[index * 3 + 1];
+            const vz = values[index * 3 + 2];
+            vectorValue = new THREE.Vector3(vx, vy, vz);
+          } else {
+            // per-keyframe 배열 (예: [[x,y,z], ...])
+            const v = values[index];
+            if (Array.isArray(v)) {
+              vectorValue = new THREE.Vector3(v[0] || 0, v[1] || 0, v[2] || 0);
+            } else if (typeof v === 'number') {
+              vectorValue = new THREE.Vector3(v, 0, 0);
+            } else if (v && typeof v === 'object' && 'x' in v && 'y' in v && 'z' in v) {
+              vectorValue = new THREE.Vector3(v.x, v.y, v.z);
+            }
+          }
+        } else if (typeof values === 'number') {
+          vectorValue = new THREE.Vector3(values, 0, 0);
+        } else if (values && typeof values === 'object' && 'x' in values && 'y' in values && 'z' in values) {
+          vectorValue = new THREE.Vector3(values.x, values.y, values.z);
+        }
+
+        if (!vectorValue) {
+          console.warn(`지원하지 않는 값 형태. time=${time}, index=${index}, values=`, values);
           return;
         }
 
         const success = timelineTrackData.addKeyframe(time, vectorValue);
         if (success) {
-          console.log(`✅ TimelineData에 키프레임 추가: ${objectInScene.name} ${property} at ${time} = ${vectorValue}`);
+          console.log(`✅ TimelineData에 키프레임 추가: ${objectInScene.name} ${property} at ${time} = ${vectorValue.x},${vectorValue.y},${vectorValue.z}`);
         } else {
           console.warn(`❌ TimelineData에 키프레임 추가 실패: ${objectInScene.name} ${property} at ${time}`);
         }

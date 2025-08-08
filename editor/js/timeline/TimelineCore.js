@@ -1133,8 +1133,8 @@ export class TimelineData {
     return { mergedCount, conflictCount };
   }
 
-  // 트랙 추가
-  addTrack(objectUuid, property) {
+  // 트랙 추가 (ID 매핑 지원)
+  addTrack(objectUuid, property, objectId = null) {
     if (!this.tracks.has(objectUuid)) {
       this.tracks.set(objectUuid, new Map());
     }
@@ -1156,8 +1156,26 @@ export class TimelineData {
       trackData.addEventListener(KEYFRAME_EVENTS.MOVED, (data) => {
         this.emit('track_keyframe_moved', { objectUuid, property, ...data });
       });
+
+      // ID 기반 매핑도 필요하면 생성
+      if (objectId !== null) {
+        if (!this.tracksById.has(objectId)) {
+          this.tracksById.set(objectId, new Map());
+        }
+        this.tracksById.get(objectId).set(property, trackData);
+      }
     }
-    return objectTracks.get(property);
+    const td = objectTracks.get(property);
+    // objectId가 주어졌지만 기존에 트랙이 있었다면 매핑 보강
+    if (objectId !== null) {
+      if (!this.tracksById.has(objectId)) {
+        this.tracksById.set(objectId, new Map());
+      }
+      if (!this.tracksById.get(objectId).has(property)) {
+        this.tracksById.get(objectId).set(property, td);
+      }
+    }
+    return td;
   }
 
   // 트랙 삭제
