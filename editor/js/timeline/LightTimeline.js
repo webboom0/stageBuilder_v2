@@ -3613,8 +3613,42 @@ export class LightTimeline extends BaseTimeline {
     const trackObjectId = parentTrack.dataset.objectId;
     keyframeElements = keyframeElements.filter(keyframe => {
       const keyframeLightId = keyframe.dataset.lightId;
-      const isSameTrack = keyframeLightId === trackObjectId;
-      console.log(`키프레임 필터링: ${keyframeLightId} === ${trackObjectId} = ${isSameTrack}`);
+
+      // 일반 조명 키프레임: light_0_intensity 형태
+      // 타겟 키프레임: light_0_Target 형태
+      // 트랙 ID: light_0 또는 light_0_Target 형태
+      let isSameTrack = false;
+
+      if (trackObjectId.includes('_Target')) {
+        // 타겟 트랙인 경우: 기본 조명 ID 추출하여 비교
+        const baseLightId = trackObjectId.replace('_Target', '');
+        if (keyframeLightId.includes('_Target')) {
+          // 타겟 키프레임인 경우: light_0_Target === light_0_Target
+          isSameTrack = keyframeLightId === trackObjectId;
+        } else {
+          // 일반 조명 키프레임인 경우: light_0_intensity는 light_0으로 시작하는지 확인
+          isSameTrack = keyframeLightId.startsWith(baseLightId + '_');
+        }
+      } else {
+        // 일반 조명 트랙인 경우
+        if (keyframeLightId.includes('_Target')) {
+          // 타겟 키프레임인 경우: light_0_Target === light_0_Target
+          isSameTrack = keyframeLightId === trackObjectId + '_Target';
+        } else {
+          // 일반 조명 키프레임인 경우: light_0_intensity는 light_0으로 시작하는지 확인
+          isSameTrack = keyframeLightId.startsWith(trackObjectId + '_');
+        }
+      }
+
+      console.log(`키프레임 필터링: ${keyframeLightId} vs ${trackObjectId} = ${isSameTrack}`, {
+        keyframeLightId,
+        trackObjectId,
+        isTargetTrack: trackObjectId.includes('_Target'),
+        isTargetKeyframe: keyframeLightId.includes('_Target'),
+        baseLightId: trackObjectId.includes('_Target') ? trackObjectId.replace('_Target', '') : trackObjectId,
+        startsWithBaseId: keyframeLightId.startsWith((trackObjectId.includes('_Target') ? trackObjectId.replace('_Target', '') : trackObjectId) + '_')
+      });
+
       return isSameTrack;
     });
 

@@ -950,7 +950,7 @@ border-radius: 5px 5px 2px 2px;
 .timeline-top-container {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
 }
 
 .main-timeline-container .timeline-header {
