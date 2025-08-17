@@ -2882,32 +2882,32 @@ export class LightTimeline extends BaseTimeline {
     this.editor.scene.userData.lightTimeline = this.timelineData.toJSON();
   }
 
-  onAfterLoad() {
-    // scene.userData에서 TimelineData 복원
-    if (this.editor.scene.userData?.lightTimeline) {
-      this.timelineData.fromJSON(this.editor.scene.userData.lightTimeline);
+  // onAfterLoad() {
+  //   // scene.userData에서 TimelineData 복원
+  //   if (this.editor.scene.userData?.lightTimeline) {
+  //     this.timelineData.fromJSON(this.editor.scene.userData.lightTimeline);
 
-      // 저장된 키프레임 UI 복원
-      this.restoreKeyframeUI();
+  //     // 저장된 키프레임 UI 복원
+  //     this.restoreKeyframeUI();
 
-      // 저장된 선택된 키프레임 정보 복원
-      const savedSelectedKeyframe = this.editor.scene.userData.lightTimeline.selectedKeyframe;
-      if (savedSelectedKeyframe) {
-        console.log("저장된 선택된 키프레임 복원:", savedSelectedKeyframe);
-        this.selectedKeyframe = {
-          lightId: savedSelectedKeyframe.lightId,
-          index: savedSelectedKeyframe.index,
-          time: savedSelectedKeyframe.time,
-          property: savedSelectedKeyframe.property,
-          value: savedSelectedKeyframe.value,
-          element: null // UI 요소는 복원 시점에 없으므로 null
-        };
+  //     // 저장된 선택된 키프레임 정보 복원
+  //     const savedSelectedKeyframe = this.editor.scene.userData.lightTimeline.selectedKeyframe;
+  //     if (savedSelectedKeyframe) {
+  //       console.log("저장된 선택된 키프레임 복원:", savedSelectedKeyframe);
+  //       this.selectedKeyframe = {
+  //         lightId: savedSelectedKeyframe.lightId,
+  //         index: savedSelectedKeyframe.index,
+  //         time: savedSelectedKeyframe.time,
+  //         property: savedSelectedKeyframe.property,
+  //         value: savedSelectedKeyframe.value,
+  //         element: null // UI 요소는 복원 시점에 없으므로 null
+  //       };
 
-        // 선택된 키프레임 UI 하이라이트 복원
-        this.restoreSelectedKeyframeUI();
-      }
-    }
-  }
+  //       // 선택된 키프레임 UI 하이라이트 복원
+  //       this.restoreSelectedKeyframeUI();
+  //     }
+  //   }
+  // }
 
   restoreKeyframeUI() {
     // 모든 트랙의 키프레임 UI 복원
@@ -4043,13 +4043,19 @@ export class LightTimeline extends BaseTimeline {
 
     try {
       console.log("=== LightTimeline onAfterLoad 시작 ===");
-
+      const timelineData = this.editor.scene?.userData?.lightTimeline;
       // scene.userData에서 lightTimeline 데이터 확인
       if (this.editor.scene && this.editor.scene.userData && this.editor.scene.userData.lightTimeline) {
         console.log("scene.userData.lightTimeline 데이터 발견:", this.editor.scene.userData.lightTimeline);
 
         const timelineData = this.editor.scene.userData.lightTimeline;
         console.log("timelineData 전체:", timelineData);
+
+        // 이 부분을 추가하세요
+        if (!timelineData || !timelineData.lightTracks || Object.keys(timelineData.lightTracks).length === 0) {
+          console.log("조명 타임라인 데이터가 없어서 복원을 건너뜁니다.");
+          return;
+        }
 
         // 조명 객체 생성 및 UI 복원 (순서 중요)
         console.log("🔄 조명 객체 생성 시작");
@@ -4658,7 +4664,7 @@ export class LightTimeline extends BaseTimeline {
       // position 속성은 타겟 트랙에, 나머지는 조명 트랙에 생성
       const isTargetProperty = property === 'position';
       const targetLightId = isTargetProperty ? `${lightId}_Target` : lightId;
-      const targetTrack = this.tracks.get(targetLightId);
+      let targetTrack = this.tracks.get(targetLightId);
 
       if (!targetTrack || !targetTrack.element) {
         console.warn(`트랙을 찾을 수 없음: ${targetLightId}`);

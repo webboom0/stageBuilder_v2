@@ -131,8 +131,15 @@ function Editor() {
   this.viewportCamera = this.camera;
   this.viewportShading = "default";
 
+  // 타임라인 인스턴스들 초기화
+  this.motionTimeline = null;
+  this.lightTimeline = null;
+  this.audioTimeline = null;
+
   this.addCamera(this.camera);
 }
+
+
 
 Editor.prototype = {
   setScene: function (scene) {
@@ -343,6 +350,48 @@ Editor.prototype = {
       this.cameras[camera.uuid] = camera;
 
       this.signals.cameraAdded.dispatch(camera);
+    }
+  },
+
+  // 타임라인 인스턴스들 연결
+  connectTimelineInstances: function () {
+    try {
+      console.log("=== 타임라인 인스턴스 연결 시작 ===");
+      console.log("window.timeline 존재:", !!window.timeline);
+      console.log("window.timeline.timelines 존재:", !!window.timeline?.timelines);
+
+      if (window.timeline && window.timeline.timelines) {
+        console.log("사용 가능한 타임라인들:", Object.keys(window.timeline.timelines));
+
+        // MotionTimeline 연결
+        if (window.timeline.timelines.motion && !this.motionTimeline) {
+          this.motionTimeline = window.timeline.timelines.motion;
+          console.log("✅ MotionTimeline 연결 완료:", this.motionTimeline);
+        }
+
+        // LightTimeline 연결
+        if (window.timeline.timelines.light && !this.lightTimeline) {
+          this.lightTimeline = window.timeline.timelines.light;
+          console.log("✅ LightTimeline 연결 완료:", this.lightTimeline);
+        }
+
+        // AudioTimeline 연결
+        if (window.timeline.timelines.audio && !this.audioTimeline) {
+          this.audioTimeline = window.timeline.timelines.audio;
+          console.log("✅ AudioTimeline 연결 완료:", this.audioTimeline);
+        }
+      } else {
+        console.warn("⚠️ window.timeline 또는 window.timeline.timelines가 없습니다!");
+      }
+
+      console.log("=== 타임라인 인스턴스 연결 완료 ===");
+      console.log("연결된 타임라인들:", {
+        motionTimeline: !!this.motionTimeline,
+        lightTimeline: !!this.lightTimeline,
+        audioTimeline: !!this.audioTimeline
+      });
+    } catch (error) {
+      console.error("타임라인 인스턴스 연결 중 오류:", error);
     }
   },
 
@@ -1041,6 +1090,9 @@ Editor.prototype = {
 
           console.log("scene children 복원 완료, 총 개수:", this.scene.children.length);
 
+          // 타임라인 인스턴스들 연결
+          this.connectTimelineInstances();
+
           // 사이드바 새로고침
           this.signals.sceneGraphChanged.dispatch();
 
@@ -1237,7 +1289,102 @@ Editor.prototype = {
         } catch (error) {
           console.error("LightTimeline 데이터 복원 중 오류:", error);
         }
+      }
+
+      // AudioTimeline 데이터 복원
+      if (this.scene.userData.audioTimeline) {
+        try {
+          console.log("=== AudioTimeline 데이터 복원 시작 ===");
+          console.log("scene.userData.audioTimeline:", this.scene.userData.audioTimeline);
+          console.log("this.audioTimeline 존재:", !!this.audioTimeline);
+          console.log("this.audioTimeline 타입:", typeof this.audioTimeline);
+          console.log("this.audioTimeline 값:", this.audioTimeline);
+          console.log("this.audioTimeline이 null인가:", this.audioTimeline === null);
+          console.log("this.audioTimeline이 undefined인가:", this.audioTimeline === undefined);
+
+          if (this.audioTimeline && this.audioTimeline.onAfterLoad) {
+            console.log("audioTimeline.onAfterLoad() 호출 중...");
+            this.audioTimeline.onAfterLoad();
+            console.log("=== AudioTimeline 데이터 복원 완료 ===");
+          } else {
+            console.log("AudioTimeline 인스턴스가 없어서 데이터를 복원하지 않습니다.");
+            console.log("window.timeline 존재:", !!window.timeline);
+            console.log("window.timeline.timelines 존재:", !!window.timeline?.timelines);
+            console.log("window.timeline.timelines.audio 존재:", !!window.timeline?.timelines?.audio);
+            console.log("window.timeline.timelines 키들:", Object.keys(window.timeline?.timelines || {}));
+
+            // AudioTimeline 인스턴스가 없다면 생성 시도
+            if (window.timeline && window.timeline.timelines && window.timeline.timelines.audio) {
+              this.audioTimeline = window.timeline.timelines.audio;
+              console.log("AudioTimeline 인스턴스를 window.timeline에서 찾아서 연결했습니다.");
+              console.log("연결된 audioTimeline:", this.audioTimeline);
+              this.audioTimeline.onAfterLoad();
+              console.log("=== AudioTimeline 데이터 복원 완료 ===");
+            } else {
+              console.warn("⚠️ AudioTimeline 인스턴스를 찾을 수 없습니다!");
+              console.warn("window.timeline 구조:", window.timeline);
+
+              // AudioTimeline을 직접 생성
+              try {
+                console.log("AudioTimeline을 직접 생성합니다.");
+                const { AudioTimeline } = await import('./timeline/AudioTimeline.js');
+                this.audioTimeline = new AudioTimeline(this, {});
+                console.log("생성된 AudioTimeline:", this.audioTimeline);
+                console.log("this.audioTimeline 할당 확인:", !!this.audioTimeline);
+
+                // AudioTimeline이 제대로 생성되었는지 확인
+                if (this.audioTimeline) {
+                  console.log("AudioTimeline 인스턴스가 성공적으로 생성되었습니다.");
+
+                  // AudioTimeline 컨테이너를 DOM에 추가
+                  try {
+                    console.log("AudioTimeline 컨테이너를 DOM에 추가 중...");
+                    const audioTimelineContainer = this.audioTimeline.container;
+                    console.log("AudioTimeline 컨테이너:", audioTimelineContainer);
+                    console.log("컨테이너 클래스:", audioTimelineContainer?.className);
+                    console.log("컨테이너 스타일:", audioTimelineContainer?.style);
+
+                    if (audioTimelineContainer && !document.body.contains(audioTimelineContainer)) {
+                      document.body.appendChild(audioTimelineContainer);
+                      console.log("AudioTimeline 컨테이너가 DOM에 추가되었습니다.");
+                      console.log("DOM에 추가된 컨테이너:", document.body.contains(audioTimelineContainer));
+                      console.log("컨테이너 부모:", audioTimelineContainer.parentElement);
+                    } else {
+                      console.log("AudioTimeline 컨테이너가 이미 DOM에 있거나 존재하지 않습니다.");
+                      console.log("DOM에 포함 여부:", document.body.contains(audioTimelineContainer));
+                      if (audioTimelineContainer) {
+                        console.log("컨테이너 부모:", audioTimelineContainer.parentElement);
+                      }
+                    }
+                  } catch (error) {
+                    console.error("AudioTimeline 컨테이너 DOM 추가 중 오류:", error);
+                  }
+
+                  // 생성된 AudioTimeline으로 저장된 데이터 복원
+                  try {
+                    console.log("생성된 AudioTimeline으로 onAfterLoad() 호출 중...");
+                    this.audioTimeline.onAfterLoad();
+                    console.log("=== AudioTimeline 데이터 복원 완료 ===");
+                  } catch (error) {
+                    console.error("생성된 AudioTimeline onAfterLoad() 실행 중 오류:", error);
+                  }
+                } else {
+                  console.error("AudioTimeline 인스턴스 생성에 실패했습니다.");
+                }
+              } catch (importError) {
+                console.error("AudioTimeline 생성 중 오류:", importError);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("AudioTimeline 데이터 복원 중 오류:", error);
+        }
       } else {
+        console.log("scene.userData.audioTimeline이 없어서 AudioTimeline 복원을 건너뜁니다.");
+      }
+
+      // LightTimeline 데이터가 없거나 lightTimeline 인스턴스가 없습니다.
+      if (!projectData.lightTimeline && !this.scene.userData.lightTimeline) {
         console.log("LightTimeline 데이터가 없거나 lightTimeline 인스턴스가 없습니다.");
         console.log("projectData.lightTimeline 존재:", !!projectData.lightTimeline);
         console.log("this.lightTimeline 존재:", !!this.lightTimeline);
@@ -1349,6 +1496,42 @@ Editor.prototype = {
       }
     } else {
       console.log("motionTimeline 인스턴스가 없어서 저장하지 않습니다.");
+    }
+
+    // AudioTimeline 데이터 저장
+    if (this.audioTimeline) {
+      try {
+        console.log("=== AudioTimeline 데이터 저장 시작 ===");
+        console.log("this.audioTimeline:", this.audioTimeline);
+        console.log("this.scene.userData.audioTimeline 존재:", !!this.scene.userData?.audioTimeline);
+
+        if (this.scene.userData?.audioTimeline) {
+          console.log("저장 전 audioTimeline 데이터:", this.scene.userData.audioTimeline);
+          console.log("tracks 키들:", Object.keys(this.scene.userData.audioTimeline.tracks || {}));
+        }
+
+        this.audioTimeline.onBeforeSave();
+
+        console.log("onBeforeSave 완료 후 scene.userData.audioTimeline:", this.scene.userData.audioTimeline);
+        console.log("onBeforeSave 후 tracks 키들:", Object.keys(this.scene.userData.audioTimeline?.tracks || {}));
+        console.log("=== AudioTimeline 데이터 저장 완료 ===");
+      } catch (error) {
+        console.error("AudioTimeline 데이터 저장 중 오류:", error);
+      }
+    } else {
+      console.log("audioTimeline 인스턴스가 없어서 저장하지 않습니다.");
+      // AudioTimeline 인스턴스가 없다면 생성 시도
+      if (window.timeline && window.timeline.timelines && window.timeline.timelines.audio) {
+        this.audioTimeline = window.timeline.timelines.audio;
+        console.log("AudioTimeline 인스턴스를 window.timeline에서 찾아서 연결했습니다.");
+        try {
+          console.log("=== AudioTimeline 데이터 저장 시작 ===");
+          this.audioTimeline.onBeforeSave();
+          console.log("=== AudioTimeline 데이터 저장 완료 ===");
+        } catch (error) {
+          console.error("AudioTimeline 데이터 저장 중 오류:", error);
+        }
+      }
     }
 
     // 기본 프로젝트 데이터 생성 (씬 데이터 안전 처리)

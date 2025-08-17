@@ -307,39 +307,6 @@ export class AudioTimeline extends BaseTimeline {
     this.initAudioTimeline();
   }
 
-  // 타임라인 총 길이 안전 조회
-  getTotalSeconds() {
-    const fallback = 300; // 기본 5분
-    const optVal = Number(this?.options?.totalSeconds);
-    // const sceneVal = Number(this?.editor?.scene?.userData?.timeline?.totalSeconds);
-    const sceneVal = Number(this?.editor?.timeline?.defaultSettings?.totalSeconds);
-    if (Number.isFinite(optVal) && optVal > 0) return optVal;
-    if (Number.isFinite(sceneVal) && sceneVal > 0) return sceneVal;
-    return fallback;
-  }
-
-  // 타임라인 길이가 준비되면(left/width) 재계산을 트리거
-  scheduleRecalcForTimelineReady() {
-    const tryRecalc = (attempt = 0) => {
-      const sceneVal = Number(this?.editor?.scene?.userData?.timeline?.totalSeconds);
-      const optVal = Number(this?.options?.totalSeconds);
-      const isReady = (Number.isFinite(sceneVal) && sceneVal > 0) || (Number.isFinite(optVal) && optVal > 0);
-
-      if (isReady) {
-        this.updateUI();
-        return;
-      }
-
-      if (attempt < 5) {
-        setTimeout(() => tryRecalc(attempt + 1), 50 * (attempt + 1));
-      } else {
-        this.updateUI();
-      }
-    };
-
-    tryRecalc(0);
-  }
-
   // AudioTimeline 초기화
   async initAudioTimeline() {
     try {
@@ -397,154 +364,6 @@ export class AudioTimeline extends BaseTimeline {
 
     // 오디오 로드 및 트랙 생성 (Promise 반환)
     return this.loadAudioFile(audioFile);
-  }
-
-  // 저장된 오디오 데이터 로드 (프로젝트 열기 시 사용)
-  loadAudioData(savedAudioData) {
-    console.log("저장된 오디오 데이터 로드 시작:", savedAudioData);
-
-    if (!savedAudioData || !Array.isArray(savedAudioData)) {
-      console.warn("저장된 오디오 데이터가 없거나 유효하지 않습니다:", savedAudioData);
-      return;
-    }
-
-    // 기존 트랙들 정리
-    this.clearAllTracks();
-
-    // 저장된 오디오 데이터로 트랙 복원
-    savedAudioData.forEach((audioData, index) => {
-      console.log(`오디오 데이터 ${index} 복원 중:`, audioData);
-
-      if (audioData.audioFile && audioData.audioFile.path) {
-        // 저장된 트랙 데이터를 originalTrackData로 전달
-        const audioFile = {
-          path: audioData.audioFile.path,
-          name: audioData.audioFile.name,
-          displayName: audioData.audioFile.displayName || audioData.audioFile.name,
-          originalTrackData: {
-            startTime: audioData.startTime !== undefined ? audioData.startTime : 0,
-            duration: audioData.duration !== undefined ? audioData.duration : 100,
-            volume: audioData.volume !== undefined ? audioData.volume : 1.0,
-            mute: audioData.mute !== undefined ? audioData.mute : false,
-            playbackRate: audioData.playbackRate !== undefined ? audioData.playbackRate : 1.0,
-            audioStartTime: audioData.audioStartTime !== undefined ? audioData.audioStartTime : 0,
-            audioEndTime: audioData.audioEndTime !== undefined ? audioData.audioEndTime : (audioData.duration || 100)
-          }
-        };
-
-        console.log(`복원할 audioFile 구성:`, audioFile);
-
-        // loadAudioFile로 트랙 복원
-        this.loadAudioFile(audioFile).then((track) => {
-          console.log(`✅ 오디오 트랙 복원 완료:`, track);
-
-          // 저장된 속성들을 UI에 복원
-          if (track && track.element) {
-            this.restoreTrackProperties(track, audioData);
-          }
-        }).catch((error) => {
-          console.error(`❌ 오디오 트랙 복원 실패: ${audioFile.name}`, error);
-        });
-      }
-    });
-  }
-
-  // 트랙 속성 복원
-  restoreTrackProperties(track, audioData) {
-    const audioSprite = track.element.querySelector('.audio-sprite');
-    if (!audioSprite) {
-      console.warn('오디오 스프라이트를 찾을 수 없습니다:', track);
-      return;
-    }
-
-    console.log(`🔍 오디오 스프라이트 속성 복원 시작:`, audioData);
-
-    const safeTotalSeconds = this.getTotalSeconds();
-
-    // 위치/크기 복원
-    if (audioData.startTime !== undefined) {
-      const left = (audioData.startTime / safeTotalSeconds) * 100;
-      audioSprite.style.left = `${left}%`;
-      audioSprite.dataset.startTime = audioData.startTime.toString();
-      console.log(`📍 startTime 복원: ${audioData.startTime} -> left: ${left}%`);
-    }
-
-    if (audioData.duration !== undefined) {
-      const width = (audioData.duration / safeTotalSeconds) * 100;
-      audioSprite.style.width = `${width}%`;
-      audioSprite.dataset.duration = audioData.duration.toString();
-      console.log(`📏 duration 복원: ${audioData.duration} -> width: ${width}%`);
-    }
-
-    // 볼륨 등 기타 속성 복원
-    if (audioData.volume !== undefined) {
-      audioSprite.dataset.volume = audioData.volume.toString();
-      console.log(`🔊 volume 복원: ${audioData.volume}`);
-    }
-
-    if (audioData.mute !== undefined) {
-      audioSprite.dataset.mute = audioData.mute.toString();
-      console.log(`🔇 mute 복원: ${audioData.mute}`);
-    }
-
-    if (audioData.playbackRate !== undefined) {
-      audioSprite.dataset.playbackRate = audioData.playbackRate.toString();
-      console.log(`⏩ playbackRate 복원: ${audioData.playbackRate}`);
-    }
-
-    if (audioData.audioStartTime !== undefined) {
-      audioSprite.dataset.audioStartTime = audioData.audioStartTime.toString();
-      console.log(`🎵 audioStartTime 복원: ${audioData.audioStartTime}`);
-    }
-
-    if (audioData.audioEndTime !== undefined) {
-      audioSprite.dataset.audioEndTime = audioData.audioEndTime.toString();
-      console.log(`🎵 audioEndTime 복원: ${audioData.audioEndTime}`);
-    }
-
-    // 오디오 객체의 userData도 복원
-    const object = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
-    if (object && object.userData) {
-      if (audioData.startTime !== undefined) {
-        object.userData.startTime = audioData.startTime;
-      }
-      if (audioData.duration !== undefined) {
-        object.userData.duration = audioData.duration;
-      }
-      if (audioData.volume !== undefined) {
-        object.userData.volume = audioData.volume;
-      }
-      if (audioData.mute !== undefined) {
-        object.userData.mute = audioData.mute;
-      }
-      if (audioData.playbackRate !== undefined) {
-        object.userData.playbackRate = audioData.playbackRate;
-      }
-      if (audioData.audioStartTime !== undefined) {
-        object.userData.audioStartTime = audioData.audioStartTime;
-      }
-      if (audioData.audioEndTime !== undefined) {
-        object.userData.audioEndTime = audioData.audioEndTime;
-      }
-    }
-  }
-
-  // 모든 트랙 정리
-  clearAllTracks() {
-    console.log("기존 오디오 트랙들 정리 중...");
-
-    // 트랙 데이터 정리
-    this.tracks.clear();
-
-    // UI 요소들 정리
-    const trackElements = this.container.querySelectorAll('.timeline-track');
-    trackElements.forEach(element => {
-      if (element.dataset.type === 'audio') {
-        element.remove();
-      }
-    });
-
-    console.log("기존 오디오 트랙들 정리 완료");
   }
 
   // 오디오 파일 로드
@@ -639,16 +458,10 @@ export class AudioTimeline extends BaseTimeline {
               this.editor.scene.userData.audioTimeline.audioObjects = {};
             }
             this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id] = {
-              audioElement: audioElement,
-              objectId: audioObject.id, // objectId 추가
-              volume: originalTrackData.volume !== undefined ? originalTrackData.volume : 1.0,
-              mute: originalTrackData.mute !== undefined ? originalTrackData.mute : false,
-              playbackRate: originalTrackData.playbackRate !== undefined ? originalTrackData.playbackRate : 1.0,
+              volume: 1.0,
+              mute: false,
+              playbackRate: 1.0,
               audioFile: audioFile,
-              audioStartTime: originalTrackData.audioStartTime || 0,
-              audioEndTime: originalTrackData.audioEndTime || audioElement.duration,
-              startTime: originalTrackData.startTime || 0,
-              duration: originalTrackData.duration || effectiveDuration,
             };
 
             // input 필드 초기화
@@ -894,7 +707,6 @@ export class AudioTimeline extends BaseTimeline {
             this.editor.scene.userData.audioTimeline.audioObjects = {};
           }
           this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id] = {
-            objectId: audioObject.id, // objectId 추가
             volume: 1.0,
             mute: false,
             playbackRate: 1.0,
@@ -932,15 +744,15 @@ export class AudioTimeline extends BaseTimeline {
     sprite.className = "audio-sprite";
 
     // 스프라이트 크기 설정
-    const spriteWidth = (duration / this.getTotalSeconds()) * 100;
+    const spriteWidth = (duration / this.options.totalSeconds) * 100;
     sprite.style.width = `${spriteWidth}%`;
     sprite.style.left = "0%";
     sprite.dataset.duration = duration;
     sprite.dataset.startTime = "0"; // 클립 시작 시간 (타임라인상 위치)
     sprite.dataset.audioStartTime = "0"; // 오디오 편집 시작 시간
     sprite.dataset.audioEndTime = duration.toString(); // 오디오 편집 끝 시간
-    sprite.dataset.minWidth = (5 / this.getTotalSeconds()) * 100;
-    sprite.dataset.maxWidth = (180 / this.getTotalSeconds()) * 100;
+    sprite.dataset.minWidth = (5 / this.options.totalSeconds) * 100;
+    sprite.dataset.maxWidth = (180 / this.options.totalSeconds) * 100;
 
     // audioPath 설정 (트랙 복원 시 필요)
     if (audioPath) {
@@ -1333,7 +1145,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const startTimeInput = document.createElement("input");
     startTimeInput.type = "text";
-    startTimeInput.className = "time-input startTimeInput";
+    startTimeInput.className = "time-input";
     startTimeInput.placeholder = "00:00.00";
 
     startTimeInput.addEventListener("change", (e) => {
@@ -1354,7 +1166,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const endTimeInput = document.createElement("input");
     endTimeInput.type = "text";
-    endTimeInput.className = "time-input endTimeInput";
+    endTimeInput.className = "time-input";
     endTimeInput.placeholder = "00:00.00";
 
     endTimeInput.addEventListener("change", (e) => {
@@ -1380,7 +1192,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const clipStartInput = document.createElement("input");
     clipStartInput.type = "text";
-    clipStartInput.className = "time-input clipStartInput";
+    clipStartInput.className = "time-input";
     clipStartInput.placeholder = "00:00.00";
 
     clipStartInput.addEventListener("change", (e) => {
@@ -1401,7 +1213,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const clipDurationInput = document.createElement("input");
     clipDurationInput.type = "text";
-    clipDurationInput.className = "time-input clipDurationInput";
+    clipDurationInput.className = "time-input";
     clipDurationInput.placeholder = "00:00.00";
     clipDurationInput.readOnly = true; // 읽기 전용으로 설정
 
@@ -1571,7 +1383,7 @@ export class AudioTimeline extends BaseTimeline {
 
     if (newClipDuration >= MIN_CLIP_DURATION) {
       // 클립 길이 업데이트
-      const newWidth = (newClipDuration / this.getTotalSeconds()) * 100;
+      const newWidth = (newClipDuration / this.options.totalSeconds) * 100;
       selectedSprite.style.width = `${newWidth}%`;
       selectedSprite.dataset.duration = newClipDuration.toString();
       audioObject.userData.duration = newClipDuration;
@@ -1579,13 +1391,6 @@ export class AudioTimeline extends BaseTimeline {
       // 클립 input 필드도 업데이트
       const clipStartTime = parseFloat(selectedSprite.dataset.startTime) || 0;
       this.updateClipInputFields(clipStartTime, newClipDuration);
-
-      // audioObjects 동기화
-      this.updateAudioObjectsEntry(audioObject.id, {
-        audioStartTime: clampedStartTime,
-        duration: newClipDuration,
-        startTime: clipStartTime,
-      });
     }
 
     console.log("오디오 시작 시간 설정됨:", {
@@ -1650,7 +1455,7 @@ export class AudioTimeline extends BaseTimeline {
 
     if (newClipDuration >= MIN_CLIP_DURATION) {
       // 클립 길이 업데이트
-      const newWidth = (newClipDuration / this.getTotalSeconds()) * 100;
+      const newWidth = (newClipDuration / this.options.totalSeconds) * 100;
       selectedSprite.style.width = `${newWidth}%`;
       selectedSprite.dataset.duration = newClipDuration.toString();
       audioObject.userData.duration = newClipDuration;
@@ -1658,12 +1463,6 @@ export class AudioTimeline extends BaseTimeline {
       // 클립 input 필드도 업데이트
       const clipStartTime = parseFloat(selectedSprite.dataset.startTime) || 0;
       this.updateClipInputFields(clipStartTime, newClipDuration);
-
-      // audioObjects 동기화
-      this.updateAudioObjectsEntry(audioObject.id, {
-        audioEndTime: clampedEndTime,
-        duration: newClipDuration,
-      });
     }
 
     console.log("오디오 끝 시간 설정됨:", {
@@ -1744,31 +1543,21 @@ export class AudioTimeline extends BaseTimeline {
 
   // input 필드 값 업데이트 메서드
   updateInputFields(audioStartTime, audioEndTime) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
-    const startTimeInput = panel.querySelector('input.time-input.startTimeInput');
-    const endTimeInput = panel.querySelector('input.time-input.endTimeInput');
-    if (startTimeInput) {
-      console.log("#############################")
-      console.log("updateInputFields 입력:", { audioStartTime, audioEndTime });
-      console.log(this.startTimeInput);
-      console.log(this.formatTimeToFrame(audioStartTime));
-      startTimeInput.value = this.formatTimeToFrame(audioStartTime);
+    if (this.startTimeInput) {
+      this.startTimeInput.value = this.formatTimeToFrame(audioStartTime);
     }
-    if (endTimeInput) {
-      endTimeInput.value = this.formatTimeToFrame(audioEndTime);
+    if (this.endTimeInput) {
+      this.endTimeInput.value = this.formatTimeToFrame(audioEndTime);
     }
   }
 
   // 클립 input 필드 값 업데이트 메서드
   updateClipInputFields(startTime, duration) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
-    const clipStartInput = panel.querySelector('input.time-input.clipStartInput');
-    const clipDurationInput = panel.querySelector('input.time-input.clipDurationInput');
-    if (clipStartInput) {
-      clipStartInput.value = this.formatTimeToFrame(startTime);
+    if (this.clipStartInput) {
+      this.clipStartInput.value = this.formatTimeToFrame(startTime);
     }
-    if (clipDurationInput) {
-      clipDurationInput.value = this.formatTimeToFrame(duration);
+    if (this.clipDurationInput) {
+      this.clipDurationInput.value = this.formatTimeToFrame(duration);
     }
   }
 
@@ -1803,24 +1592,16 @@ export class AudioTimeline extends BaseTimeline {
     }
 
     // 제한: 0초 이상, 타임라인 끝을 넘지 않도록
-    console.log("#############################")
-    console.log("getTotalSeconds", this.getTotalSeconds());
-
-    const maxStartTime = this.getTotalSeconds() - parseFloat(selectedSprite.dataset.duration);
+    const maxStartTime = this.options.totalSeconds - parseFloat(selectedSprite.dataset.duration);
     const clampedStartTime = Math.max(0, Math.min(maxStartTime, startTime));
 
     // 스프라이트 위치 업데이트
-    const newLeft = (clampedStartTime / this.getTotalSeconds()) * 100;
+    const newLeft = (clampedStartTime / this.options.totalSeconds) * 100;
     selectedSprite.style.left = `${newLeft}%`;
     selectedSprite.dataset.startTime = clampedStartTime.toString();
 
     // 오디오 객체 업데이트
     audioObject.userData.startTime = clampedStartTime;
-
-    // audioObjects 동기화
-    this.updateAudioObjectsEntry(audioObject.id, {
-      startTime: clampedStartTime,
-    });
 
     console.log("클립 시작 시간 설정됨:", {
       startTime: clampedStartTime,
@@ -1862,7 +1643,7 @@ export class AudioTimeline extends BaseTimeline {
     const MIN_DURATION = 5;
     const MAX_DURATION = 180;
     const currentStartTime = parseFloat(selectedSprite.dataset.startTime) || 0;
-    const maxDuration = this.getTotalSeconds() - currentStartTime;
+    const maxDuration = this.options.totalSeconds - currentStartTime;
 
     const clampedDuration = Math.max(
       MIN_DURATION,
@@ -1870,18 +1651,12 @@ export class AudioTimeline extends BaseTimeline {
     );
 
     // 스프라이트 너비 업데이트
-    console.log("#############################")
-    const newWidth = (clampedDuration / this.getTotalSeconds()) * 100;
+    const newWidth = (clampedDuration / this.options.totalSeconds) * 100;
     selectedSprite.style.width = `${newWidth}%`;
     selectedSprite.dataset.duration = clampedDuration.toString();
 
     // 오디오 객체 업데이트
     audioObject.userData.duration = clampedDuration;
-
-    // audioObjects 동기화
-    this.updateAudioObjectsEntry(audioObject.id, {
-      duration: clampedDuration,
-    });
 
     console.log("클립 길이 설정됨:", {
       duration: clampedDuration,
@@ -2477,75 +2252,6 @@ export class AudioTimeline extends BaseTimeline {
     document.head.appendChild(style);
   }
 
-  // pause 메소드 추가 - 모든 오디오 트랙 일시정지
-  pause() {
-    console.log("🔇 AudioTimeline pause() 호출됨");
-
-    this.tracks.forEach((track) => {
-      const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
-      if (audioObject && audioObject.userData.audioElement) {
-        const audio = audioObject.userData.audioElement;
-        if (!audio.paused) {
-          audio.pause();
-          audio._playRequested = false; // 재생 요청 플래그 초기화
-          console.log(`🔇 오디오 트랙 ${track.objectId || track.id} 일시정지됨`);
-        }
-      }
-    });
-
-    // AudioTimeline 자체 상태도 일시정지
-    this.isPlaying = false;
-    console.log("🔇 AudioTimeline 일시정지 완료");
-  }
-
-  // play 메소드 추가 - 모든 오디오 트랙 재생 시작
-  play() {
-    console.log("🔊 AudioTimeline play() 호출됨");
-
-    this.tracks.forEach((track) => {
-      const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
-      if (audioObject && audioObject.userData.audioElement) {
-        const audio = audioObject.userData.audioElement;
-        if (audio.paused && !audio._playRequested) {
-          audio._playRequested = true;
-          audio.play().then(() => {
-            audio._playRequested = false;
-            console.log(`🔊 오디오 트랙 ${track.objectId || track.id} 재생 시작됨`);
-          }).catch((error) => {
-            console.error(`🔊 오디오 트랙 ${track.objectId || track.id} 재생 실패:`, error);
-            audio._playRequested = false;
-          });
-        }
-      }
-    });
-
-    // AudioTimeline 자체 상태도 재생
-    this.isPlaying = true;
-    console.log("🔊 AudioTimeline 재생 시작 완료");
-  }
-
-  // stop 메소드 추가 - 모든 오디오 트랙 정지
-  stop() {
-    console.log("⏹️ AudioTimeline stop() 호출됨");
-
-    this.tracks.forEach((track) => {
-      const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
-      if (audioObject && audioObject.userData.audioElement) {
-        const audio = audioObject.userData.audioElement;
-        if (!audio.paused) {
-          audio.pause();
-          audio.currentTime = 0; // 처음으로 되돌리기
-          audio._playRequested = false;
-          console.log(`⏹️ 오디오 트랙 ${track.objectId || track.id} 정지됨`);
-        }
-      }
-    });
-
-    // AudioTimeline 자체 상태도 정지
-    this.isPlaying = false;
-    console.log("⏹️ AudioTimeline 정지 완료");
-  }
-
   // 클래스 소멸자 추가
   dispose() {
     // Blob URL 정리
@@ -2671,7 +2377,6 @@ export class AudioTimeline extends BaseTimeline {
                 const displayName = audioSprite.dataset.audioName || audioName;
 
                 audioTimelineData.audioObjects[trackId] = {
-                  objectId: trackId, // objectId 추가
                   audioFile: {
                     path: audioPath,
                     name: audioName,
@@ -2821,13 +2526,20 @@ export class AudioTimeline extends BaseTimeline {
               if (audioData.audioFile && audioData.audioFile.path) {
                 console.log(`🔍 ${objectId} 객체로 트랙 복원 시작`);
 
-                // 1. 저장된 오디오 데이터로 loadAudioFile 직접 호출
-                const audioFile = {
-                  path: audioData.audioFile.path,
-                  name: audioData.audioFile.name,
-                  displayName: audioData.audioFile.displayName,
-                  // 저장된 트랙 데이터를 originalTrackData로 전달
-                  originalTrackData: {
+                // 트랙 데이터 구성
+                const trackData = {
+                  audioPath: audioData.audioFile.path,
+                  audioName: audioData.audioFile.displayName || audioData.audioFile.name || objectId,
+                  startTime: audioData.startTime !== undefined ? audioData.startTime : 0,
+                  duration: audioData.duration !== undefined ? audioData.duration : 100,
+                  volume: audioData.volume !== undefined ? audioData.volume : 1.0,
+                  mute: audioData.mute !== undefined ? audioData.mute : false,
+                  playbackRate: audioData.playbackRate !== undefined ? audioData.playbackRate : 1.0,
+                  left: audioData.startTime !== undefined ? (audioData.startTime / (this.options.totalSeconds || 100)) * 100 : 0,
+                  width: audioData.duration !== undefined ? (audioData.duration / (this.options.totalSeconds || 100)) * 100 : 100,
+                  audioStartTime: audioData.audioStartTime !== undefined ? audioData.audioStartTime : 0,
+                  audioEndTime: audioData.audioEndTime !== undefined ? audioData.audioEndTime : (audioData.duration || 100),
+                  objectUserData: {
                     startTime: audioData.startTime !== undefined ? audioData.startTime : 0,
                     duration: audioData.duration !== undefined ? audioData.duration : 100,
                     volume: audioData.volume !== undefined ? audioData.volume : 1.0,
@@ -2838,156 +2550,34 @@ export class AudioTimeline extends BaseTimeline {
                   }
                 };
 
-                console.log(`🔍 구성된 audioFile:`, audioFile);
+                console.log(`🔍 구성된 trackData:`, trackData);
 
-                // 2. loadAudioFile 직접 호출 (addAudioFromAsset 건너뛰기)
-                this.loadAudioFile(audioFile).then((track) => {
-                  console.log(`✅ loadAudioFile 완료, 생성된 트랙:`, track);
-
-                  // 3. addTrack은 loadAudioFile 내부에서 자동 호출됨
-
-                  // 4. 저장된 속성들을 바로 복원 (UI 업데이트 메서드들)
-                  if (track && track.element) {
-                    const audioSprite = track.element.querySelector('.audio-sprite');
-                    if (audioSprite) {
-                      console.log(`🔍 오디오 스프라이트 발견, 속성 복원 시작`);
-
-                      // 위치/크기 복원
-                      const safeTotalSeconds = Number(this?.options?.totalSeconds) || Number(this?.editor?.scene?.userData?.timeline?.totalSeconds) || 300;
-                      if (audioData.startTime !== undefined) {
-                        const left = (audioData.startTime / safeTotalSeconds) * 100;
-                        audioSprite.style.left = `${left}%`;
-                        audioSprite.dataset.startTime = audioData.startTime.toString();
-                        console.log(`📍 startTime 복원: ${audioData.startTime} -> left: ${left}%`);
-                      }
-
-                      if (audioData.duration !== undefined) {
-                        const width = (audioData.duration / safeTotalSeconds) * 100;
-                        audioSprite.style.width = `${width}%`;
-                        audioSprite.dataset.duration = audioData.duration.toString();
-                        console.log(`📏 duration 복원: ${audioData.duration} -> width: ${width}%`);
-                      }
-
-                      // 볼륨 등 기타 속성 복원
-                      if (audioData.volume !== undefined) {
-                        audioSprite.dataset.volume = audioData.volume.toString();
-                        console.log(`🔊 volume 복원: ${audioData.volume}`);
-                      }
-
-                      if (audioData.mute !== undefined) {
-                        audioSprite.dataset.mute = audioData.mute.toString();
-                        console.log(`🔇 mute 복원: ${audioData.mute}`);
-                      }
-
-                      if (audioData.playbackRate !== undefined) {
-                        audioSprite.dataset.playbackRate = audioData.playbackRate.toString();
-                        console.log(`⏩ playbackRate 복원: ${audioData.playbackRate}`);
-                      }
-
-                      if (audioData.audioStartTime !== undefined) {
-                        audioSprite.dataset.audioStartTime = audioData.audioStartTime.toString();
-                        console.log(`🎵 audioStartTime 복원: ${audioData.audioStartTime}`);
-                      }
-
-                      if (audioData.audioEndTime !== undefined) {
-                        audioSprite.dataset.audioEndTime = audioData.audioEndTime.toString();
-                        console.log(`🎵 audioEndTime 복원: ${audioData.audioEndTime}`);
-                      }
-
-                      // 오디오 객체의 userData도 복원
-                      const object = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
-                      if (object && object.userData) {
-                        if (audioData.startTime !== undefined) {
-                          object.userData.startTime = audioData.startTime;
-                        }
-                        if (audioData.duration !== undefined) {
-                          object.userData.duration = audioData.duration;
-                        }
-                        if (audioData.volume !== undefined) {
-                          object.userData.volume = audioData.volume;
-                        }
-                        if (audioData.mute !== undefined) {
-                          object.userData.mute = audioData.mute;
-                        }
-                        if (audioData.playbackRate !== undefined) {
-                          object.userData.playbackRate = audioData.playbackRate;
-                        }
-                        if (audioData.audioStartTime !== undefined) {
-                          object.userData.audioStartTime = audioData.audioStartTime;
-                        }
-                        if (audioData.audioEndTime !== undefined) {
-                          object.userData.audioEndTime = audioData.audioEndTime;
-                        }
-
-                        console.log(`🎵 오디오 객체 userData 복원 완료:`, {
-                          startTime: object.userData.startTime,
-                          duration: object.userData.duration,
-                          volume: object.userData.volume,
-                          mute: object.userData.mute,
-                          playbackRate: object.userData.playbackRate,
-                          audioStartTime: object.userData.audioStartTime,
-                          audioEndTime: object.userData.audioEndTime
-                        });
-                      }
-
-                      console.log(`✅ 트랙 ${track.objectId || track.id} 속성 복원 완료`);
-
-                      // 동일 UX 보장을 위해: 복원 직후 선택/입력필드 업데이트(직접 추가 케이스와 동일 동작)
-                      if (typeof audioSprite.applySelectionAndUpdateInputs === 'function') {
-                        audioSprite.applySelectionAndUpdateInputs();
-                      } else {
-                        // 바인딩이 늦을 수 있으므로 한 번 더 시도
-                        setTimeout(() => {
-                          const retrySprite = track.element?.querySelector('.audio-sprite');
-                          if (retrySprite && typeof retrySprite.applySelectionAndUpdateInputs === 'function') {
-                            retrySprite.applySelectionAndUpdateInputs();
-                          }
-                        }, 0);
-                      }
+                // 기존 트랙이 있는지 확인
+                const existingTrack = this.tracks.get(objectId);
+                if (existingTrack) {
+                  console.log(`⚠️ 이미 존재하는 트랙 발견: ${objectId}, 속성만 복원`);
+                  
+                  // 기존 트랙의 속성만 복원
+                  setTimeout(() => {
+                    console.log(`기존 트랙 ${objectId} 속성 복원 시작`);
+                    this.restoreTrackPropertiesDirect(existingTrack, trackData);
+                    
+                    // 위치/크기 복원도 시도
+                    if (trackData.startTime !== undefined || trackData.duration !== undefined) {
+                      console.log(`🔍 기존 트랙 위치/크기 복원 시도:`, { startTime: trackData.startTime, duration: trackData.duration });
+                      this.restoreTrackPosition(objectId, trackData);
                     }
-                  }
-
-                  // 5. 선택 기반 속성 메서드들로 최종 정합성 보정
-                  // (updateAudioStartTime / updateAudioEndTime / updateClipStartTime / updateClipDuration)
-                  try {
-                    this.applySavedPropertiesForTrack(track.objectId || track.id, audioData);
-                    // 타임라인 설정 적용 후 한 번 더 보정 (비동기 로드 타이밍 대비)
-                    setTimeout(() => {
-                      this.applySavedPropertiesForTrack(track.objectId || track.id, audioData);
-                    }, 50);
-                  } catch (e) {
-                    console.warn('선택 기반 속성 보정 중 경고:', e);
-                  }
-
-                  // 6. audioObjects의 오래된 ID를 새로운 track.id로 마이그레이션
-                  try {
-                    if (objectId !== String(track.objectId || track.id)) {
-                      const audioTL = this.editor.scene.userData.audioTimeline || { audioObjects: {} };
-                      const prev = audioTL.audioObjects?.[objectId];
-                      if (prev) {
-                        // 새 ID에 복사
-                        this.updateAudioObjectsEntry(track.objectId || track.id, {
-                          ...prev,
-                          audioFile: prev.audioFile || audioFile,
-                          startTime: audioData.startTime !== undefined ? audioData.startTime : prev.startTime,
-                          duration: audioData.duration !== undefined ? audioData.duration : prev.duration,
-                          volume: audioData.volume !== undefined ? audioData.volume : prev.volume,
-                          mute: audioData.mute !== undefined ? audioData.mute : prev.mute,
-                          playbackRate: audioData.playbackRate !== undefined ? audioData.playbackRate : prev.playbackRate,
-                          audioStartTime: audioData.audioStartTime !== undefined ? audioData.audioStartTime : prev.audioStartTime,
-                          audioEndTime: audioData.audioEndTime !== undefined ? audioData.audioEndTime : prev.audioEndTime,
-                        });
-                        // 오래된 항목 삭제
-                        delete this.editor.scene.userData.audioTimeline.audioObjects[objectId];
-                        console.log(`🧹 audioObjects에서 오래된 ID ${objectId}를 제거하고 새 ID ${track.objectId || track.id}로 마이그레이션했습니다.`);
-                      }
-                    }
-                  } catch (migrateErr) {
-                    console.warn('audioObjects ID 마이그레이션 중 경고:', migrateErr);
-                  }
-                }).catch((error) => {
-                  console.error(`❌ loadAudioFile 실패: ${objectId}`, error);
-                });
+                    
+                    // UI 강제 업데이트
+                    this.updateUI();
+                    console.log(`기존 트랙 ${objectId} 복원 완료`);
+                  }, 100);
+                } else {
+                  console.log(`🔍 새 트랙 생성 시작: ${objectId}`);
+                  
+                  // 새 트랙 생성
+                  this.restoreAudioFromPath(objectId, trackData);
+                }
               } else {
                 console.log(`⚠️ ${objectId} 객체에 유효한 오디오 데이터가 없습니다.`);
               }
@@ -3007,47 +2597,6 @@ export class AudioTimeline extends BaseTimeline {
         if (timelineData.audioObjects?.masterVolume) {
           console.log(`마스터 볼륨 복원: ${timelineData.audioObjects.masterVolume}`);
         }
-
-        // 타임라인 길이가 준비되면 퍼센트 재계산을 한 번 더 수행
-        this.scheduleRecalcForTimelineReady();
-
-        // 🔧 timelineData.tracks와 this.tracks 동기화
-        this.syncTimelineDataTracks();
-
-        // 🔧 트랙 복원이 제대로 되었는지 확인하고 강제 동기화
-        setTimeout(() => {
-          console.log("🔍 onAfterLoad 완료 후 트랙 상태 재확인:");
-          console.log("this.tracks 크기:", this.tracks);
-          console.log("this.tracks 크기:", this.tracks.size);
-          console.log("timelineData.tracks 크기:", this.timelineData?.tracks?.size || 0);
-
-          // 🔧 중요: editor.timeline.timelines.audio.tracks와 동기화
-          if (this.editor?.timeline?.timelines?.audio) {
-            console.log("🔧 editor.timeline.timelines.audio.tracks 동기화 시작");
-
-            // 현재 this.tracks의 내용을 editor.timeline.timelines.audio.tracks에 복사
-            const editorAudioTimeline = this.editor.timeline.timelines.audio;
-
-            // 기존 tracks 정리
-            editorAudioTimeline.tracks.clear();
-
-            // this.tracks의 모든 트랙을 복사
-            this.tracks.forEach((track, trackId) => {
-              editorAudioTimeline.tracks.set(trackId, track);
-              console.log(`🔧 트랙 ${trackId} 동기화 완료`);
-            });
-
-            console.log("🔧 동기화 후 editor.timeline.timelines.audio.tracks:", {
-              size: editorAudioTimeline.tracks.size,
-              keys: Array.from(editorAudioTimeline.tracks.keys())
-            });
-          }
-
-          if (this.tracks.size === 0) {
-            console.warn("⚠️ this.tracks가 비어있음! audioObjects에서 강제 복원 시도");
-            this.forceRestoreTracksFromAudioObjects();
-          }
-        }, 100);
 
         console.log("✅ AudioTimeline onAfterLoad 완료");
       } else {
@@ -3119,7 +2668,7 @@ export class AudioTimeline extends BaseTimeline {
           console.log(`📍 left 복원: ${audioData.left}%`);
         } else if (audioData.startTime !== undefined) {
           // startTime이 있으면 left 계산
-          const left = (audioData.startTime / this.getTotalSeconds()) * 100;
+          const left = (audioData.startTime / (this.options.totalSeconds || 100)) * 100;
           audioSprite.style.left = `${left}%`;
           console.log(`📍 left 계산 및 복원: ${left}%`);
         }
@@ -3129,7 +2678,7 @@ export class AudioTimeline extends BaseTimeline {
           console.log(`📏 width 복원: ${audioData.width}%`);
         } else if (audioData.duration !== undefined) {
           // duration이 있으면 width 계산
-          const width = (audioData.duration / this.getTotalSeconds()) * 100;
+          const width = (audioData.duration / (this.options.totalSeconds || 100)) * 100;
           audioSprite.style.width = `${width}%`;
           console.log(`📏 width 계산 및 복원: ${width}%`);
         }
@@ -3179,41 +2728,6 @@ export class AudioTimeline extends BaseTimeline {
     }
   }
 
-  // 저장된 속성 값을 선택 기반 업데이트 메서드들로 적용 (로드 시 최종 보정)
-  applySavedPropertiesForTrack(objectId, audioData) {
-    try {
-      const track = this.tracks.get(objectId);
-      if (!track || !track.element) return;
-      const sprite = track.element.querySelector('.audio-sprite');
-      if (!sprite) return;
-
-      // 선택 상태로 만들기 (선택 기반 메서드들이 선택된 스프라이트를 사용함)
-      document.querySelectorAll('.audio-sprite').forEach(s => s.classList.remove('selected'));
-      sprite.classList.add('selected');
-
-      // 클립 위치 및 길이 보정
-      if (audioData.startTime !== undefined) {
-        this.updateClipStartTime(parseFloat(audioData.startTime));
-      }
-      if (audioData.duration !== undefined) {
-        this.updateClipDuration(parseFloat(audioData.duration));
-      }
-
-      // 오디오 편집 구간 보정 (원본 파일 내 구간)
-      if (audioData.audioStartTime !== undefined) {
-        this.updateAudioStartTime(parseFloat(audioData.audioStartTime));
-      }
-      if (audioData.audioEndTime !== undefined) {
-        this.updateAudioEndTime(parseFloat(audioData.audioEndTime));
-      }
-
-      // UI 동기화
-      this.updateUI();
-    } catch (e) {
-      console.warn('applySavedPropertiesForTrack 처리 중 경고:', e);
-    }
-  }
-
   // 트랙 속성 복원 (audioObjects에서 복원된 트랙용)
   restoreTrackProperties(objectId, audioData) {
     try {
@@ -3251,12 +2765,12 @@ export class AudioTimeline extends BaseTimeline {
           // 저장된 속성 복원
           if (audioData.startTime !== undefined) {
             audioSprite.dataset.startTime = audioData.startTime.toString();
-            audioSprite.style.left = `${(audioData.startTime / this.getTotalSeconds()) * 100}%`;
+            audioSprite.style.left = `${(audioData.startTime / this.options.totalSeconds) * 100}%`;
           }
 
           if (audioData.duration !== undefined) {
             audioSprite.dataset.duration = audioData.duration.toString();
-            audioSprite.style.width = `${(audioData.duration / this.getTotalSeconds()) * 100}%`;
+            audioSprite.style.width = `${(audioData.duration / this.options.totalSeconds) * 100}%`;
           }
 
           if (audioData.volume !== undefined) {
@@ -3344,44 +2858,6 @@ export class AudioTimeline extends BaseTimeline {
       console.log(`🔄 경로에서 오디오 복원: ${trackId}`);
       console.log(`트랙 데이터:`, trackData);
 
-      // 보조: 씬 객체에 HTMLAudioElement를 보장하는 헬퍼
-      const ensureAudioElementForObject = (id, sourcePath, audioFile) => {
-        try {
-          const object = this.editor.scene.getObjectById(parseInt(id));
-          if (!object) {
-            console.warn(`ensureAudioElementForObject: id=${id} 객체 없음`);
-            return;
-          }
-
-          // 이미 연결되어 있으면 스킵
-          if (object.userData && object.userData.audioElement) return;
-
-          const audioEl = new Audio();
-          audioEl.preload = 'auto';
-          audioEl.src = sourcePath;
-          audioEl.addEventListener('error', () => {
-            // 경로 재생 실패 시 blob으로 재시도 (CORS/경로 문제 대비)
-            fetch(sourcePath)
-              .then((r) => r.blob())
-              .then((blob) => {
-                const url = URL.createObjectURL(blob);
-                audioEl.src = url;
-                object.userData.audioUrl = url;
-                console.log(`ensureAudioElementForObject: blob URL로 대체됨 (${id})`);
-              })
-              .catch((e) => console.warn('ensureAudioElementForObject: blob 대체 실패', e));
-          });
-
-          object.userData = object.userData || {};
-          object.userData.audioElement = audioEl;
-          object.userData.audioPath = sourcePath;
-          if (audioFile) object.userData.audioFile = audioFile;
-          console.log(`🔗 HTMLAudioElement 연결 보장 완료 (id=${id})`);
-        } catch (e) {
-          console.warn('ensureAudioElementForObject 예외:', e);
-        }
-      };
-
       // 기존 트랙이 있는지 확인
       if (this.tracks.has(trackId)) {
         console.log(`✅ 기존 트랙 ${trackId}가 이미 존재합니다. 속성만 복원합니다.`);
@@ -3389,9 +2865,6 @@ export class AudioTimeline extends BaseTimeline {
         // 기존 트랙의 속성만 복원
         setTimeout(() => {
           this.restoreTrackPosition(trackId, trackData);
-          // HTMLAudioElement 보장
-          const sourcePath = trackData.audioPath || trackData.audioFile?.path;
-          if (sourcePath) ensureAudioElementForObject(trackId, sourcePath, trackData.audioFile);
         }, 100);
       } else {
         console.log(`⚠️ 기존 트랙 ${trackId}가 없습니다. 새 트랙을 생성합니다.`);
@@ -3431,10 +2904,6 @@ export class AudioTimeline extends BaseTimeline {
           this.tracks.set(trackId, track);
           console.log(`✅ 트랙 ${trackId} 생성 완료:`, track);
 
-          // 씬 객체에 HTMLAudioElement 보장
-          const sourcePath = trackData.audioPath || audioFile.path;
-          ensureAudioElementForObject(trackId, sourcePath, audioFile);
-
           // 속성 복원
           setTimeout(() => {
             console.log(`🔍 restoreTrackPosition 호출: trackId=${trackId}, trackData=`, trackData);
@@ -3443,7 +2912,7 @@ export class AudioTimeline extends BaseTimeline {
 
             if (this.tracks.has(trackId)) {
               this.restoreTrackPosition(trackId, trackData);
-
+              
               // 오디오 객체의 userData도 복원
               if (trackData.objectUserData) {
                 const object = this.editor.scene.getObjectById(parseInt(trackId));
@@ -3563,7 +3032,7 @@ export class AudioTimeline extends BaseTimeline {
               if (trackData.objectUserData.playbackRate !== undefined) {
                 object.userData.playbackRate = trackData.objectUserData.playbackRate;
               }
-
+              
               // 오디오 관련 속성 복원
               if (trackData.objectUserData.audioStartTime !== undefined) {
                 object.userData.audioStartTime = trackData.objectUserData.audioStartTime;
@@ -3593,7 +3062,7 @@ export class AudioTimeline extends BaseTimeline {
           }
 
           console.log(`✅ 트랙 위치 복원 완료: ${trackId}`);
-
+          
           // UI 강제 업데이트
           this.updateUI();
         } else {
@@ -3632,68 +3101,58 @@ export class AudioTimeline extends BaseTimeline {
     let startWidth = 0;
     let isMovingSprite = false;
 
-    // 선택 공통 처리 함수
-    const applySelectionAndUpdateInputs = (targetSprite, targetTrack) => {
-      // 다른 스프라이트 선택 해제
-      document.querySelectorAll('.audio-sprite').forEach(s => s.classList.remove('selected'));
-      // 현재 스프라이트 선택
-      targetSprite.classList.add('selected');
-
-      if (targetTrack) {
-        const audioObject = this.editor.scene.getObjectById(parseInt(targetTrack.objectId));
-        if (audioObject) {
-          const startTime = parseFloat(targetSprite.dataset.startTime) || 0;
-          const duration = parseFloat(targetSprite.dataset.duration) || 0;
-          const audioStartTime = audioObject.userData.audioStartTime || 0;
-          const audioEndTime = audioObject.userData.audioEndTime || (audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : audioStartTime + duration);
-
-          // 동일한 포맷팅 경로 사용
-          this.updateInputFields(audioStartTime, audioEndTime);
-          this.updateClipInputFields(startTime, duration);
-
-          // 전역 선택 상태 갱신하여 사이드바 속성 패널 업데이트 유도
-          if (this.editor?.select) {
-            this.editor.select(audioObject);
-          }
-        }
-      }
-    };
-
     // 스프라이트 클릭 이벤트 (선택)
     sprite.addEventListener("click", (e) => {
       e.stopPropagation();
-      applySelectionAndUpdateInputs(sprite, track);
+
+      // 다른 스프라이트 선택 해제
+      document.querySelectorAll('.audio-sprite').forEach(s => s.classList.remove('selected'));
+
+      // 현재 스프라이트 선택
+      sprite.classList.add('selected');
+
+      // 선택된 스프라이트 정보를 input 필드에 표시
+      if (track) {
+        const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+        if (audioObject) {
+          const startTime = parseFloat(sprite.dataset.startTime) || 0;
+          const duration = parseFloat(sprite.dataset.duration) || 0;
+          const audioStartTime = audioObject.userData.audioStartTime || 0;
+          const audioEndTime = audioObject.userData.audioEndTime || audioObject.userData.audioElement.duration;
+
+          // input 필드 업데이트
+          this.updateInputFields(audioStartTime, audioEndTime);
+
+          // 클립 위치/길이 input 필드도 업데이트 (새로 추가할 예정)
+          this.updateClipInputFields(startTime, duration);
+        }
+      }
     });
 
     // 스프라이트 더블클릭 이벤트 (재생/정지)
     sprite.addEventListener("dblclick", (e) => {
       e.stopPropagation();
-      e.preventDefault(); // 기본 동작 방지
       console.log("오디오 스프라이트 더블클릭 - 재생/정지");
-      /*
-            if (track) {
-              const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
-              if (audioObject && audioObject.userData.audioElement) {
-                const audioElement = audioObject.userData.audioElement;
-      
-                if (audioElement.paused) {
-                  // 재생 시작
-                  console.log(`오디오 ${track.objectId} 재생 시작`);
-                  audioElement.play().catch(error => {
-                    console.error("오디오 재생 실패:", error);
-                  });
-                } else {
-                  // 재생 정지
-                  console.log(`오디오 ${track.objectId} 재생 정지`);
-                  audioElement.pause();
-                }
-              }
-            }
-              */
-    });
 
-    // 로드 후 자동 선택 보정: 새로 생성된 스프라이트에 동일 로직 적용되도록 호출 지점에서 재사용 가능
-    sprite.applySelectionAndUpdateInputs = () => applySelectionAndUpdateInputs(sprite, track);
+      if (track) {
+        const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+        if (audioObject && audioObject.userData.audioElement) {
+          const audioElement = audioObject.userData.audioElement;
+
+          if (audioElement.paused) {
+            // 재생 시작
+            console.log(`오디오 ${track.objectId} 재생 시작`);
+            audioElement.play().catch(error => {
+              console.error("오디오 재생 실패:", error);
+            });
+          } else {
+            // 재생 정지
+            console.log(`오디오 ${track.objectId} 재생 정지`);
+            audioElement.pause();
+          }
+        }
+      }
+    });
 
     // 스프라이트 전체 드래그 이벤트 (위치 이동만)
     sprite.addEventListener("mousedown", (e) => {
@@ -3768,13 +3227,21 @@ export class AudioTimeline extends BaseTimeline {
           audioObject.userData.startTime = startTime;
           audioObject.userData.duration = duration;
 
-          // 씬 데이터 업데이트 (헬퍼 사용)
-          this.updateAudioObjectsEntry(audioObject.id, {
-            startTime: startTime,
-            duration: duration,
-            audioStartTime: audioObject.userData.audioStartTime,
-            audioEndTime: audioObject.userData.audioEndTime,
-          });
+          // 씬 데이터 업데이트
+          if (!this.editor.scene.userData.audioTimeline) {
+            this.editor.scene.userData.audioTimeline = { audioObjects: {} };
+          }
+          if (!this.editor.scene.userData.audioTimeline.audioObjects) {
+            this.editor.scene.userData.audioTimeline.audioObjects = {};
+          }
+          if (!this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id]) {
+            this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id] = {};
+          }
+
+          this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id].startTime = startTime;
+          this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id].duration = duration;
+          this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id].audioStartTime = audioObject.userData.audioStartTime;
+          this.editor.scene.userData.audioTimeline.audioObjects[audioObject.id].audioEndTime = audioObject.userData.audioEndTime;
 
           // input 필드 동기화
           const audioStartTime = audioObject.userData.audioStartTime || 0;
@@ -3839,8 +3306,8 @@ export class AudioTimeline extends BaseTimeline {
 
       // 스프라이트 스타일 설정
       const totalSeconds = this.options.totalSeconds || 300; // 기본값 5분
-      const leftPercent = (track.startTime / this.getTotalSeconds()) * 100;
-      const widthPercent = (track.duration / this.getTotalSeconds()) * 100;
+      const leftPercent = (track.startTime / totalSeconds) * 100;
+      const widthPercent = (track.duration / totalSeconds) * 100;
 
       audioSprite.style.cssText = `
         position: absolute;
@@ -3875,12 +3342,6 @@ export class AudioTimeline extends BaseTimeline {
 
       // 이벤트 바인딩
       this.bindSpriteEvents(audioSprite, track);
-      // 바인딩 직후 한 번 보정: 데이터셋 기준으로 left/width 재계산
-      const totalAfterBind = this.getTotalSeconds();
-      const st = parseFloat(audioSprite.dataset.startTime || '0');
-      const du = parseFloat(audioSprite.dataset.duration || '0');
-      audioSprite.style.left = `${(st / totalAfterBind) * 100}%`;
-      audioSprite.style.width = `${(du / totalAfterBind) * 100}%`;
 
       // 컨테이너에 트랙 추가
       // this.container.appendChild(trackElement);
@@ -3903,7 +3364,7 @@ export class AudioTimeline extends BaseTimeline {
   updateUI() {
     try {
       console.log("🔄 AudioTimeline UI 업데이트 시작");
-
+      
       // 모든 트랙의 UI 요소들을 강제로 업데이트
       this.tracks.forEach((track, trackId) => {
         if (track.element) {
@@ -3931,208 +3392,13 @@ export class AudioTimeline extends BaseTimeline {
             if (track.audioEndTime !== undefined) {
               audioSprite.dataset.audioEndTime = track.audioEndTime.toString();
             }
-            // 스타일 재계산을 항상 수행하여 분모가 바뀐 경우도 즉시 반영
-            const total = this.getTotalSeconds();
-            const startTime = parseFloat(audioSprite.dataset.startTime || '0');
-            const duration = parseFloat(audioSprite.dataset.duration || '0');
-            audioSprite.style.left = `${(startTime / total) * 100}%`;
-            audioSprite.style.width = `${(duration / total) * 100}%`;
           }
         }
       });
-
+      
       console.log("✅ AudioTimeline UI 업데이트 완료");
     } catch (error) {
       console.error("❌ AudioTimeline UI 업데이트 오류:", error);
-    }
-  }
-
-  // timelineData.tracks와 this.tracks 동기화 메소드
-  syncTimelineDataTracks() {
-    try {
-      console.log("🔧 timelineData.tracks와 this.tracks 동기화 시작");
-      console.log("현재 this.tracks 상태:", {
-        size: this.tracks.size,
-        keys: Array.from(this.tracks.keys())
-      });
-
-      if (!this.timelineData) {
-        console.warn("timelineData가 없어서 동기화를 건너뜁니다");
-        return;
-      }
-
-      // this.tracks의 모든 트랙을 timelineData.tracks에 복사
-      this.tracks.forEach((track, trackId) => {
-        if (track && track.element) {
-          const audioSprite = track.element.querySelector('.audio-sprite');
-          if (audioSprite) {
-            // 트랙 데이터 구성
-            const trackData = {
-              audioPath: audioSprite.dataset.audioPath || '',
-              audioName: audioSprite.dataset.audioName || '',
-              startTime: parseFloat(audioSprite.dataset.startTime) || 0,
-              duration: parseFloat(audioSprite.dataset.duration) || 0,
-              volume: parseFloat(audioSprite.dataset.volume) || 1.0,
-              left: parseFloat(audioSprite.style.left) || 0,
-              width: parseFloat(audioSprite.style.width) || 100,
-              objectUserData: {
-                startTime: parseFloat(audioSprite.dataset.startTime) || 0,
-                duration: parseFloat(audioSprite.dataset.duration) || 0,
-                volume: parseFloat(audioSprite.dataset.volume) || 1.0,
-                mute: audioSprite.dataset.mute === 'true',
-                playbackRate: parseFloat(audioSprite.dataset.playbackRate) || 1.0
-              }
-            };
-
-            // timelineData.tracks에 추가
-            this.timelineData.tracks.set(trackId, trackData);
-            console.log(`✅ 트랙 ${trackId}를 timelineData.tracks에 동기화:`, trackData);
-          }
-        }
-      });
-
-      console.log("🔧 timelineData.tracks 동기화 완료:", {
-        size: this.timelineData.tracks.size,
-        keys: Array.from(this.timelineData.tracks.keys())
-      });
-
-    } catch (error) {
-      console.error("timelineData.tracks 동기화 중 오류:", error);
-    }
-  }
-
-  // scene.userData.audioTimeline.audioObjects 동기화 헬퍼
-  updateAudioObjectsEntry(objectId, patch) {
-    try {
-      if (objectId === undefined || objectId === null || objectId === '' || isNaN(Number(objectId))) {
-        console.warn('updateAudioObjectsEntry: 잘못된 objectId, 업데이트를 건너뜁니다.', objectId, patch);
-        return;
-      }
-      if (!this.editor.scene) return;
-      if (!this.editor.scene.userData) this.editor.scene.userData = {};
-      if (!this.editor.scene.userData.audioTimeline) {
-        this.editor.scene.userData.audioTimeline = { audioObjects: {} };
-      }
-      if (!this.editor.scene.userData.audioTimeline.audioObjects) {
-        this.editor.scene.userData.audioTimeline.audioObjects = {};
-      }
-      const current = this.editor.scene.userData.audioTimeline.audioObjects[objectId] || {};
-      this.editor.scene.userData.audioTimeline.audioObjects[objectId] = {
-        ...current,
-        ...patch,
-      };
-    } catch (e) {
-      console.warn('audioObjects 동기화 실패:', e);
-    }
-  }
-
-  // audioObjects에서 강제로 트랙 복원하는 메소드 (LightTimeline 방식으로 수정)
-  forceRestoreTracksFromAudioObjects() {
-    try {
-      console.log("🚨 강제 트랙 복원 시작 (LightTimeline 방식)");
-
-      if (!this.editor.scene?.userData?.audioTimeline?.audioObjects) {
-        console.warn("audioObjects가 없어서 강제 복원을 건너뜁니다");
-        return;
-      }
-
-      const audioObjects = this.editor.scene.userData.audioTimeline.audioObjects;
-      console.log("🔍 audioObjects에서 복원할 데이터:", audioObjects);
-
-      // masterVolume은 제외하고 실제 오디오 트랙만 처리
-      Object.entries(audioObjects).forEach(([objectId, audioData]) => {
-        if (objectId === 'masterVolume') return;
-
-        if (audioData.audioFile && audioData.audioFile.path) {
-          console.log(`🚨 강제 복원 시도: ${objectId}`, audioData);
-
-          // 기존 트랙이 있는지 확인
-          if (this.tracks.has(objectId)) {
-            console.log(`✅ 트랙 ${objectId}가 이미 존재합니다`);
-            return;
-          }
-
-          // LightTimeline 방식: 먼저 빈 트랙을 this.tracks에 추가
-          console.log(`🚨 빈 트랙을 this.tracks에 추가: ${objectId}`);
-          const emptyTrack = {
-            element: null,
-            keyframes: {
-              volume: new Map(),
-              mute: new Map(),
-              playbackRate: new Map(),
-            },
-            objectId: objectId,
-            objectName: audioData.audioFile.displayName || audioData.audioFile.name,
-            startTime: audioData.startTime || 0,
-            duration: audioData.duration || 100,
-            volume: audioData.volume || 1.0,
-            mute: audioData.mute || false,
-            playbackRate: audioData.playbackRate || 1.0,
-            audioStartTime: audioData.audioStartTime || 0,
-            audioEndTime: audioData.audioEndTime || (audioData.duration || 100)
-          };
-
-          // this.tracks에 직접 추가
-          this.tracks.set(objectId, emptyTrack);
-          console.log(`✅ 빈 트랙 추가 완료: ${objectId}`, {
-            tracksSize: this.tracks.size,
-            tracksKeys: Array.from(this.tracks.keys())
-          });
-
-          // 오디오 파일 객체 생성
-          const audioFile = {
-            path: audioData.audioFile.path,
-            name: audioData.audioFile.name,
-            displayName: audioData.audioFile.displayName,
-            originalTrackData: {
-              startTime: audioData.startTime || 0,
-              duration: audioData.duration || 100,
-              volume: audioData.volume || 1.0,
-              mute: audioData.mute || false,
-              playbackRate: audioData.playbackRate || 1.0,
-              audioStartTime: audioData.audioStartTime || 0,
-              audioEndTime: audioData.audioEndTime || (audioData.duration || 100)
-            }
-          };
-
-          console.log(`🚨 강제 복원용 audioFile:`, audioFile);
-
-          // loadAudioFile 호출하여 트랙 생성
-          console.log(`🚨 loadAudioFile 호출 시작: ${objectId}`);
-          this.loadAudioFile(audioFile).then((track) => {
-            console.log(`🚨 강제 복원 성공: ${objectId}`, track);
-            console.log(`🚨 생성된 트랙의 objectId:`, track.objectId || track.id);
-            console.log(`🚨 현재 this.tracks 상태:`, {
-              size: this.tracks.size,
-              keys: Array.from(this.tracks.keys()),
-              hasTrack: this.tracks.has(track.objectId || track.id)
-            });
-
-            // 트랙이 생성되었는지 확인
-            if (track && this.tracks.has(track.objectId || track.id)) {
-              console.log(`✅ 강제 복원 후 tracks 상태:`, {
-                size: this.tracks.size,
-                keys: Array.from(this.tracks.keys())
-              });
-
-              // timelineData.tracks도 동기화
-              this.syncTimelineDataTracks();
-            } else {
-              console.warn(`⚠️ 트랙 생성됐지만 this.tracks에 없음:`, {
-                track,
-                trackId: track.objectId || track.id,
-                tracksSize: this.tracks.size,
-                tracksKeys: Array.from(this.tracks.keys())
-              });
-            }
-          }).catch((error) => {
-            console.error(`🚨 강제 복원 실패: ${objectId}`, error);
-          });
-        }
-      });
-
-    } catch (error) {
-      console.error("강제 트랙 복원 중 오류:", error);
     }
   }
 }

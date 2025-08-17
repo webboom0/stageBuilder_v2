@@ -1333,7 +1333,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const startTimeInput = document.createElement("input");
     startTimeInput.type = "text";
-    startTimeInput.className = "time-input startTimeInput";
+    startTimeInput.className = "time-input";
     startTimeInput.placeholder = "00:00.00";
 
     startTimeInput.addEventListener("change", (e) => {
@@ -1354,7 +1354,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const endTimeInput = document.createElement("input");
     endTimeInput.type = "text";
-    endTimeInput.className = "time-input endTimeInput";
+    endTimeInput.className = "time-input";
     endTimeInput.placeholder = "00:00.00";
 
     endTimeInput.addEventListener("change", (e) => {
@@ -1380,7 +1380,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const clipStartInput = document.createElement("input");
     clipStartInput.type = "text";
-    clipStartInput.className = "time-input clipStartInput";
+    clipStartInput.className = "time-input";
     clipStartInput.placeholder = "00:00.00";
 
     clipStartInput.addEventListener("change", (e) => {
@@ -1401,7 +1401,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const clipDurationInput = document.createElement("input");
     clipDurationInput.type = "text";
-    clipDurationInput.className = "time-input clipDurationInput";
+    clipDurationInput.className = "time-input";
     clipDurationInput.placeholder = "00:00.00";
     clipDurationInput.readOnly = true; // 읽기 전용으로 설정
 
@@ -1744,31 +1744,24 @@ export class AudioTimeline extends BaseTimeline {
 
   // input 필드 값 업데이트 메서드
   updateInputFields(audioStartTime, audioEndTime) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
-    const startTimeInput = panel.querySelector('input.time-input.startTimeInput');
-    const endTimeInput = panel.querySelector('input.time-input.endTimeInput');
-    if (startTimeInput) {
+
+    if (this.startTimeInput) {
       console.log("#############################")
       console.log("updateInputFields 입력:", { audioStartTime, audioEndTime });
-      console.log(this.startTimeInput);
-      console.log(this.formatTimeToFrame(audioStartTime));
-      startTimeInput.value = this.formatTimeToFrame(audioStartTime);
+      this.startTimeInput.value = this.formatTimeToFrame(audioStartTime);
     }
-    if (endTimeInput) {
-      endTimeInput.value = this.formatTimeToFrame(audioEndTime);
+    if (this.endTimeInput) {
+      this.endTimeInput.value = this.formatTimeToFrame(audioEndTime);
     }
   }
 
   // 클립 input 필드 값 업데이트 메서드
   updateClipInputFields(startTime, duration) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
-    const clipStartInput = panel.querySelector('input.time-input.clipStartInput');
-    const clipDurationInput = panel.querySelector('input.time-input.clipDurationInput');
-    if (clipStartInput) {
-      clipStartInput.value = this.formatTimeToFrame(startTime);
+    if (this.clipStartInput) {
+      this.clipStartInput.value = this.formatTimeToFrame(startTime);
     }
-    if (clipDurationInput) {
-      clipDurationInput.value = this.formatTimeToFrame(duration);
+    if (this.clipDurationInput) {
+      this.clipDurationInput.value = this.formatTimeToFrame(duration);
     }
   }
 

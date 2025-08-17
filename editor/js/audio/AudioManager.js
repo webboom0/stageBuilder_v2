@@ -2,7 +2,8 @@
 class AudioManager {
   constructor(scene) {
     this.scene = scene;
-    this.tracks = scene.userData.audio.tracks;
+    // audioTimeline에서 tracks 데이터 가져오기
+    this.tracks = scene.userData.audioTimeline?.tracks || [];
   }
 
   addTrack(audioData) {

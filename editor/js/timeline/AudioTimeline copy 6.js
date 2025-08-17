@@ -1333,7 +1333,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const startTimeInput = document.createElement("input");
     startTimeInput.type = "text";
-    startTimeInput.className = "time-input startTimeInput";
+    startTimeInput.className = "time-input";
     startTimeInput.placeholder = "00:00.00";
 
     startTimeInput.addEventListener("change", (e) => {
@@ -1354,7 +1354,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const endTimeInput = document.createElement("input");
     endTimeInput.type = "text";
-    endTimeInput.className = "time-input endTimeInput";
+    endTimeInput.className = "time-input";
     endTimeInput.placeholder = "00:00.00";
 
     endTimeInput.addEventListener("change", (e) => {
@@ -1380,7 +1380,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const clipStartInput = document.createElement("input");
     clipStartInput.type = "text";
-    clipStartInput.className = "time-input clipStartInput";
+    clipStartInput.className = "time-input";
     clipStartInput.placeholder = "00:00.00";
 
     clipStartInput.addEventListener("change", (e) => {
@@ -1401,7 +1401,7 @@ export class AudioTimeline extends BaseTimeline {
 
     const clipDurationInput = document.createElement("input");
     clipDurationInput.type = "text";
-    clipDurationInput.className = "time-input clipDurationInput";
+    clipDurationInput.className = "time-input";
     clipDurationInput.placeholder = "00:00.00";
     clipDurationInput.readOnly = true; // 읽기 전용으로 설정
 
@@ -1744,31 +1744,24 @@ export class AudioTimeline extends BaseTimeline {
 
   // input 필드 값 업데이트 메서드
   updateInputFields(audioStartTime, audioEndTime) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
-    const startTimeInput = panel.querySelector('input.time-input.startTimeInput');
-    const endTimeInput = panel.querySelector('input.time-input.endTimeInput');
-    if (startTimeInput) {
+
+    if (this.startTimeInput) {
       console.log("#############################")
       console.log("updateInputFields 입력:", { audioStartTime, audioEndTime });
-      console.log(this.startTimeInput);
-      console.log(this.formatTimeToFrame(audioStartTime));
-      startTimeInput.value = this.formatTimeToFrame(audioStartTime);
+      this.startTimeInput.value = this.formatTimeToFrame(audioStartTime);
     }
-    if (endTimeInput) {
-      endTimeInput.value = this.formatTimeToFrame(audioEndTime);
+    if (this.endTimeInput) {
+      this.endTimeInput.value = this.formatTimeToFrame(audioEndTime);
     }
   }
 
   // 클립 input 필드 값 업데이트 메서드
   updateClipInputFields(startTime, duration) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
-    const clipStartInput = panel.querySelector('input.time-input.clipStartInput');
-    const clipDurationInput = panel.querySelector('input.time-input.clipDurationInput');
-    if (clipStartInput) {
-      clipStartInput.value = this.formatTimeToFrame(startTime);
+    if (this.clipStartInput) {
+      this.clipStartInput.value = this.formatTimeToFrame(startTime);
     }
-    if (clipDurationInput) {
-      clipDurationInput.value = this.formatTimeToFrame(duration);
+    if (this.clipDurationInput) {
+      this.clipDurationInput.value = this.formatTimeToFrame(duration);
     }
   }
 
@@ -3035,6 +3028,16 @@ export class AudioTimeline extends BaseTimeline {
             this.tracks.forEach((track, trackId) => {
               editorAudioTimeline.tracks.set(trackId, track);
               console.log(`🔧 트랙 ${trackId} 동기화 완료`);
+
+              // 🔧 복원된 트랙에 이벤트 재바인딩
+              if (track.element) {
+                const audioSprite = track.element.querySelector('.audio-sprite');
+                if (audioSprite) {
+                  console.log(`🔧 트랙 ${trackId} 이벤트 재바인딩`);
+                  this.bindSpriteEvents(audioSprite, track);
+                  this.bindTrackEvents(track);
+                }
+              }
             });
 
             console.log("🔧 동기화 후 editor.timeline.timelines.audio.tracks:", {
@@ -3639,13 +3642,19 @@ export class AudioTimeline extends BaseTimeline {
       // 현재 스프라이트 선택
       targetSprite.classList.add('selected');
 
+      console.log(`🔍 오디오 스프라이트 선택됨:`, targetSprite);
+
       if (targetTrack) {
         const audioObject = this.editor.scene.getObjectById(parseInt(targetTrack.objectId));
         if (audioObject) {
+          console.log(`🔍 선택된 오디오 객체:`, audioObject);
+
           const startTime = parseFloat(targetSprite.dataset.startTime) || 0;
           const duration = parseFloat(targetSprite.dataset.duration) || 0;
           const audioStartTime = audioObject.userData.audioStartTime || 0;
           const audioEndTime = audioObject.userData.audioEndTime || (audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : audioStartTime + duration);
+
+          console.log(`🔍 트랙 속성:`, { startTime, duration, audioStartTime, audioEndTime });
 
           // 동일한 포맷팅 경로 사용
           this.updateInputFields(audioStartTime, audioEndTime);
@@ -3654,8 +3663,13 @@ export class AudioTimeline extends BaseTimeline {
           // 전역 선택 상태 갱신하여 사이드바 속성 패널 업데이트 유도
           if (this.editor?.select) {
             this.editor.select(audioObject);
+            console.log(`🔍 오디오 객체 선택됨:`, audioObject.id);
           }
+        } else {
+          console.warn(`⚠️ 오디오 객체를 찾을 수 없음:`, targetTrack.objectId);
         }
+      } else {
+        console.warn(`⚠️ 트랙 정보가 없음`);
       }
     };
 
@@ -4107,6 +4121,18 @@ export class AudioTimeline extends BaseTimeline {
               keys: Array.from(this.tracks.keys()),
               hasTrack: this.tracks.has(track.objectId || track.id)
             });
+
+            // 🔧 복원된 트랙에 이벤트 재바인딩
+            if (track && track.element) {
+              const audioSprite = track.element.querySelector('.audio-sprite');
+              if (audioSprite) {
+                console.log(`�� 강제 복원된 트랙 ${objectId} 이벤트 재바인딩`);
+                this.bindSpriteEvents(audioSprite, track);
+                this.bindTrackEvents(track);
+              }
+            }
+
+            console.log(`🚨 생성된 트랙의 objectId:`, track.objectId || track.id);
 
             // 트랙이 생성되었는지 확인
             if (track && this.tracks.has(track.objectId || track.id)) {
