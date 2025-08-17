@@ -1744,31 +1744,113 @@ export class AudioTimeline extends BaseTimeline {
 
   // input 필드 값 업데이트 메서드
   updateInputFields(audioStartTime, audioEndTime) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
+    console.log("🔍 updateInputFields 호출됨:", { audioStartTime, audioEndTime });
+    
+    // 🔧 NaN 체크 추가
+    if (isNaN(audioStartTime) || !isFinite(audioStartTime)) {
+      console.warn("⚠️ audioStartTime이 유효하지 않음:", audioStartTime);
+      return;
+    }
+    
+    if (isNaN(audioEndTime) || !isFinite(audioEndTime)) {
+      console.warn("⚠️ audioEndTime이 유효하지 않음:", audioEndTime);
+      return;
+    }
+    
+    // 🔧 더 안전한 패널 검색
+    let panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
+    
+    // 첫 번째 검색이 실패하면 더 넓은 범위에서 검색
+    if (!panel) {
+      panel = document.querySelector('.property-edit-panel');
+      console.log("🔍 넓은 범위에서 패널 검색:", panel);
+    }
+    
+    if (!panel) {
+      console.warn("⚠️ property-edit-panel을 찾을 수 없음");
+      return;
+    }
+    
     const startTimeInput = panel.querySelector('input.time-input.startTimeInput');
     const endTimeInput = panel.querySelector('input.time-input.endTimeInput');
+    
+    console.log("🔍 찾은 input 요소들:", {
+      startTimeInput: !!startTimeInput,
+      endTimeInput: !!endTimeInput,
+      audioStartTime,
+      audioEndTime
+    });
+    
     if (startTimeInput) {
-      console.log("#############################")
-      console.log("updateInputFields 입력:", { audioStartTime, audioEndTime });
-      console.log(this.startTimeInput);
-      console.log(this.formatTimeToFrame(audioStartTime));
-      startTimeInput.value = this.formatTimeToFrame(audioStartTime);
+      const formattedStartTime = this.formatTimeToFrame(audioStartTime);
+      startTimeInput.value = formattedStartTime;
+      console.log("✅ startTimeInput 값 설정:", formattedStartTime);
+    } else {
+      console.warn("⚠️ startTimeInput을 찾을 수 없음");
     }
+    
     if (endTimeInput) {
-      endTimeInput.value = this.formatTimeToFrame(audioEndTime);
+      const formattedEndTime = this.formatTimeToFrame(audioEndTime);
+      endTimeInput.value = formattedEndTime;
+      console.log("✅ endTimeInput 값 설정:", formattedEndTime);
+    } else {
+      console.warn("⚠️ endTimeInput을 찾을 수 없음");
     }
   }
 
   // 클립 input 필드 값 업데이트 메서드
   updateClipInputFields(startTime, duration) {
-    const panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
+    console.log("🔍 updateClipInputFields 호출됨:", { startTime, duration });
+    
+    // 🔧 NaN 체크 추가
+    if (isNaN(startTime) || !isFinite(startTime)) {
+      console.warn("⚠️ startTime이 유효하지 않음:", startTime);
+      return;
+    }
+    
+    if (isNaN(duration) || !isFinite(duration)) {
+      console.warn("⚠️ duration이 유효하지 않음:", duration);
+      return;
+    }
+    
+    // 🔧 더 안전한 패널 검색
+    let panel = document.querySelector('div.timeline-group[data-timeline="audio"] .property-edit-panel');
+    
+    // 첫 번째 검색이 실패하면 더 넓은 범위에서 검색
+    if (!panel) {
+      panel = document.querySelector('.property-edit-panel');
+      console.log("🔍 넓은 범위에서 패널 검색:", panel);
+    }
+    
+    if (!panel) {
+      console.warn("⚠️ property-edit-panel을 찾을 수 없음");
+      return;
+    }
+    
     const clipStartInput = panel.querySelector('input.time-input.clipStartInput');
     const clipDurationInput = panel.querySelector('input.time-input.clipDurationInput');
+    
+    console.log("🔍 찾은 input 요소들:", {
+      clipStartInput: !!clipStartInput,
+      clipDurationInput: !!clipDurationInput,
+      startTime,
+      duration
+    });
+    
     if (clipStartInput) {
-      clipStartInput.value = this.formatTimeToFrame(startTime);
+      const formattedTime = this.formatTimeToFrame(startTime);
+      clipStartInput.value = formattedTime;
+      console.log("✅ clipStartInput 값 설정:", formattedTime);
+    } else {
+      console.warn("⚠️ clipStartInput을 찾을 수 없음");
     }
+    
     if (clipDurationInput) {
-      clipDurationInput.value = this.formatTimeToFrame(duration);
+      const formattedDuration = this.formatTimeToFrame(duration);
+      clipDurationInput.value = formattedDuration;
+      console.log("✅ clipDurationInput 값 설정:", formattedDuration);
+    } else {
+      console.warn("⚠️ clipDurationInput을 찾을 수 없음");
     }
   }
 
@@ -3728,7 +3810,19 @@ export class AudioTimeline extends BaseTimeline {
       sprite.style.left = `${newLeft}%`;
 
       // 시작 시간 업데이트
-      const startTime = (newLeft / 100) * this.options.totalSeconds;
+      const totalSeconds = this.getTotalSeconds();
+      const startTime = (newLeft / 100) * totalSeconds;
+      
+      // 🔧 startTime이 유효한지 확인
+      if (isNaN(startTime) || !isFinite(startTime)) {
+        console.warn("⚠️ 계산된 startTime이 유효하지 않음:", {
+          newLeft,
+          totalSeconds,
+          startTime
+        });
+        return; // 유효하지 않으면 업데이트 건너뛰기
+      }
+      
       sprite.dataset.startTime = startTime.toString();
 
       // 오디오 객체 업데이트
@@ -3736,6 +3830,15 @@ export class AudioTimeline extends BaseTimeline {
         const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
         if (audioObject) {
           audioObject.userData.startTime = startTime;
+          
+          // 🔧 드래그 중 실시간으로 input 필드 업데이트
+          const duration = parseFloat(sprite.dataset.duration) || 0;
+          const audioStartTime = audioObject.userData.audioStartTime || 0;
+          const audioEndTime = audioObject.userData.audioEndTime || (audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : audioStartTime + duration);
+          
+          // 실시간 업데이트 (드래그 중에도)
+          this.updateInputFields(audioStartTime, audioEndTime);
+          this.updateClipInputFields(startTime, duration);
         }
       }
     });
