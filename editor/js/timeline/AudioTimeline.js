@@ -316,11 +316,36 @@ export class AudioTimeline extends BaseTimeline {
   // 타임라인 총 길이 안전 조회
   getTotalSeconds() {
     const fallback = 300; // 기본 5분
+    
+    // 🔧 1순위: this.options (AudioTimeline 자체 설정)
     const optVal = Number(this?.options?.totalSeconds);
-    // const sceneVal = Number(this?.editor?.scene?.userData?.timeline?.totalSeconds);
-    const sceneVal = Number(this?.editor?.timeline?.defaultSettings?.totalSeconds);
-    if (Number.isFinite(optVal) && optVal > 0) return optVal;
-    if (Number.isFinite(sceneVal) && sceneVal > 0) return sceneVal;
+    if (Number.isFinite(optVal) && optVal > 0) {
+      console.log(`🔧 AudioTimeline getTotalSeconds: options에서 ${optVal}초 반환`);
+      return optVal;
+    }
+    
+    // 🔧 2순위: editor.timeline.timelineSettings (Timeline.js의 현재 설정)
+    const timelineVal = Number(this?.editor?.timeline?.timelineSettings?.totalSeconds);
+    if (Number.isFinite(timelineVal) && timelineVal > 0) {
+      console.log(`🔧 AudioTimeline getTotalSeconds: timelineSettings에서 ${timelineVal}초 반환`);
+      return timelineVal;
+    }
+    
+    // 🔧 3순위: editor.timeline.defaultSettings (Timeline.js의 기본 설정)
+    const defaultVal = Number(this?.editor?.timeline?.defaultSettings?.totalSeconds);
+    if (Number.isFinite(defaultVal) && defaultVal > 0) {
+      console.log(`🔧 AudioTimeline getTotalSeconds: defaultSettings에서 ${defaultVal}초 반환`);
+      return defaultVal;
+    }
+    
+    // 🔧 4순위: scene.userData.timeline (Scene에 저장된 설정)
+    const sceneVal = Number(this?.editor?.scene?.userData?.timeline?.totalSeconds);
+    if (Number.isFinite(sceneVal) && sceneVal > 0) {
+      console.log(`🔧 AudioTimeline getTotalSeconds: scene.userData에서 ${sceneVal}초 반환`);
+      return sceneVal;
+    }
+    
+    console.log(`🔧 AudioTimeline getTotalSeconds: 모든 소스에서 값을 찾을 수 없어 기본값 ${fallback}초 반환`);
     return fallback;
   }
 
@@ -722,10 +747,11 @@ export class AudioTimeline extends BaseTimeline {
 
   // 타임라인 설정 업데이트
   updateSettings(newSettings) {
-    console.log('AudioTimeline 설정 업데이트:', newSettings);
+    console.log('🔧 AudioTimeline 설정 업데이트 시작:', newSettings);
 
     // 기존 설정 백업
     const oldSettings = { ...this.options };
+    const oldTotalSeconds = oldSettings.totalSeconds;
 
     // 기존 설정 업데이트
     this.options = { ...this.options, ...newSettings };
@@ -733,6 +759,7 @@ export class AudioTimeline extends BaseTimeline {
     // TimelineData의 frameRate 업데이트
     if (newSettings.framesPerSecond && this.timelineData) {
       this.timelineData.frameRate = newSettings.framesPerSecond;
+      console.log(`🔧 frameRate 업데이트: ${newSettings.framesPerSecond}fps`);
     }
 
     // Scene의 timeline 설정 업데이트
@@ -741,66 +768,387 @@ export class AudioTimeline extends BaseTimeline {
         this.editor.scene.userData.timeline = {};
       }
       this.editor.scene.userData.timeline = { ...this.editor.scene.userData.timeline, ...newSettings };
+      console.log(`🔧 Scene userData 업데이트 완료`);
     }
 
-    // 클립 너비 업데이트 (시간 변경 시)
-    if (newSettings.totalSeconds && oldSettings.totalSeconds !== newSettings.totalSeconds) {
-      this.updateClipWidths(oldSettings.totalSeconds, newSettings.totalSeconds);
+    // 🔧 클립 너비 및 위치 업데이트 (시간 변경 시)
+    if (newSettings.totalSeconds && oldTotalSeconds !== newSettings.totalSeconds) {
+      console.log(`🔧 총 시간 변경 감지: ${oldTotalSeconds}초 → ${newSettings.totalSeconds}초`);
+      
+      // 🔧 현재 실제 타임라인 길이 가져오기 (백업)
+      const currentTotalSeconds = this.getTotalSeconds();
+      const effectiveOldTotalSeconds = oldTotalSeconds || currentTotalSeconds;
+      
+      console.log(`🔧 효과적인 이전 총 시간: ${effectiveOldTotalSeconds}초`);
+      
+      // 🔧 즉시 클립 업데이트 실행 (모션타임라인과 동일한 방식)
+      console.log(`🔧 즉시 클립 업데이트 실행`);
+      
+      // 🔧 원본 값 설정 (중요!)
+      this.prepareOriginalValues(effectiveOldTotalSeconds);
+      
+      this.updateClipWidths(effectiveOldTotalSeconds, newSettings.totalSeconds);
+      
+      // 🔧 약간의 지연 후 한 번 더 업데이트 (안전장치) - 중복 방지
+      setTimeout(() => {
+        console.log(`🔧 안전장치: 클립 업데이트 재실행 (100ms)`);
+        // 🔧 이미 업데이트된 경우 중복 실행 방지
+        if (this.lastUpdateTime !== newSettings.totalSeconds) {
+          this.updateClipWidths(effectiveOldTotalSeconds, newSettings.totalSeconds);
+          this.lastUpdateTime = newSettings.totalSeconds;
+        } else {
+          console.log(`🔧 이미 업데이트됨, 중복 실행 방지`);
+        }
+      }, 100);
+      
+      // 🔧 추가 검증 및 강제 업데이트 (500ms 후)
+      setTimeout(() => {
+        console.log(`🔧 추가 검증: 클립 상태 확인 및 강제 업데이트 (500ms)`);
+        
+        // 🔧 현재 스프라이트 상태 확인
+        const audioSprites = this.container.querySelectorAll('.audio-sprite');
+        audioSprites.forEach((sprite, index) => {
+          const currentWidth = parseFloat(sprite.style.width);
+          const currentLeft = parseFloat(sprite.style.left);
+          const expectedWidth = (parseFloat(sprite.dataset.duration) / newSettings.totalSeconds) * 100;
+          const expectedLeft = (parseFloat(sprite.dataset.startTime) / newSettings.totalSeconds) * 100;
+          
+          console.log(`🔧 스프라이트 ${index + 1} 상태 검증:`, {
+            currentWidth: `${currentWidth}%`,
+            expectedWidth: `${expectedWidth}%`,
+            currentLeft: `${currentLeft}%`,
+            expectedLeft: `${expectedLeft}%`
+          });
+          
+          // 🔧 만약 불일치하면 강제 업데이트 (모든 방법 시도)
+          if (Math.abs(currentWidth - expectedWidth) > 0.1 || Math.abs(currentLeft - expectedLeft) > 0.1) {
+            console.warn(`⚠️ 스프라이트 ${index + 1} 불일치 감지, 강제 업데이트`);
+            
+            // 🔧 방법 1: 일반 스타일 설정
+            sprite.style.width = `${expectedWidth}%`;
+            sprite.style.left = `${expectedLeft}%`;
+            
+            // 🔧 방법 2: setProperty로 강제 적용
+            sprite.style.setProperty('width', `${expectedWidth}%`, 'important');
+            sprite.style.setProperty('left', `${expectedLeft}%`, 'important');
+            
+            // 🔧 방법 3: CSS 텍스트로 설정
+            sprite.style.cssText = `left: ${expectedLeft}% !important; width: ${expectedWidth}% !important;`;
+            
+            // 🔧 강제 DOM 업데이트
+            sprite.offsetHeight;
+            
+            console.log(`🔧 스프라이트 ${index + 1} 강제 업데이트 완료`);
+          }
+          
+          // 🔧 시간 표시도 함께 업데이트 (원본 값 사용)
+          const startTime = parseFloat(sprite.dataset.originalStartTime || sprite.dataset.startTime);
+          const duration = parseFloat(sprite.dataset.originalDuration || sprite.dataset.duration);
+          this.updateAudioClipTimeDisplay(sprite, startTime, duration, newSettings.totalSeconds);
+        });
+      }, 500);
     }
 
-    // UI 업데이트
+    // 🔧 즉시 UI 업데이트
     this.updateUI();
 
-    console.log('AudioTimeline 설정이 성공적으로 업데이트되었습니다.');
+    // 🔧 설정 변경 후 추가 검증
+    setTimeout(() => {
+      const currentTotalSeconds = this.getTotalSeconds();
+      console.log(`🔧 설정 업데이트 후 검증: getTotalSeconds() = ${currentTotalSeconds}초`);
+      
+      if (currentTotalSeconds !== newSettings.totalSeconds) {
+        console.warn(`⚠️ 설정 불일치: 요청된 ${newSettings.totalSeconds}초 vs 실제 ${currentTotalSeconds}초`);
+      }
+    }, 100);
+
+    console.log('✅ AudioTimeline 설정이 성공적으로 업데이트되었습니다.');
   }
 
-  // 클립 너비 업데이트
+  // 원본 값 준비 (타임라인 변경 전에 호출)
+  prepareOriginalValues(oldTotalSeconds) {
+    try {
+      console.log(`🔧 원본 값 준비 시작: ${oldTotalSeconds}초 기준`);
+      
+      const audioSprites = this.container.querySelectorAll('.audio-sprite');
+      audioSprites.forEach((sprite, index) => {
+        // 🔧 현재 스타일에서 원본 값 계산
+        const currentLeft = parseFloat(sprite.style.left) || 0;
+        const currentWidth = parseFloat(sprite.style.width) || 20;
+        
+        // 🔧 절대 시간으로 변환
+        const originalStartTime = (currentLeft / 100) * oldTotalSeconds;
+        const originalDuration = (currentWidth / 100) * oldTotalSeconds;
+        
+        // 🔧 dataset에 원본 값 저장
+        sprite.dataset.originalStartTime = originalStartTime.toString();
+        sprite.dataset.originalDuration = originalDuration.toString();
+        
+        console.log(`🔧 스프라이트 ${index + 1} 원본 값 설정:`, {
+          currentLeft: `${currentLeft}%`,
+          currentWidth: `${currentWidth}%`,
+          originalStartTime: `${originalStartTime}초`,
+          originalDuration: `${originalDuration}초`
+        });
+      });
+      
+      console.log(`🔧 원본 값 준비 완료`);
+      
+    } catch (error) {
+      console.error('❌ prepareOriginalValues 오류:', error);
+    }
+  }
+
+  // 오디오 클립 시간 표시 업데이트
+  updateAudioClipTimeDisplay(sprite, startTime, duration, totalSeconds) {
+    try {
+      // 🔧 트랙 요소 찾기
+      const trackElement = sprite.closest('.timeline-track');
+      if (!trackElement) {
+        console.warn('⚠️ 트랙 요소를 찾을 수 없음');
+        return;
+      }
+
+      // 🔧 시간 입력 필드들 찾기
+      const startTimeInput = trackElement.querySelector('input[data-property="startTime"]');
+      const endTimeInput = trackElement.querySelector('input[data-property="endTime"]');
+      const clipStartInput = trackElement.querySelector('input[data-property="clipStart"]');
+      const clipLengthInput = trackElement.querySelector('input[data-property="clipLength"]');
+
+      // 🔧 새로운 시간 값 계산
+      const newStartTime = startTime;
+      const newEndTime = startTime + duration;
+      const newClipStart = startTime;
+      const newClipLength = duration;
+
+      // 🔧 시간 형식 변환 (초 → MM:SS.ss 형식)
+      const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = (seconds % 60).toFixed(2);
+        return `${mins.toString().padStart(2, '0')}:${secs.padStart(5, '0')}`;
+      };
+
+      // 🔧 입력 필드 업데이트
+      if (startTimeInput) {
+        startTimeInput.value = formatTime(newStartTime);
+        startTimeInput.dataset.value = newStartTime.toString();
+      }
+      
+      if (endTimeInput) {
+        endTimeInput.value = formatTime(newEndTime);
+        endTimeInput.dataset.value = newEndTime.toString();
+      }
+      
+      if (clipStartInput) {
+        clipStartInput.value = formatTime(newClipStart);
+        clipStartInput.dataset.value = newClipStart.toString();
+      }
+      
+      if (clipLengthInput) {
+        clipLengthInput.value = formatTime(newClipLength);
+        clipLengthInput.dataset.value = newClipLength.toString();
+      }
+
+      console.log(`🔧 오디오 클립 시간 표시 업데이트 완료:`, {
+        startTime: formatTime(newStartTime),
+        endTime: formatTime(newEndTime),
+        clipStart: formatTime(newClipStart),
+        clipLength: formatTime(newClipLength),
+        totalSeconds: totalSeconds
+      });
+
+    } catch (error) {
+      console.error('❌ updateAudioClipTimeDisplay 오류:', error);
+    }
+  }
+
+  // 클립 너비 업데이트 (모션타임라인 방식으로 단순화)
   updateClipWidths(oldTotalSeconds, newTotalSeconds) {
-    console.log('AudioTimeline 클립 너비 업데이트:', { oldTotalSeconds, newTotalSeconds });
+    console.log('🔧 AudioTimeline 클립 너비 업데이트 시작:', { oldTotalSeconds, newTotalSeconds });
 
-    const sprites = this.container.querySelectorAll('.animation-sprite');
-    sprites.forEach(sprite => {
+    // 🔧 유효성 검사 및 백업 값 설정
+    if (!oldTotalSeconds || oldTotalSeconds <= 0) {
+      console.warn('⚠️ oldTotalSeconds가 유효하지 않음, 현재 타임라인 길이로 대체');
+      oldTotalSeconds = this.getTotalSeconds();
+    }
+    
+    if (!newTotalSeconds || newTotalSeconds <= 0) {
+      console.error('❌ newTotalSeconds가 유효하지 않음:', newTotalSeconds);
+      return;
+    }
+
+    console.log(`🔧 최종 사용할 시간 값: oldTotalSeconds=${oldTotalSeconds}초, newTotalSeconds=${newTotalSeconds}초`);
+
+    // 🔧 오디오 스프라이트만 처리 (오디오 클립만 업데이트)
+    const audioSprites = this.container.querySelectorAll('.audio-sprite');
+
+    console.log(`🔧 총 ${audioSprites.length}개의 오디오 스프라이트 업데이트`);
+
+    if (audioSprites.length === 0) {
+      console.log('🔧 업데이트할 오디오 스프라이트가 없습니다.');
+      return;
+    }
+
+    audioSprites.forEach((sprite, index) => {
+      // 🔧 모션타임라인과 동일한 방식으로 단순하게 처리
+      const spriteType = '오디오'; // 오디오 스프라이트만 처리하므로 고정
       const duration = parseFloat(sprite.dataset.duration) || 5;
+      
+      // 🔧 현재 위치 정보 가져오기 (디버깅용)
       const currentLeft = parseFloat(sprite.style.left) || 0;
+      const currentWidth = parseFloat(sprite.style.width) || 20;
+      
+      // 🔧 원본 시작 시간을 dataset에서 직접 가져오기 (중요!)
+      let originalStartTime = parseFloat(sprite.dataset.originalStartTime);
+      if (!originalStartTime || isNaN(originalStartTime)) {
+        // 원본 값이 없으면 현재 스타일에서 계산
+        originalStartTime = (currentLeft / 100) * oldTotalSeconds;
+        console.log(`🔧 원본 시작 시간을 스타일에서 계산: ${originalStartTime}초`);
+      } else {
+        console.log(`🔧 원본 시작 시간을 dataset에서 가져옴: ${originalStartTime}초`);
+      }
+      
+      // 🔧 클립의 절대 시작 시간 계산 (원본 값 사용)
+      const clipStartTime = originalStartTime;
 
-      // 클립의 절대 시작 시간 계산 (현재 위치 기반)
-      const clipStartTime = (currentLeft / 100) * oldTotalSeconds;
-
-      // 기존 너비 계산
+      // 🔧 기존 너비 계산
       const oldWidth = (duration / oldTotalSeconds) * 100;
-      // 새로운 너비 계산
+      // 🔧 새로운 너비 계산
       const newWidth = (duration / newTotalSeconds) * 100;
 
-      console.log('AudioTimeline 클립 너비 업데이트:', {
+      console.log(`🔧 오디오 스프라이트 ${index + 1} 클립 너비 업데이트:`, {
         duration,
         clipStartTime,
         currentLeft: `${currentLeft}%`,
+        currentWidth: `${currentWidth}%`,
         oldWidth: `${oldWidth}%`,
         newWidth: `${newWidth}%`
       });
 
-      // 너비 업데이트
-      sprite.style.width = `${newWidth}%`;
+      // 🔧 너비 업데이트 (강제 적용)
+      sprite.style.setProperty('width', `${newWidth}%`, 'important');
+      sprite.style.width = `${newWidth}%`; // 백업
 
-      // 클립의 절대 시작 시간을 보존하여 새로운 위치 계산
+      // 🔧 클립의 절대 시작 시간을 보존하여 새로운 위치 계산
       const newLeft = (clipStartTime / newTotalSeconds) * 100;
 
-      // 클립이 타임라인 끝을 벗어나지 않도록 위치 조정
+      // 🔧 클립이 타임라인 끝을 벗어나지 않도록 위치 조정
       const maxLeft = 100 - newWidth;
       const clampedLeft = Math.max(0, Math.min(maxLeft, newLeft));
 
-      sprite.style.left = `${clampedLeft}%`;
+      // 🔧 위치 업데이트 (강제 적용)
+      sprite.style.setProperty('left', `${clampedLeft}%`, 'important');
+      sprite.style.left = `${clampedLeft}%`; // 백업
+      
+      // 🔧 강제 DOM 업데이트 및 검증
+      sprite.offsetHeight; // 강제 리플로우
+      
+      // 🔧 실제 적용된 값 확인
+      const actualWidth = parseFloat(sprite.style.width);
+      const actualLeft = parseFloat(sprite.style.left);
+      
+      console.log(`🔧 ${spriteType} 스프라이트 ${index + 1} 실제 적용 결과:`, {
+        expectedWidth: `${newWidth}%`,
+        actualWidth: `${actualWidth}%`,
+        expectedLeft: `${clampedLeft}%`,
+        actualLeft: `${actualLeft}%`,
+        widthMatch: Math.abs(actualWidth - newWidth) < 0.1,
+        leftMatch: Math.abs(actualLeft - clampedLeft) < 0.1
+      });
+      
+      // 🔧 만약 적용이 안 되었다면 강제로 다시 시도
+      if (Math.abs(actualWidth - newWidth) > 0.1 || Math.abs(actualLeft - clampedLeft) > 0.1) {
+        console.warn(`⚠️ ${spriteType} 스프라이트 ${index + 1} 스타일 적용 실패, 강제 재시도`);
+        
+        // 🔧 방법 1: setProperty로 강제 적용
+        sprite.style.setProperty('left', `${clampedLeft}%`, 'important');
+        sprite.style.setProperty('width', `${newWidth}%`, 'important');
+        
+        // 🔧 방법 2: 직접 속성 설정
+        sprite.setAttribute('style', `left: ${clampedLeft}% !important; width: ${newWidth}% !important;`);
+        
+        // 🔧 방법 3: CSS 텍스트로 설정
+        sprite.style.cssText = `left: ${clampedLeft}% !important; width: ${newWidth}% !important;`;
+        
+        // 🔧 강제 DOM 업데이트
+        sprite.offsetHeight;
+        
+        // 🔧 최종 검증
+        const finalWidth = parseFloat(sprite.style.width);
+        const finalLeft = parseFloat(sprite.style.left);
+        
+        console.log(`🔧 ${spriteType} 스프라이트 ${index + 1} 강제 재시도 결과:`, {
+          finalWidth: `${finalWidth}%`,
+          finalLeft: `${finalLeft}%`,
+          success: Math.abs(finalWidth - newWidth) < 0.1 && Math.abs(finalLeft - clampedLeft) < 0.1
+        });
+        
+        // 🔧 여전히 실패하면 경고
+        if (Math.abs(finalWidth - newWidth) > 0.1 || Math.abs(finalLeft - clampedLeft) > 0.1) {
+          console.error(`❌ ${spriteType} 스프라이트 ${index + 1} 모든 방법으로도 업데이트 실패!`);
+        }
+      }
 
-      console.log('AudioTimeline 클립 위치 업데이트:', {
+      console.log(`🔧 오디오 스프라이트 ${index + 1} 클립 위치 업데이트:`, {
         originalStartTime: clipStartTime,
         newLeft: `${newLeft}%`,
         clampedLeft: `${clampedLeft}%`,
         maxLeft: `${maxLeft}%`
       });
 
-      // 클립 내의 키프레임 위치 업데이트
-      this.updateKeyframesInClipAfterTimeChange(sprite, oldTotalSeconds, newTotalSeconds);
+      // 🔧 dataset 속성 업데이트 (원본 값 보존)
+      sprite.dataset.startTime = clipStartTime.toString();
+      sprite.dataset.duration = duration.toString();
+      
+      // 🔧 원본 위치 정보 보존 (중요!)
+      sprite.dataset.originalStartTime = originalStartTime.toString();
+      sprite.dataset.originalDuration = duration.toString();
+      
+      // 🔧 UI 시간 표시 업데이트 (중요!)
+      this.updateAudioClipTimeDisplay(sprite, clipStartTime, duration, newTotalSeconds);
+
+      // 🔧 오디오 스프라이트인 경우 오디오 객체의 userData도 업데이트
+      if (sprite.classList.contains('audio-sprite')) {
+        const trackElement = sprite.closest('.timeline-track');
+        if (trackElement) {
+          const objectId = trackElement.dataset.objectId;
+          if (objectId) {
+            const audioObject = this.editor.scene.getObjectById(parseInt(objectId));
+            if (audioObject && audioObject.userData) {
+              // 🔧 조정된 시작 시간 사용
+              const adjustedStartTime = (clampedLeft / 100) * newTotalSeconds;
+              
+              audioObject.userData.startTime = adjustedStartTime;
+              audioObject.userData.duration = duration;
+              
+              // 🔧 audioObjects 동기화
+              this.updateAudioObjectsEntry(audioObject.id, {
+                startTime: adjustedStartTime,
+                duration: duration
+              });
+              
+              console.log(`🔧 오디오 객체 ${objectId} userData 업데이트:`, {
+                startTime: adjustedStartTime,
+                duration: duration
+              });
+            }
+          }
+        }
+      }
+
+      // 클립 내의 키프레임 위치 업데이트 (애니메이션 스프라이트인 경우)
+      if (sprite.classList.contains('animation-sprite')) {
+        this.updateKeyframesInClipAfterTimeChange(sprite, oldTotalSeconds, newTotalSeconds);
+      }
     });
+
+    console.log('✅ AudioTimeline 클립 너비 및 위치 업데이트 완료');
+    
+    // 🔧 업데이트 후 UI 강제 새로고침
+    setTimeout(() => {
+      this.updateUI();
+      console.log('🔧 UI 강제 새로고침 완료');
+    }, 100);
   }
 
   // 타임라인 시간 변경 후 클립 내 키프레임 위치 업데이트
