@@ -1288,10 +1288,10 @@ Editor.prototype = {
 
 
 
-      // 🔧 4순위: AudioTimeline 데이터 복원
+      // AudioTimeline 데이터 복원
       if (this.scene.userData.audioTimeline) {
         try {
-          console.log("=== AudioTimeline 데이터 복원 시작 (4순위) ===");
+          console.log("=== AudioTimeline 데이터 복원 시작 ===");
           console.log("scene.userData.audioTimeline:", this.scene.userData.audioTimeline);
           console.log("this.audioTimeline 존재:", !!this.audioTimeline);
           console.log("this.audioTimeline 타입:", typeof this.audioTimeline);
@@ -1302,7 +1302,7 @@ Editor.prototype = {
           if (this.audioTimeline && this.audioTimeline.onAfterLoad) {
             console.log("audioTimeline.onAfterLoad() 호출 중...");
             this.audioTimeline.onAfterLoad();
-            console.log("=== AudioTimeline 데이터 복원 완료 (4순위) ===");
+            console.log("=== AudioTimeline 데이터 복원 완료 ===");
           } else {
             console.log("AudioTimeline 인스턴스가 없어서 데이터를 복원하지 않습니다.");
             console.log("window.timeline 존재:", !!window.timeline);
@@ -1316,7 +1316,7 @@ Editor.prototype = {
               console.log("AudioTimeline 인스턴스를 window.timeline에서 찾아서 연결했습니다.");
               console.log("연결된 audioTimeline:", this.audioTimeline);
               this.audioTimeline.onAfterLoad();
-              console.log("=== AudioTimeline 데이터 복원 완료 (4순위) ===");
+              console.log("=== AudioTimeline 데이터 복원 완료 ===");
             } else {
               console.warn("⚠️ AudioTimeline 인스턴스를 찾을 수 없습니다!");
               console.warn("window.timeline 구조:", window.timeline);
@@ -1361,7 +1361,7 @@ Editor.prototype = {
                   try {
                     console.log("생성된 AudioTimeline으로 onAfterLoad() 호출 중...");
                     this.audioTimeline.onAfterLoad();
-                    console.log("=== AudioTimeline 데이터 복원 완료 (4순위) ===");
+                    console.log("=== AudioTimeline 데이터 복원 완료 ===");
                   } catch (error) {
                     console.error("생성된 AudioTimeline onAfterLoad() 실행 중 오류:", error);
                   }
@@ -1380,13 +1380,26 @@ Editor.prototype = {
         console.log("scene.userData.audioTimeline이 없어서 AudioTimeline 복원을 건너뜁니다.");
       }
 
+      // 🔧 1순위: Timeline.js의 onAfterLoad() 먼저 호출 (총 프레임 설정)
+      if (this.timeline && this.timeline.onAfterLoad) {
+        try {
+          console.log("=== Timeline.js onAfterLoad() 호출 시작 (1순위) ===");
+          this.timeline.onAfterLoad();
+          console.log("=== Timeline.js onAfterLoad() 호출 완료 (1순위) ===");
+        } catch (error) {
+          console.error("Timeline.js onAfterLoad() 실행 중 오류:", error);
+        }
+      } else {
+        console.warn("this.timeline 또는 onAfterLoad 메서드가 없습니다");
+      }
+
       // LightTimeline 데이터가 없거나 lightTimeline 인스턴스가 없습니다.
       if (!projectData.lightTimeline && !this.scene.userData.lightTimeline) {
         console.log("LightTimeline 데이터가 없거나 lightTimeline 인스턴스가 없습니다.");
         console.log("projectData.lightTimeline 존재:", !!projectData.lightTimeline);
         console.log("this.lightTimeline 존재:", !!this.lightTimeline);
 
-        // LightTimeline 데이터가 없으면 아무것도 하지 않습니다.
+        // LightTimeline 데이터가 없으면 아무것도 하지 않음
         console.log("LightTimeline 데이터가 없으므로 트랙을 생성하지 않습니다.");
       }
 
