@@ -1432,6 +1432,13 @@ export class MotionTimeline extends BaseTimeline {
     addTrack(objectUuid, objectId, objectName, skipInitialKeyframe = false) {
         // console.log("addTrack called with:", { objectUuid, objectId, objectName, skipInitialKeyframe });
 
+        // 🔧 객체 유효성 검사 (FBX, OBJ만 허용)
+        const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
+        if (object && !this.isValidObjectForMotionTrack(object)) {
+            console.log(`⚠️ addTrack에서 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외:`, object);
+            return null; // 유효하지 않은 객체는 트랙 생성하지 않음
+        }
+
         // TimelineData와 UI 모두에서 기존 트랙이 있는지 확인
         const existingTracks = this.timelineData.getObjectTracks(objectUuid);
         const existingTrackElement = this.container.querySelector(`[data-uuid="${objectUuid}"]`);
@@ -1507,8 +1514,7 @@ export class MotionTimeline extends BaseTimeline {
         // 트랙 요소에 motion-tracks 추가
         track.element.appendChild(trackTopArea);
 
-        // 트랙 객체 생성
-        const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
+        // 🔧 이미 위에서 검증된 객체 사용 (중복 선언 제거)
 
         // FBX 애니메이션이 있는 경우 mixer 초기화
         if (object && object.animations && object.animations.length > 0) {
@@ -4494,6 +4500,12 @@ export class MotionTimeline extends BaseTimeline {
                 if (object) {
                     // console.log(`객체 발견: ${object.name} (${objectUuid})`);
 
+                    // 🔧 FBX, OBJ 객체만 필터링
+                    if (!this.isValidObjectForMotionTrack(object)) {
+                        console.log(`⚠️ 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외:`, object);
+                        return; // 이 객체는 건너뛰기
+                    }
+
                     // objectId 생성 (UUID의 일부 사용)
                     const objectId = objectUuid.split('-')[0] || objectUuid;
 
@@ -4535,6 +4547,66 @@ export class MotionTimeline extends BaseTimeline {
         };
 
         return findObject(this.editor.scene);
+    }
+
+    // 🔧 FBX, OBJ 객체만 MotionTimeline에 추가할 수 있는지 확인
+    isValidObjectForMotionTrack(object) {
+        if (!object) return false;
+
+        // 🔧 객체 이름으로 FBX/OBJ 파일인지 확인
+        const objectName = object.name.toLowerCase();
+        if (objectName.endsWith('.fbx') || objectName.endsWith('.obj')) {
+            return true;
+        }
+
+        // 🔧 userData에 파일 경로 정보가 있는 경우
+        if (object.userData && object.userData.filePath) {
+            const filePath = object.userData.filePath.toLowerCase();
+            if (filePath.endsWith('.fbx') || filePath.endsWith('.obj')) {
+                return true;
+            }
+        }
+
+        // 🔧 userData에 파일 타입 정보가 있는 경우
+        if (object.userData && object.userData.fileType) {
+            const fileType = object.userData.fileType.toLowerCase();
+            if (fileType === 'fbx' || fileType === 'obj') {
+                return true;
+            }
+        }
+
+        // 🔧 userData에 sourceFile 정보가 있는 경우
+        if (object.userData && object.userData.sourceFile) {
+            const sourceFile = object.userData.sourceFile.toLowerCase();
+            if (sourceFile.endsWith('.fbx') || sourceFile.endsWith('.obj')) {
+                return true;
+            }
+        }
+
+        // 🔧 애니메이션이 있는 객체는 FBX일 가능성이 높음
+        if (object.animations && object.animations.length > 0) {
+            console.log(`🎬 애니메이션이 있는 객체 발견: ${object.name}`, object.animations);
+            return true;
+        }
+
+        // 🔧 기하학적 메시가 있는 객체 (OBJ일 가능성)
+        if (object.geometry && object.geometry.type === 'BufferGeometry') {
+            // 단순한 기하학적 객체는 제외하고 복잡한 메시만 포함
+            if (object.geometry.attributes.position && object.geometry.attributes.position.count > 100) {
+                console.log(`📐 복잡한 기하학적 메시가 있는 객체 발견: ${object.name}`, object.geometry);
+                return true;
+            }
+        }
+
+        console.log(`❌ 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외됨:`, {
+            name: object.name,
+            type: object.type,
+            userData: object.userData,
+            hasAnimations: !!(object.animations && object.animations.length > 0),
+            hasGeometry: !!object.geometry
+        });
+
+        return false;
     }
 
     // TimelineData의 UUID 업데이트
@@ -5381,6 +5453,12 @@ export class MotionTimeline extends BaseTimeline {
             // 씬에서 해당 객체 찾기
             const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
             if (object) {
+                // 🔧 FBX, OBJ 객체만 필터링
+                if (!this.isValidObjectForMotionTrack(object)) {
+                    console.log(`⚠️ UI 재생성 시 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외:`, object);
+                    return; // 이 객체는 건너뛰기
+                }
+
                 const objectId = objectUuid.split('-')[0] || objectUuid;
                 this.addTrack(objectUuid, objectId, object.name, true);
             }
