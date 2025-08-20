@@ -5,6 +5,7 @@ import { MotionTimeline } from "./MotionTimeline.js";
 import { LightTimeline } from "./LightTimeline.js";
 import { AudioTimeline } from "./AudioTimeline.js";
 import { VideoTimeline } from "./VideoTimeline.js";
+import { RenderTimeline } from "./RenderTimeline.js";
 import { KeyboardShortcuts } from "./KeyboardShortcuts.js";
 import * as TWEEN from "../../../examples/jsm/libs/tween.module.js";
 
@@ -107,7 +108,13 @@ class Timeline {
 
       // LightTimeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
       editor.lightTimeline = this.timelines.light;
+
+      // AudioTimeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
+      editor.audioTimeline = this.timelines.audio;
     }
+
+    // RenderTimeline 인스턴스 생성
+    this.renderTimeline = new RenderTimeline(editor, this.timelineSettings);
 
     this.activeTimeline = "motion";
     this.initializeUI();
@@ -259,6 +266,7 @@ class Timeline {
         <div class="controls-container">
           <button class="play-button"><i class="fa fa-play"></i></button>
           <button class="stop-button"><i class="fa fa-stop"></i></button>
+          <button class="render-button" title="타임라인 렌더링 (새 창)"><i class="fa fa-film"></i></button>
           <button class="timeline-settings-button" title="타임라인 설정 (총 시간, FPS 변경)"><i class="fa fa-cog"></i></button>
         </div>
         <div class="time-ruler-container"></div>
@@ -756,6 +764,19 @@ class Timeline {
     if (settingsButton) {
       settingsButton.addEventListener("click", () => {
         this.showTimelineSettings();
+      });
+    }
+
+    // 렌더링 버튼 이벤트
+    const renderButton = this.container.querySelector(".render-button");
+    if (renderButton) {
+      renderButton.addEventListener("click", () => {
+        console.log("렌더링 버튼 클릭됨");
+        if (this.renderTimeline) {
+          this.renderTimeline.openRenderWindow();
+        } else {
+          console.error("RenderTimeline이 초기화되지 않았습니다.");
+        }
       });
     }
 
@@ -1442,32 +1463,16 @@ class Timeline {
       this.timelines.light.stop();
     }
 
-    // 🔧 AudioTimeline의 stop() 메서드 호출 (tracks 기반으로 정확한 정지)
-    if (this.timelines.audio) {
-      this.timelines.audio.stop();
-    }
-
-    // 🔧 기존 audioObjects 방식도 유지 (하위 호환성)
+    // 오디오 정지
     if (this.editor.scene?.userData?.audioTimeline?.audioObjects) {
       const audioObjects = this.editor.scene.userData.audioTimeline.audioObjects;
       
       Object.values(audioObjects).forEach((audioObj) => {
         if (audioObj.audioElement) {
-          try {
-            const audio = audioObj.audioElement;
-            
-            // 🔧 audio가 HTMLAudioElement인지 확인
-            if (audio && typeof audio.pause === 'function' && typeof audio.paused !== 'undefined') {
-              audio.pause();
-              audio.currentTime = 0;
-              audio._playRequested = false; // 재생 요청 플래그 초기화
-              console.log(`✅ audioObjects의 오디오 ${audioObj.objectId || 'unknown'} 정지됨`);
-            } else {
-              console.warn(`⚠️ audioObj.audioElement가 HTMLAudioElement가 아닙니다:`, audio);
-            }
-          } catch (error) {
-            console.error(`❌ audioObjects 오디오 정지 중 오류:`, error);
-          }
+          const audio = audioObj.audioElement;
+          audio.pause();
+          audio.currentTime = 0;
+          audio._playRequested = false; // 재생 요청 플래그 초기화
         }
       });
     }
@@ -1480,30 +1485,10 @@ class Timeline {
     this.setCurrentFrame(0);
     this.updatePlayheadPosition(0);
 
-    // 🔧 UI 업데이트 - play 버튼 아이콘을 재생 상태로 변경
+    // UI 업데이트
     const playButton = this.container.querySelector(".play-button");
     if (playButton) {
       playButton.innerHTML = '<i class="fa fa-play"></i>';
-      console.log("✅ stop() 후 play 버튼 아이콘이 재생 상태로 변경됨");
-    } else {
-      console.warn("⚠️ stop() 후 play 버튼을 찾을 수 없습니다. container:", this.container);
-      // 🔧 더 넓은 범위에서 검색
-      const globalPlayButton = document.querySelector(".play-button");
-      if (globalPlayButton) {
-        globalPlayButton.innerHTML = '<i class="fa fa-play"></i>';
-        console.log("✅ stop() 후 전역 검색으로 play 버튼 아이콘 변경됨");
-      } else {
-        console.error("❌ stop() 후 전역에서도 play 버튼을 찾을 수 없습니다");
-      }
-    }
-
-    // 🔧 강제로 모든 play 버튼 업데이트 (프로젝트 로드 후 문제 해결)
-    const allPlayButtons = document.querySelectorAll(".play-button");
-    if (allPlayButtons.length > 0) {
-      allPlayButtons.forEach((btn, index) => {
-        btn.innerHTML = '<i class="fa fa-play"></i>';
-        console.log(`✅ 강제 업데이트: play 버튼 ${index + 1} 아이콘 변경됨`);
-      });
     }
   }
 
@@ -1759,101 +1744,6 @@ class Timeline {
         (timeInSeconds / this.timelineSettings.totalSeconds) * 100;
       keyframe.element.style.left = `${newLeft}%`;
     });
-  }
-
-  // 🔧 재생 컨트롤 이벤트 바인딩 메서드
-  bindPlaybackControls() {
-    console.log("🔧 bindPlaybackControls 호출됨 - 재생 컨트롤 이벤트 바인딩 시작");
-
-    // 🔧 기존 이벤트 리스너 제거 (중복 방지)
-    const playButton = this.container.querySelector(".play-button");
-    const stopButton = this.container.querySelector(".stop-button");
-
-    if (playButton) {
-      // 기존 이벤트 리스너 제거
-      const newPlayButton = playButton.cloneNode(true);
-      playButton.parentNode.replaceChild(newPlayButton, playButton);
-      
-      // 새로운 이벤트 리스너 추가
-      newPlayButton.addEventListener("click", () => {
-        console.log("🔧 재생/일시정지 버튼 클릭됨 (새로 바인딩됨)");
-
-        // scene이 없거나 timeline이 초기화되지 않은 경우 처리
-        if (!this.editor.scene) {
-          this.editor.scene = {
-            userData: {
-              timeline: {
-                isPlaying: false,
-                currentFrame: 0,
-              },
-            },
-          };
-        } else if (!this.editor.scene.userData) {
-          this.editor.scene.userData = {
-            timeline: {
-              isPlaying: false,
-              currentFrame: 0,
-            },
-          };
-        } else if (!this.editor.scene.userData.timeline) {
-          this.editor.scene.userData.timeline = {
-            isPlaying: false,
-            currentFrame: 0,
-          };
-        }
-
-        const isPlaying = this.editor.scene.userData.timeline.isPlaying;
-        console.log("🔧 현재 재생 상태:", isPlaying);
-
-        if (!isPlaying) {
-          console.log("🔧 재생 시작");
-          this.play();
-        } else {
-          console.log("🔧 일시정지");
-          this.pause();
-        }
-      });
-      
-      console.log("✅ play 버튼 이벤트 리스너 바인딩 완료");
-    } else {
-      console.warn("⚠️ play 버튼을 찾을 수 없습니다");
-    }
-
-    if (stopButton) {
-      // 기존 이벤트 리스너 제거
-      const newStopButton = stopButton.cloneNode(true);
-      stopButton.parentNode.replaceChild(newStopButton, stopButton);
-      
-      // 새로운 이벤트 리스너 추가
-      newStopButton.addEventListener("click", () => {
-        console.log("🔧 정지 버튼 클릭됨 (새로 바인딩됨)");
-        this.stop();
-        // 정지 시 처음으로 돌아가기
-        this.setCurrentFrame(0);
-        this.updatePlayheadPosition(0);
-
-        const frameInput = this.container.querySelector(".frame-input");
-        if (frameInput) {
-          frameInput.value = "0.0";
-        }
-      });
-      
-      console.log("✅ stop 버튼 이벤트 리스너 바인딩 완료");
-    } else {
-      console.warn("⚠️ stop 버튼을 찾을 수 없습니다");
-    }
-
-    console.log("🔧 bindPlaybackControls 완료");
-  }
-
-  // 🔧 프로젝트 로드 후 이벤트 리스너 재바인딩
-  rebindPlaybackControls() {
-    console.log("🔧 rebindPlaybackControls 호출됨 - 프로젝트 로드 후 이벤트 리스너 재바인딩");
-    
-    // 잠시 대기 후 바인딩 (DOM이 완전히 로드될 때까지)
-    setTimeout(() => {
-      this.bindPlaybackControls();
-    }, 100);
   }
 }
 

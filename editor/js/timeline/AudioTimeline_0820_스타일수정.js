@@ -2569,69 +2569,17 @@ export class AudioTimeline extends BaseTimeline {
   pause() {
     console.log("🔇 AudioTimeline pause() 호출됨");
 
-    // 🔧 tracks가 비어있지 않은지 확인
-    if (!this.tracks || this.tracks.size === 0) {
-      console.log("⚠️ AudioTimeline pause(): tracks가 비어있습니다");
-      this.isPlaying = false;
-      return;
-    }
-
-    console.log(`🔧 AudioTimeline pause(): ${this.tracks.size}개 트랙 일시정지 처리 중...`);
-
-    this.tracks.forEach((track, trackId) => {
-      try {
-        console.log(`🔧 트랙 ${trackId} 일시정지 처리 중:`, track);
-        
-        // 🔧 track.objectId 또는 track.id 사용
-        const objectId = track.objectId || track.id;
-        if (!objectId) {
-          console.warn(`⚠️ 트랙 ${trackId}에 objectId가 없습니다:`, track);
-          return;
+    this.tracks.forEach((track) => {
+      const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
+      if (audioObject && audioObject.userData.audioElement) {
+        const audio = audioObject.userData.audioElement;
+        if (!audio.paused) {
+          audio.pause();
+          audio._playRequested = false; // 재생 요청 플래그 초기화
+          console.log(`🔇 오디오 트랙 ${track.objectId || track.id} 일시정지됨`);
         }
-
-        const audioObject = this.editor.scene.getObjectById(parseInt(objectId));
-        if (audioObject && audioObject.userData.audioElement) {
-          const audio = audioObject.userData.audioElement;
-          
-          // 🔧 오디오 요소의 상태 확인 및 일시정지
-          if (!audio.paused) {
-            audio.pause();
-            audio._playRequested = false; // 재생 요청 플래그 초기화
-            console.log(`🔇 오디오 트랙 ${objectId} 일시정지됨`);
-          }
-        } else {
-          console.warn(`⚠️ 트랙 ${objectId}의 오디오 객체를 찾을 수 없습니다`);
-        }
-      } catch (error) {
-        console.error(`❌ 트랙 ${trackId} 일시정지 처리 중 오류:`, error);
       }
     });
-
-    // 🔧 scene.userData.audioTimeline.audioObjects도 동기화
-    if (this.editor.scene?.userData?.audioTimeline?.audioObjects) {
-      const audioObjects = this.editor.scene.userData.audioTimeline.audioObjects;
-      
-      Object.values(audioObjects).forEach((audioObj) => {
-        if (audioObj.audioElement) {
-          try {
-            const audio = audioObj.audioElement;
-            
-            // 🔧 audio가 HTMLAudioElement인지 확인
-            if (audio && typeof audio.pause === 'function' && typeof audio.paused !== 'undefined') {
-              if (!audio.paused) {
-                audio.pause();
-                audio._playRequested = false;
-                console.log(`🔇 audioObjects의 오디오 ${audioObj.objectId || 'unknown'} 일시정지됨`);
-              }
-            } else {
-              console.warn(`⚠️ audioObj.audioElement가 HTMLAudioElement가 아닙니다:`, audio);
-            }
-          } catch (error) {
-            console.error(`❌ audioObjects 오디오 일시정지 중 오류:`, error);
-          }
-        }
-      });
-    }
 
     // AudioTimeline 자체 상태도 일시정지
     this.isPlaying = false;
@@ -2642,50 +2590,20 @@ export class AudioTimeline extends BaseTimeline {
   play() {
     console.log("🔊 AudioTimeline play() 호출됨");
 
-    // 🔧 tracks가 비어있지 않은지 확인
-    if (!this.tracks || this.tracks.size === 0) {
-      console.log("⚠️ AudioTimeline play(): tracks가 비어있습니다");
-      this.isPlaying = false;
-      return;
-    }
-
-    console.log(`🔧 AudioTimeline play(): ${this.tracks.size}개 트랙 재생 처리 중...`);
-
-    this.tracks.forEach((track, trackId) => {
-      try {
-        console.log(`🔧 트랙 ${trackId} 재생 처리 중:`, track);
-        
-        // 🔧 track.objectId 또는 track.id 사용
-        const objectId = track.objectId || track.id;
-        if (!objectId) {
-          console.warn(`⚠️ 트랙 ${trackId}에 objectId가 없습니다:`, track);
-          return;
+    this.tracks.forEach((track) => {
+      const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
+      if (audioObject && audioObject.userData.audioElement) {
+        const audio = audioObject.userData.audioElement;
+        if (audio.paused && !audio._playRequested) {
+          audio._playRequested = true;
+          audio.play().then(() => {
+            audio._playRequested = false;
+            console.log(`🔊 오디오 트랙 ${track.objectId || track.id} 재생 시작됨`);
+          }).catch((error) => {
+            console.error(`🔊 오디오 트랙 ${track.objectId || track.id} 재생 실패:`, error);
+            audio._playRequested = false;
+          });
         }
-
-        const audioObject = this.editor.scene.getObjectById(parseInt(objectId));
-        if (audioObject && audioObject.userData.audioElement) {
-          const audio = audioObject.userData.audioElement;
-          
-          // 🔧 오디오 요소의 상태 확인 및 재생
-          if (audio.paused && !audio._playRequested) {
-            audio._playRequested = true;
-            audio.play().then(() => {
-              audio._playRequested = false;
-              console.log(`🔊 오디오 트랙 ${objectId} 재생 시작됨`);
-            }).catch((error) => {
-              console.error(`🔊 오디오 트랙 ${objectId} 재생 실패:`, error);
-              audio._playRequested = false;
-            });
-          } else if (audio._playRequested) {
-            console.log(`🔊 오디오 트랙 ${objectId} 이미 재생 요청 중입니다`);
-          } else if (!audio.paused) {
-            console.log(`🔊 오디오 트랙 ${objectId} 이미 재생 중입니다`);
-          }
-        } else {
-          console.warn(`⚠️ 트랙 ${objectId}의 오디오 객체를 찾을 수 없습니다`);
-        }
-      } catch (error) {
-        console.error(`❌ 트랙 ${trackId} 재생 처리 중 오류:`, error);
       }
     });
 
@@ -2698,75 +2616,18 @@ export class AudioTimeline extends BaseTimeline {
   stop() {
     console.log("⏹️ AudioTimeline stop() 호출됨");
 
-    // 🔧 tracks가 비어있지 않은지 확인
-    if (!this.tracks || this.tracks.size === 0) {
-      console.log("⚠️ AudioTimeline stop(): tracks가 비어있습니다");
-      this.isPlaying = false;
-      return;
-    }
-
-    console.log(`🔧 AudioTimeline stop(): ${this.tracks.size}개 트랙 정지 처리 중...`);
-
-    this.tracks.forEach((track, trackId) => {
-      try {
-        console.log(`🔧 트랙 ${trackId} 정지 처리 중:`, track);
-        
-        // 🔧 track.objectId 또는 track.id 사용
-        const objectId = track.objectId || track.id;
-        if (!objectId) {
-          console.warn(`⚠️ 트랙 ${trackId}에 objectId가 없습니다:`, track);
-          return;
-        }
-
-        const audioObject = this.editor.scene.getObjectById(parseInt(objectId));
-        if (audioObject && audioObject.userData.audioElement) {
-          const audio = audioObject.userData.audioElement;
-          
-          // 🔧 오디오 요소의 상태 확인 및 정지
-          if (!audio.paused) {
-            audio.pause();
-            console.log(`⏹️ 오디오 트랙 ${objectId} 일시정지됨`);
-          }
-          
-          // 🔧 재생 위치를 0으로 되돌리기
-          audio.currentTime = 0;
+    this.tracks.forEach((track) => {
+      const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
+      if (audioObject && audioObject.userData.audioElement) {
+        const audio = audioObject.userData.audioElement;
+        if (!audio.paused) {
+          audio.pause();
+          audio.currentTime = 0; // 처음으로 되돌리기
           audio._playRequested = false;
-          
-          console.log(`⏹️ 오디오 트랙 ${objectId} 정지됨 (currentTime: 0)`);
-        } else {
-          console.warn(`⚠️ 트랙 ${objectId}의 오디오 객체를 찾을 수 없습니다`);
+          console.log(`⏹️ 오디오 트랙 ${track.objectId || track.id} 정지됨`);
         }
-      } catch (error) {
-        console.error(`❌ 트랙 ${trackId} 정지 처리 중 오류:`, error);
       }
     });
-
-    // 🔧 scene.userData.audioTimeline.audioObjects도 동기화
-    if (this.editor.scene?.userData?.audioTimeline?.audioObjects) {
-      const audioObjects = this.editor.scene.userData.audioTimeline.audioObjects;
-      
-      Object.values(audioObjects).forEach((audioObj) => {
-        if (audioObj.audioElement) {
-          try {
-            const audio = audioObj.audioElement;
-            
-            // 🔧 audio가 HTMLAudioElement인지 확인
-            if (audio && typeof audio.pause === 'function' && typeof audio.paused !== 'undefined') {
-              if (!audio.paused) {
-                audio.pause();
-              }
-              audio.currentTime = 0;
-              audio._playRequested = false;
-              console.log(`⏹️ audioObjects의 오디오 ${audioObj.objectId || 'unknown'} 정지됨`);
-            } else {
-              console.warn(`⚠️ audioObj.audioElement가 HTMLAudioElement가 아닙니다:`, audio);
-            }
-          } catch (error) {
-            console.error(`❌ audioObjects 오디오 정지 중 오류:`, error);
-          }
-        }
-      });
-    }
 
     // AudioTimeline 자체 상태도 정지
     this.isPlaying = false;
