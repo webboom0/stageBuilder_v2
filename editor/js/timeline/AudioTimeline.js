@@ -398,11 +398,47 @@ export class AudioTimeline extends BaseTimeline {
 
     if (existingTrack) {
       console.warn("이미 같은 오디오가 추가되어 있습니다:", audioFile.name);
+      
+      // 🔧 기존 트랙도 선택 상태로 만들기
+      this.selectTrack(existingTrack.objectId || existingTrack.id);
+      
       return Promise.resolve(existingTrack);
     }
 
     // 오디오 로드 및 트랙 생성 (Promise 반환)
-    return this.loadAudioFile(audioFile);
+    return this.loadAudioFile(audioFile).then((track) => {
+      // 🔧 새로 생성된 트랙을 자동으로 선택
+      if (track) {
+        console.log("🎯 새로 생성된 트랙 자동 선택:", track);
+        this.selectTrack(track.objectId || track.id);
+        
+        // 🔧 선택된 클립의 속성 패널 업데이트를 위한 input 필드 동기화
+        setTimeout(() => {
+          if (track.element) {
+            const audioSprite = track.element.querySelector('.audio-sprite');
+            if (audioSprite) {
+              // 선택 상태로 만들기
+              document.querySelectorAll('.audio-sprite').forEach(s => s.classList.remove('selected'));
+              audioSprite.classList.add('selected');
+              
+              // input 필드 업데이트
+              const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId || track.id));
+              if (audioObject) {
+                const startTime = parseFloat(audioSprite.dataset.startTime) || 0;
+                const duration = parseFloat(audioSprite.dataset.duration) || 0;
+                const audioStartTime = audioObject.userData.audioStartTime || 0;
+                const audioEndTime = audioObject.userData.audioEndTime || (audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : audioStartTime + duration);
+                
+                this.updateInputFields(audioStartTime, audioEndTime);
+                this.updateClipInputFields(startTime, duration);
+              }
+            }
+          }
+        }, 100); // DOM 업데이트 후 실행
+      }
+      
+      return track;
+    });
   }
 
   // 저장된 오디오 데이터 로드 (프로젝트 열기 시 사용)
@@ -2407,10 +2443,42 @@ export class AudioTimeline extends BaseTimeline {
       }
     });
 
+    // 모든 오디오 스프라이트의 선택 상태 해제
+    document.querySelectorAll('.audio-sprite').forEach(sprite => {
+      sprite.classList.remove('selected');
+    });
+
     // 현재 트랙 선택
     const track = this.tracks.get(objectId);
     if (track && track.element) {
       track.element.classList.add('selected');
+
+      // 🔧 오디오 스프라이트도 선택 상태로 만들기
+      const audioSprite = track.element.querySelector('.audio-sprite');
+      if (audioSprite) {
+        audioSprite.classList.add('selected');
+        console.log(`🎯 오디오 스프라이트 선택됨: ${objectId}`);
+        
+        // 🔧 선택된 클립의 input 필드 업데이트
+        const audioObject = this.editor.scene.getObjectById(parseInt(objectId));
+        if (audioObject) {
+          const startTime = parseFloat(audioSprite.dataset.startTime) || 0;
+          const duration = parseFloat(audioSprite.dataset.duration) || 0;
+          const audioStartTime = audioObject.userData.audioStartTime || 0;
+          const audioEndTime = audioObject.userData.audioEndTime || (audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : audioStartTime + duration);
+          
+          // input 필드 업데이트
+          this.updateInputFields(audioStartTime, audioEndTime);
+          this.updateClipInputFields(startTime, duration);
+          
+          console.log(`✅ 선택된 클립 input 필드 업데이트 완료:`, {
+            startTime,
+            duration,
+            audioStartTime,
+            audioEndTime
+          });
+        }
+      }
 
       // 속성 패널에 트랙 정보 표시
       this.showTrackProperties(objectId);
