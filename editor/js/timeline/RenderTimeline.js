@@ -343,7 +343,7 @@ export class RenderTimeline {
       <div style="margin-top: 15px; text-align: center;">
         <button class="render-btn secondary" id="previewFrame">현재 프레임 미리보기</button>
         <button class="render-btn secondary" id="previewTimeline">타임라인 미리보기</button>
-        <button class="render-btn secondary" id="debugAnimation" style="background: #FF9800;">🐛 애니메이션 디버그</button>
+        <button class="render-btn secondary" id="debugAnimation" style="background: #FF9800; display:none">🐛 애니메이션 디버그</button>
       </div>
     `;
     container.appendChild(preview);

@@ -77,8 +77,8 @@ class TimelineRenderer {
           </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <button id="start-render-btn" style="background: #4CAF50; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">▶️ 렌더링 시작</button>
-          <button id="download-video-btn" style="background: #2196F3; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; display: none;">📥 비디오 다운로드</button>
+          <button id="start-render-btn" style="background: #4CAF50; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;"><i class="fas fa-play"></i> 렌더링 시작</button>
+          <button id="download-video-btn" style="background: #2196F3; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; display: none;"> 비디오 다운로드</button>
           <button id="close-render-popup" style="background: #666; border: none; color: white; padding: 8px 12px; border-radius: 4px; cursor: pointer;">닫기</button>
         </div>
       `;
@@ -143,7 +143,7 @@ class TimelineRenderer {
       fpsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 5px;';
       fpsDiv.innerHTML = `
         <label style="color: #4CAF50; font-size: 12px;">FPS</label>
-        <select id="fps-select" style="background: #333; color: white; border: 1px solid #555; border-radius: 4px; padding: 5px;" disabled>
+        <select id="fps-select" class="disabled" style="background: #333; color: white; border: 1px solid #555; border-radius: 4px; padding: 5px;" disabled>
           <option value="30">30 FPS</option>
           <option value="60">60 FPS</option>
           <option value="24">24 FPS</option>
@@ -156,7 +156,7 @@ class TimelineRenderer {
       // 타임라인에서 총 지속시간 가져오기
       durationDiv.innerHTML = `
         <label style="color: #4CAF50; font-size: 12px;">지속시간 (초)</label>
-        <input type="number" id="duration-input" value="10" min="1" max="300" style="background: #333; color: white; border: 1px solid #555; border-radius: 4px; padding: 5px; width: 80px;" disabled>
+        <input type="number" id="duration-input" class="disabled" value="10" min="1" max="300" style="background: #333; color: white; border: 1px solid #555; border-radius: 4px; padding: 5px; width: 80px;" disabled>
       `;
 
       renderSettings.appendChild(resolutionDiv);
@@ -441,6 +441,7 @@ class TimelineRenderer {
         cursor: pointer;
         font-weight: bold;
         font-size: 14px;
+        display: none;
       `;
 
       canvasControls.appendChild(zoomInBtn);
@@ -1486,7 +1487,7 @@ class TimelineRenderer {
       this.isRenderingActive = false;
       startBtn.disabled = false;
       startBtn.style.background = '#4CAF50';
-      startBtn.innerHTML = '▶️ 렌더링 시작';
+      startBtn.innerHTML = '<i class="fas fa-play"></i> 렌더링 시작';
 
       // 🎬 에러 발생 시 캔버스 컨트롤 다시 활성화
       this.setCanvasControlsEnabled(true);
@@ -1533,7 +1534,7 @@ class TimelineRenderer {
       }
 
       // 폼 내의 모든 입력 요소들 찾기
-      const inputs = renderSettings.querySelectorAll('input, select, textarea');
+      const inputs = renderSettings.querySelectorAll('input:not(.disabled), select:not(.disabled), textarea:not(.disabled)');
       const buttons = renderSettings.querySelectorAll('button:not(#start-render-btn)'); // 렌더링 시작 버튼 제외
 
       // 입력 요소들 비활성화/활성화
@@ -1562,7 +1563,7 @@ class TimelineRenderer {
     try {
       startBtn.disabled = false;
       startBtn.style.background = '#FF4444';
-      startBtn.innerHTML = '⏹️ 렌더링 중지';
+      startBtn.innerHTML = ' <i class="fas fa-stop"></i> 렌더링 중지';
       
       // 기존 이벤트 리스너 제거 후 중지 이벤트 리스너 추가
       startBtn.removeEventListener('click', this.startRenderProcess);
@@ -1579,7 +1580,7 @@ class TimelineRenderer {
     try {
       startBtn.disabled = false;
       startBtn.style.background = '#4CAF50';
-      startBtn.innerHTML = '▶️ 렌더링 시작';
+      startBtn.innerHTML = '<i class="fas fa-play"></i> 렌더링 시작';
       
       // 이벤트 리스너 제거 후 다시 추가
       startBtn.removeEventListener('click', this.stopRendering);
@@ -2500,7 +2501,7 @@ class TimelineRenderer {
       // 시작 버튼 복원
       startBtn.disabled = false;
       startBtn.style.background = '#4CAF50';
-      startBtn.innerHTML = '▶️ 렌더링 시작';
+      startBtn.innerHTML = '<i class="fas fa-play"></i> 렌더링 시작';
 
       // 렌더링 상태 비활성화
       this.isRenderingActive = false;

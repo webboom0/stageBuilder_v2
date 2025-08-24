@@ -775,7 +775,7 @@ select:hover {
   background-color: #eee;
 }
 
-.toolBar {
+/* .toolBar {
   position: relative;
 }
 
@@ -787,6 +787,21 @@ select:hover {
   background: #eee;
   text-align: center;
   z-index: 2;
+} */
+
+.toolBar {
+  position: relative;
+  width: 100%;
+}
+
+#toolbar {
+  position: relative;
+  width: 100%;
+  background: #000;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 #toolbar button,
@@ -1685,19 +1700,63 @@ select:hover {
   max-height: 500px;
 }
 
-.topWrapper .toolMenuBar{
+.topWrapper .toolMenuBar {
   display: flex;
   background-color: #000;
   gap: 2px;
 }
-.topWrapper .toolMenuBar a{
+#toolbar{
+ padding:2px;
+}
+.topWrapper .toolMenuBar button,
+#toolbar button,
+#toolbar input {
   width: 30px;
   height: 30px;
-  background-color: #333;
-  border-radius:2px;
+  /* background-color: #333; */
+  border-radius: 2px;
   display: flex;
   justify-content: center;
   align-items: center;
   color: #fff;
   text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  margin: 0;
+}
+#toolbar input{
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  cursor: pointer;
+}
+.topWrapper .toolMenuBar button:hover,
+#toolbar button:hover {
+  /* background-color: #555; */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.topWrapper .toolMenuBar button.active,
+#toolbar button.active {
+  background-color: #007acc;
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.5);
+}
+
+.topWrapper .toolMenuBar button.tool_camera.active {
+  background-color: #28a745;
+}
+
+.topWrapper .toolMenuBar button.tool_select.active {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.topWrapper .toolMenuBar button.tool_focus.active {
+  background-color: #17a2b8;
+}
+
+.topWrapper .toolMenuBar button.tool_reset.active {
+  background-color: #dc3545;
 }
