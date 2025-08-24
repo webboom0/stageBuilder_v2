@@ -4,8 +4,10 @@ import { BaseTimeline } from "./BaseTimeline.js";
 import { MotionTimeline } from "./MotionTimeline.js";
 import { LightTimeline } from "./LightTimeline.js";
 import { AudioTimeline } from "./AudioTimeline.js";
+import { RenderTimeline } from "./RenderTimeline.js";
 import { VideoTimeline } from "./VideoTimeline.js";
 import { KeyboardShortcuts } from "./KeyboardShortcuts.js";
+import { TimelineRenderer } from "./TimelineRenderer.js";
 import * as TWEEN from "../../../examples/jsm/libs/tween.module.js";
 
 // 타임라인 설정 상수
@@ -60,6 +62,8 @@ class Timeline {
       currentFrame: 0,
     };
 
+    // 🎬 렌더링 관련 속성들은 TimelineRenderer.js로 이동됨
+
     // 타임라인 트랙 컨테이너 DOM 요소 찾기
     const trackContainer = document.querySelector(".timelineWrapper");
     console.log("trackContainer", trackContainer);
@@ -108,6 +112,12 @@ class Timeline {
       // LightTimeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
       editor.lightTimeline = this.timelines.light;
     }
+
+    // RenderTimeline 인스턴스 생성
+    this.renderTimeline = new RenderTimeline(editor, this.timelineSettings);
+
+    // 🎬 TimelineRenderer 인스턴스 생성 (새로운 렌더링 시스템)
+    this.timelineRenderer = new TimelineRenderer(editor);
 
     this.activeTimeline = "motion";
     this.initializeUI();
@@ -259,6 +269,7 @@ class Timeline {
         <div class="controls-container">
           <button class="play-button"><i class="fa fa-play"></i></button>
           <button class="stop-button"><i class="fa fa-stop"></i></button>
+          <button class="render-button" title="타임라인 렌더링"><i class="fa fa-film"></i></button>
           <button class="timeline-settings-button" title="타임라인 설정 (총 시간, FPS 변경)"><i class="fa fa-cog"></i></button>
         </div>
         <div class="time-ruler-container"></div>
@@ -727,7 +738,7 @@ class Timeline {
         audioStartTime: audioObj.audioStartTime || 0,
         audioEndTime: audioObj.audioEndTime || 100
       }));
-      
+
       console.log("로드할 오디오 데이터:", audioData);
       this.timelines.audio.loadAudioData(audioData);
     } else if (scene.userData.music) {
@@ -756,6 +767,15 @@ class Timeline {
     if (settingsButton) {
       settingsButton.addEventListener("click", () => {
         this.showTimelineSettings();
+      });
+    }
+
+    // 렌더링 버튼 이벤트
+    const renderButton = this.container.querySelector(".render-button");
+    if (renderButton) {
+      renderButton.addEventListener("click", () => {
+        console.log("렌더링 버튼 클릭됨");
+        this.startTimelineRendering();
       });
     }
 
@@ -863,7 +883,7 @@ class Timeline {
           // AudioTimeline currentTime 업데이트
           this.timelines.audio.currentTime = currentTime;
           console.log("AudioTimeline currentTime 설정 (드래그):", currentTime);
-          
+
           const audioTracks = Array.from(this.timelines.audio.tracks.values());
           audioTracks.forEach((track) => {
             const objectId = typeof track.objectId === "string" ? parseInt(track.objectId) : track.objectId;
@@ -917,7 +937,7 @@ class Timeline {
           // AudioTimeline currentTime 업데이트
           this.timelines.audio.currentTime = currentTime;
           console.log("AudioTimeline currentTime 설정 (눈금 클릭):", currentTime);
-          
+
           const audioTracks = Array.from(this.timelines.audio.tracks.values());
           audioTracks.forEach((track) => {
             const objectId = typeof track.objectId === "string" ? parseInt(track.objectId) : track.objectId;
@@ -1131,27 +1151,27 @@ class Timeline {
     // 오디오 재생 처리 (클립 시작/끝 시간 반영)
     if (this.editor.scene?.userData?.audioTimeline?.audioObjects) {
       const audioObjects = this.editor.scene.userData.audioTimeline.audioObjects;
-      
+
       console.log("🎵 오디오 재생 시작 - audioObjects:", audioObjects);
-      
+
       Object.values(audioObjects).forEach((audioObj, index) => {
         console.log(`🎵 오디오 객체 ${index}:`, audioObj);
-        
+
         if (audioObj.audioElement) {
           const audio = audioObj.audioElement;
           console.log(`🎵 오디오 요소 발견:`, audio);
-          
+
           // audioTimeline 강제 연결 시도
           if (!this.audioTimeline && this.editor.audioTimeline) {
             console.log("🔧 audioTimeline 강제 연결 시도");
             this.audioTimeline = this.editor.audioTimeline;
           }
-          
+
           if (!this.audioTimeline && window.timeline?.timelines?.audio) {
             console.log("🔧 window.timeline에서 audioTimeline 연결");
             this.audioTimeline = window.timeline.timelines.audio;
           }
-          
+
           // audioObj.objectId를 통해 트랙을 찾아서 스프라이트에 접근
           let sprite = null;
           console.log(`🔍 audioTimeline 확인:`, {
@@ -1161,7 +1181,7 @@ class Timeline {
             objectId: audioObj.objectId,
             id: audioObj.id
           });
-          
+
           if (this.audioTimeline?.tracks) {
             const track = this.audioTimeline.tracks.get(audioObj.objectId || audioObj.id);
             console.log(`🔍 찾은 트랙:`, {
@@ -1169,7 +1189,7 @@ class Timeline {
               trackElement: !!track?.element,
               trackKeys: track ? Object.keys(track) : null
             });
-            
+
             if (track && track.element) {
               sprite = track.element.querySelector(".audio-sprite");
               console.log(`🔍 스프라이트 검색 결과:`, {
@@ -1192,11 +1212,11 @@ class Timeline {
               startTimeType: typeof sprite.dataset.startTime,
               durationType: typeof sprite.dataset.duration
             });
-            
+
             // 클립의 시작 시간과 지속 시간 가져오기 (우선순위: sprite.dataset > audioObj > 기본값)
             let clipStartTime = parseFloat(sprite.dataset.startTime);
             let clipDuration = parseFloat(sprite.dataset.duration);
-            
+
             // sprite.dataset에 값이 없으면 audioObj에서 가져오기
             if (isNaN(clipStartTime) || isNaN(clipDuration)) {
               console.log(`⚠️ sprite.dataset 값 누락, audioObj에서 가져오기 시도`);
@@ -1204,16 +1224,16 @@ class Timeline {
               clipDuration = audioObj.duration || audio.duration;
               console.log(`🔍 audioObj에서 가져온 값:`, { clipStartTime, clipDuration });
             }
-            
+
             // 여전히 값이 없으면 기본값 사용
             if (isNaN(clipStartTime) || isNaN(clipDuration)) {
               console.log(`⚠️ audioObj 값도 누락, 기본값 사용`);
               clipStartTime = 0;
               clipDuration = audio.duration;
             }
-            
+
             const clipEndTime = clipStartTime + clipDuration;
-            
+
             // 디버깅: 파싱된 값 확인
             console.log(`🔍 파싱된 클립 시간:`, {
               clipStartTime,
@@ -1230,7 +1250,7 @@ class Timeline {
               clipEndTime,
               isInRange: currentTimeInSeconds >= clipStartTime && currentTimeInSeconds <= clipEndTime
             });
-            
+
             if (currentTimeInSeconds >= clipStartTime && currentTimeInSeconds <= clipEndTime) {
               console.log(`🎵 클립 범위 내 - 재생 시작`);
               // 클립 내에서의 상대적 시간 계산
@@ -1327,7 +1347,7 @@ class Timeline {
       console.log("LightTimeline currentTime 설정:", currentTimeInSeconds);
       this.timelines.light.play();
     }
-    
+
     // AudioTimeline의 currentTime 업데이트
     if (this.timelines.audio) {
       const currentTimeInSeconds = currentFrame / this.timelineSettings.framesPerSecond;
@@ -1399,11 +1419,11 @@ class Timeline {
       this.timelines.audio.pause();
     }
 
-   
+
     // 오디오 일시정지
     // if (this.editor.scene?.userData?.audioTimeline?.audioObjects) {
     //   const audioObjects = this.editor.scene.userData.audioTimeline.audioObjects;
-      
+
     //   Object.values(audioObjects).forEach((audioObj) => {
     //     if (audioObj.audioElement) {
     //       const audio = audioObj.audioElement;
@@ -1450,12 +1470,12 @@ class Timeline {
     // 🔧 기존 audioObjects 방식도 유지 (하위 호환성)
     if (this.editor.scene?.userData?.audioTimeline?.audioObjects) {
       const audioObjects = this.editor.scene.userData.audioTimeline.audioObjects;
-      
+
       Object.values(audioObjects).forEach((audioObj) => {
         if (audioObj.audioElement) {
           try {
             const audio = audioObj.audioElement;
-            
+
             // 🔧 audio가 HTMLAudioElement인지 확인
             if (audio && typeof audio.pause === 'function' && typeof audio.paused !== 'undefined') {
               audio.pause();
@@ -1520,18 +1540,29 @@ class Timeline {
     // console.log("현재 시간(초):", currentTime);
     // console.log("현재 프레임:", frame);
 
-    // MotionTimeline의 updateAnimation 호출하여 속성 애니메이션 처리
-    if (this.timelines.motion && updateAnimation) {
-      // console.log("MotionTimeline updateAnimation 호출");
-      this.timelines.motion.currentTime = currentTime;
-      this.timelines.motion.updateAnimation(currentTime);
-    }
+    // 렌더링 중일 때는 currentTime만 설정, 아닐 때는 기존 방식 사용
+    if (this.isRendering) {
+      // 렌더링 중: currentTime만 설정하고 실제 애니메이션 업데이트는 하지 않음
+      if (this.timelines.motion && updateAnimation) {
+        this.timelines.motion.currentTime = currentTime;
+        console.log("🎬 렌더링 중: MotionTimeline currentTime 설정:", currentTime);
+      }
 
-    // LightTimeline의 updateAnimation 호출하여 조명 애니메이션 처리
-    if (this.timelines.light && updateAnimation) {
-      // console.log("LightTimeline updateAnimation 호출");
-      this.timelines.light.currentTime = currentTime;
-      this.timelines.light.updateAnimation(currentTime);
+      if (this.timelines.light && updateAnimation) {
+        this.timelines.light.currentTime = currentTime;
+        console.log("🎬 렌더링 중: LightTimeline currentTime 설정:", currentTime);
+      }
+    } else {
+      // 일반 재생 중: 기존 방식 사용
+      if (this.timelines.motion && updateAnimation) {
+        this.timelines.motion.currentTime = currentTime;
+        this.timelines.motion.updateAnimation(currentTime);
+      }
+
+      if (this.timelines.light && updateAnimation) {
+        this.timelines.light.currentTime = currentTime;
+        this.timelines.light.updateAnimation(currentTime);
+      }
     }
 
     this.editor.scene.userData.timeline.currentFrame = frame;
@@ -1539,41 +1570,50 @@ class Timeline {
     // 시간 표시 업데이트
     this.updateTimeDisplay(frame);
 
-    // 각 타임라인 업데이트 (재생 중일 때만 오디오 업데이트)
-    Object.values(this.timelines).forEach((timeline) => {
-      console.log("타임라인 업데이트:", {
-        timelineType: timeline.constructor.name,
-        hasUpdateFrame: !!timeline.updateFrame,
-        currentTime: currentTime,
-        updateAnimation: updateAnimation
-      });
+    // 각 타임라인 업데이트 (렌더링 중일 때는 안전하게 처리)
+    if (!this.isRendering) {
+      Object.values(this.timelines).forEach((timeline) => {
+        console.log("타임라인 업데이트:", {
+          timelineType: timeline.constructor.name,
+          hasUpdateFrame: !!timeline.updateFrame,
+          currentTime: currentTime,
+          updateAnimation: updateAnimation
+        });
 
-      if (timeline.updateFrame) {
-        // LightTimeline의 경우 currentTime도 설정
-        if (timeline.constructor.name === 'LightTimeline') {
-          timeline.currentTime = currentTime;
-          console.log("LightTimeline currentTime 설정:", currentTime);
-        }
+        if (timeline.updateFrame) {
+          // LightTimeline의 경우 currentTime도 설정
+          if (timeline.constructor.name === 'LightTimeline') {
+            timeline.currentTime = currentTime;
+            console.log("LightTimeline currentTime 설정:", currentTime);
+          }
 
-        // 오디오 타임라인은 재생 중일 때만 업데이트
-        if (timeline.constructor.name === 'AudioTimeline') {
-          if (updateAnimation && this.isPlaying) {
-            timeline.currentTime = currentTime; // currentTime 업데이트 추가
-            console.log("AudioTimeline currentTime 설정:", currentTime);
+          // 오디오 타임라인은 재생 중일 때만 업데이트
+          if (timeline.constructor.name === 'AudioTimeline') {
+            if (updateAnimation && this.isPlaying) {
+              timeline.currentTime = currentTime; // currentTime 업데이트 추가
+              console.log("AudioTimeline currentTime 설정:", currentTime);
+              timeline.updateFrame(frame);
+            }
+          } else {
             timeline.updateFrame(frame);
           }
-        } else {
-          timeline.updateFrame(frame);
         }
-      }
-    });
+      });
+    } else {
+      // 렌더링 중: currentTime만 업데이트하고 실제 렌더링은 하지 않음
+      Object.values(this.timelines).forEach((timeline) => {
+        if (timeline.currentTime !== undefined) {
+          timeline.currentTime = currentTime;
+        }
+      });
+    }
 
     if (this.editor.signals?.frameChanged) {
       this.editor.signals.frameChanged.dispatch(frame);
     }
 
-    // Three.js 렌더링 업데이트 요청
-    if (this.editor.signals?.rendererUpdated) {
+    // 렌더링 중이 아닐 때만 Three.js 렌더링 업데이트 요청
+    if (!this.isRendering && this.editor.signals?.rendererUpdated) {
       this.editor.signals.rendererUpdated.dispatch();
     }
   }
@@ -1640,22 +1680,22 @@ class Timeline {
   onBeforeSave() {
     try {
       console.log("💾 Timeline.js onBeforeSave 시작");
-      
+
       // 🔧 현재 타임라인 설정을 scene.userData에 저장
       if (this.editor.scene) {
         if (!this.editor.scene.userData.timeline) {
           this.editor.scene.userData.timeline = {};
         }
-        
+
         this.editor.scene.userData.timeline.totalSeconds = this.timelineSettings.totalSeconds;
         this.editor.scene.userData.timeline.framesPerSecond = this.timelineSettings.framesPerSecond;
-        
+
         console.log("💾 타임라인 설정 저장 완료:", {
           totalSeconds: this.timelineSettings.totalSeconds,
           framesPerSecond: this.timelineSettings.framesPerSecond
         });
       }
-      
+
     } catch (error) {
       console.error("❌ Timeline.js onBeforeSave 오류:", error);
     }
@@ -1665,39 +1705,39 @@ class Timeline {
   onAfterLoad() {
     try {
       console.log("🔧 Timeline.js onAfterLoad 시작");
-      
+
       // 🔧 scene.userData.timeline에서 저장된 타임라인 설정 확인 (중요!)
       if (this.editor.scene && this.editor.scene.userData && this.editor.scene.userData.timeline) {
         const savedTimelineData = this.editor.scene.userData.timeline;
         console.log("🔧 저장된 타임라인 데이터 (scene.userData.timeline):", savedTimelineData);
-        
+
         // 🔧 저장된 총 프레임 수 확인
         if (savedTimelineData.totalSeconds && savedTimelineData.totalSeconds !== this.timelineSettings.totalSeconds) {
           console.log(`🔧 총 프레임 수 변경 감지: ${this.timelineSettings.totalSeconds} → ${savedTimelineData.totalSeconds}`);
-          
+
           // 🔧 timelineSettings 업데이트
           this.timelineSettings.totalSeconds = savedTimelineData.totalSeconds;
-          
+
           // 🔧 프레임 레이트도 업데이트 (있는 경우)
           if (savedTimelineData.framesPerSecond) {
             this.timelineSettings.framesPerSecond = savedTimelineData.framesPerSecond;
             console.log(`🔧 프레임 레이트 업데이트: ${savedTimelineData.framesPerSecond}fps`);
           }
-          
+
           console.log(`🔧 타임라인 설정 복원 완료: ${savedTimelineData.totalSeconds}초`);
-          
+
           // 🔧 타임라인 눈금 재생성
           console.log("🔧 타임라인 눈금 재생성 시작");
           this.recreateTimeRuler();
           console.log("🔧 타임라인 눈금 재생성 완료");
-          
+
         } else {
           console.log("🔧 총 프레임 수 변경 없음, 현재 설정 유지");
         }
       } else {
         console.log("🔧 scene.userData.timeline이 없음");
       }
-      
+
     } catch (error) {
       console.error("❌ Timeline.js onAfterLoad 오류:", error);
     }
@@ -1840,7 +1880,7 @@ class Timeline {
       // 기존 이벤트 리스너 제거
       const newPlayButton = playButton.cloneNode(true);
       playButton.parentNode.replaceChild(newPlayButton, playButton);
-      
+
       // 새로운 이벤트 리스너 추가
       newPlayButton.addEventListener("click", () => {
         console.log("🔧 재생/일시정지 버튼 클릭됨 (새로 바인딩됨)");
@@ -1880,7 +1920,7 @@ class Timeline {
           this.pause();
         }
       });
-      
+
       console.log("✅ play 버튼 이벤트 리스너 바인딩 완료");
     } else {
       console.warn("⚠️ play 버튼을 찾을 수 없습니다");
@@ -1890,7 +1930,7 @@ class Timeline {
       // 기존 이벤트 리스너 제거
       const newStopButton = stopButton.cloneNode(true);
       stopButton.parentNode.replaceChild(newStopButton, stopButton);
-      
+
       // 새로운 이벤트 리스너 추가
       newStopButton.addEventListener("click", () => {
         console.log("🔧 정지 버튼 클릭됨 (새로 바인딩됨)");
@@ -1904,7 +1944,7 @@ class Timeline {
           frameInput.value = "0.0";
         }
       });
-      
+
       console.log("✅ stop 버튼 이벤트 리스너 바인딩 완료");
     } else {
       console.warn("⚠️ stop 버튼을 찾을 수 없습니다");
@@ -1916,12 +1956,691 @@ class Timeline {
   // 🔧 프로젝트 로드 후 이벤트 리스너 재바인딩
   rebindPlaybackControls() {
     console.log("🔧 rebindPlaybackControls 호출됨 - 프로젝트 로드 후 이벤트 리스너 재바인딩");
-    
+
     // 잠시 대기 후 바인딩 (DOM이 완전히 로드될 때까지)
     setTimeout(() => {
       this.bindPlaybackControls();
     }, 100);
   }
+
+  // 🎬 타임라인 렌더링 시작 (간단한 버전)
+  startTimelineRendering() {
+    console.log("🎬 startTimelineRendering 호출됨");
+    
+    try {
+      console.log("🎬 새로운 TimelineRenderer를 사용하여 렌더링 시작");
+      
+      // 🎬 새로운 TimelineRenderer 사용
+      if (this.timelineRenderer) {
+        this.timelineRenderer.createRenderPopup();
+        console.log("✅ TimelineRenderer 팝업 생성 완료");
+      } else {
+        throw new Error("TimelineRenderer가 초기화되지 않았습니다");
+      }
+      
+    } catch (error) {
+      console.error("❌ startTimelineRendering에서 오류 발생:", error);
+      alert("렌더링 시작 중 오류가 발생했습니다: " + error.message);
+    }
+  }
+
+  // 🎬 렌더링 관련 메서드들은 TimelineRenderer.js로 이동됨
+
+  // 🎬 렌더링 관련 메서드들은 TimelineRenderer.js로 이동됨
+
+  // 🎬 타임라인 렌더링 실행 (TimelineRenderer.js로 이동됨)
+  // async executeTimelineRendering() {
+  //   // 이 메서드는 TimelineRenderer.js로 이동되었습니다
+  // }
+
+  // 🎬 프레임 캡처 (TimelineRenderer.js로 이동됨)
+  // 🎬 프레임 캡처 (TimelineRenderer.js로 이동됨)
+  // async captureFrame(frameNumber, time) {
+  //   // 이 메서드는 TimelineRenderer.js로 이동되었습니다
+  // }
+
+  // 🎬 렌더링 진행상황 업데이트 (TimelineRenderer.js로 이동됨)
+  // updateRenderProgress(frame) {
+  //   // 이 메서드는 TimelineRenderer.js로 이동되었습니다
+  // }
+
+  // 🎬 렌더링 완료 (TimelineRenderer.js로 이동됨)
+  // renderComplete() {
+  //   // 이 메서드는 TimelineRenderer.js로 이동되었습니다
+  // }
+
+  // 🎬 렌더링 오류 표시 (TimelineRenderer.js로 이동됨)
+  // showRenderError(error) {
+  //   // 이 메서드는 TimelineRenderer.js로 이동되었습니다
+  // }
+
+  // 🎬 비디오 다운로드 (TimelineRenderer.js로 이동됨)
+  // async downloadVideo() {
+  //   // 이 메서드는 TimelineRenderer.js로 이동되었습니다
+  // }
+
+
+
+  // 🎬 renderer 찾기 (안전한 방법)
+  findRenderer() {
+    console.log("🔍 findRenderer 시작...");
+    
+    // 방법 1: 직접 접근
+    if (this.editor.renderer && this.editor.renderer.domElement) {
+      console.log("✅ renderer 직접 접근 성공");
+      return this.editor.renderer;
+    }
+    
+    // 방법 2: editor 객체에서 검색
+    if (this.editor) {
+      console.log("🔍 editor 객체 검색 시작...");
+      for (let key in this.editor) {
+        const obj = this.editor[key];
+        if (obj && typeof obj.render === 'function' && obj.domElement) {
+          console.log("✅ editor에서 renderer 발견:", key, obj);
+          return obj;
+        }
+      }
+      console.log("❌ editor에서 renderer를 찾을 수 없음");
+    }
+    
+    // 방법 3: window에서 검색
+    if (window.renderer && window.renderer.domElement) {
+      console.log("✅ window에서 renderer 발견");
+      return window.renderer;
+    }
+    
+    // 방법 4: document에서 canvas 찾기
+    console.log("🔍 document에서 canvas 검색...");
+    const allCanvases = document.querySelectorAll('canvas');
+    console.log(`🔍 총 ${allCanvases.length}개의 canvas 발견`);
+    
+    for (let i = 0; i < allCanvases.length; i++) {
+      const canvas = allCanvases[i];
+      console.log(`🔍 canvas ${i}:`, {
+        width: canvas.width,
+        height: canvas.height,
+        visible: canvas.style.display !== 'none',
+        type: canvas.constructor.name
+      });
+      
+      // 가장 큰 canvas를 선택 (메인 렌더링용일 가능성)
+      if (canvas.width > 100 && canvas.height > 100 && canvas.style.display !== 'none') {
+        console.log("✅ 적합한 canvas 발견:", canvas);
+        // 임시 renderer 객체 생성
+        return {
+          render: (scene, camera) => {
+            console.log("임시 renderer로 렌더링:", scene, camera);
+          },
+          domElement: canvas
+        };
+      }
+    }
+    
+    // 방법 5: editor 객체의 모든 속성 상세 검사
+    if (this.editor) {
+      console.log("🔍 editor 객체 상세 검사...");
+      console.log("editor 타입:", this.editor.constructor.name);
+      console.log("editor 속성들:", Object.getOwnPropertyNames(this.editor));
+      
+      // prototype 체인도 검사
+      let prototype = Object.getPrototypeOf(this.editor);
+      let level = 1;
+      while (prototype && level <= 3) {
+        console.log(`prototype level ${level}:`, Object.getOwnPropertyNames(prototype));
+        prototype = Object.getPrototypeOf(prototype);
+        level++;
+      }
+    }
+    
+    console.error("❌ renderer를 찾을 수 없습니다");
+    return null;
+  }
+
+  // 🎬 JSZip 라이브러리 동적 로드 (RenderTimeline.js 방식 적용)
+  async loadJSZip() {
+    try {
+      console.log("🎬 JSZip 라이브러리 로딩 중...");
+      
+      // 여러 CDN 시도 (RenderTimeline.js 방식 + 추가 안정성)
+      const cdnUrls = [
+        'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+        'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js',
+        'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.9.1/jszip.min.js',
+        'https://unpkg.com/jszip@3.9.1/dist/jszip.min.js'
+      ];
+      
+      for (let i = 0; i < cdnUrls.length; i++) {
+        try {
+          console.log(`🎬 CDN ${i + 1} 시도: ${cdnUrls[i]}`);
+          
+          const script = document.createElement('script');
+          script.src = cdnUrls[i];
+          script.crossOrigin = 'anonymous';
+          
+          // integrity 체크 제거 (일부 CDN에서 문제 발생 가능)
+          
+          const result = await new Promise((resolve, reject) => {
+            script.onload = () => {
+              // JSZip이 실제로 로드되었는지 확인
+              setTimeout(() => {
+                if (typeof JSZip !== 'undefined') {
+                  console.log(`✅ JSZip 라이브러리 로드 완료 (CDN ${i + 1})`);
+                  resolve();
+                } else {
+                  console.warn(`⚠️ JSZip 로드 후에도 객체를 찾을 수 없음 (CDN ${i + 1})`);
+                  reject(new Error(`JSZip 객체를 찾을 수 없음 (CDN ${i + 1})`));
+                }
+              }, 100); // 100ms 지연으로 안정성 향상
+            };
+            
+            script.onerror = () => {
+              console.warn(`❌ CDN ${i + 1} 로드 실패`);
+              reject(new Error(`CDN ${i + 1} 로드 실패`));
+            };
+            
+            // 타임아웃 설정 (15초로 증가)
+            setTimeout(() => {
+              reject(new Error(`CDN ${i + 1} 타임아웃`));
+            }, 15000);
+            
+            document.head.appendChild(script);
+          });
+          
+          // 성공하면 반환
+          return result;
+          
+        } catch (cdnError) {
+          console.warn(`❌ CDN ${i + 1} 실패:`, cdnError.message);
+          
+          // 마지막 CDN이 아니면 계속 시도
+          if (i < cdnUrls.length - 1) {
+            continue;
+          }
+          
+          // 모든 CDN 실패 시 최종 오류
+          throw new Error(`모든 CDN에서 JSZip 로드 실패: ${cdnError.message}`);
+        }
+      }
+      
+    } catch (error) {
+      console.error('🎬 JSZip 로드 중 최종 오류:', error);
+      throw error;
+    }
+  }
+
+  // 🎬 프레임들로 비디오 생성 (실제 비디오 파일)
+  async createVideoFromFrames() {
+    try {
+      console.log("🎬 프레임으로 비디오 생성 시작...");
+      
+      // 방법 1: MediaRecorder로 WebM 비디오 생성 (우선순위 1)
+      if (typeof MediaRecorder !== 'undefined') {
+        try {
+          console.log("🎬 MediaRecorder로 WebM 비디오 생성 시도...");
+          return await this.createWebMVideo();
+        } catch (mediaRecorderError) {
+          console.warn("⚠️ MediaRecorder 실패, 대체 방법 사용:", mediaRecorderError.message);
+        }
+      }
+      
+      // 방법 2: Canvas Stream으로 비디오 생성
+      try {
+        console.log("🎬 Canvas Stream으로 비디오 생성 시도...");
+        return await this.createCanvasStreamVideo();
+      } catch (canvasStreamError) {
+        console.warn("⚠️ Canvas Stream 실패, 대체 방법 사용:", canvasStreamError.message);
+      }
+      
+      // 방법 3: GIF 생성 시도
+      if (typeof gifshot !== 'undefined') {
+        try {
+          console.log("🎬 gifshot으로 GIF 생성 시도...");
+          return await this.createGIF();
+        } catch (gifError) {
+          console.warn("⚠️ GIF 생성 실패, 대체 방법 사용:", gifError.message);
+        }
+      }
+      
+      // 방법 4: ZIP으로 프레임 압축 (최후 수단)
+      console.log("🎬 최후 수단: ZIP으로 프레임 압축");
+      return await this.createZIPFromFrames();
+      
+    } catch (error) {
+      console.error("🎬 비디오 생성 중 오류:", error);
+      // 대체 방법: 개별 프레임 다운로드
+      return await this.downloadIndividualFrames();
+    }
+  }
+
+  // 🎬 WebM 비디오 생성 (MediaRecorder 사용)
+  async createWebMVideo() {
+    return new Promise(async (resolve, reject) => {
+      try {
+        console.log("🎬 WebM 비디오 생성 시작...");
+        
+        // 임시 캔버스 생성 (렌더링된 프레임 크기에 맞춤)
+        const tempCanvas = document.createElement('canvas');
+        const tempContext = tempCanvas.getContext('2d');
+        
+        // 첫 번째 프레임에서 크기 가져오기
+        const firstFrame = this.renderedFrames[0];
+        if (!firstFrame) {
+          throw new Error("렌더링된 프레임이 없습니다");
+        }
+        
+        // 이미지 로드하여 크기 확인
+        const img = new Image();
+        img.onload = () => {
+          tempCanvas.width = img.width;
+          tempCanvas.height = img.height;
+          
+          console.log("🎬 비디오 크기:", { width: img.width, height: img.height });
+          
+          // Canvas Stream 생성
+          const stream = tempCanvas.captureStream(this.timelineSettings.framesPerSecond);
+          
+          // MediaRecorder 설정
+          const mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'video/webm;codecs=vp9',
+            videoBitsPerSecond: 5000000 // 5 Mbps
+          });
+          
+          const chunks = [];
+          
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              chunks.push(event.data);
+            }
+          };
+          
+          mediaRecorder.onstop = () => {
+            try {
+              const blob = new Blob(chunks, { type: 'video/webm' });
+              const url = URL.createObjectURL(blob);
+              
+              // 비디오 다운로드
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `timeline_render_${Date.now()}.webm`;
+              a.style.display = 'none';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              
+              // 메모리 정리
+              URL.revokeObjectURL(url);
+              
+              console.log("🎬 WebM 비디오 생성 완료!");
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          };
+          
+          // 녹화 시작
+          mediaRecorder.start();
+          
+          // 프레임들을 순차적으로 캔버스에 그리기
+          let currentFrame = 0;
+          const frameInterval = 1000 / this.timelineSettings.framesPerSecond;
+          
+          const drawNextFrame = () => {
+            if (currentFrame >= this.renderedFrames.length) {
+              mediaRecorder.stop();
+              return;
+            }
+            
+            const frame = this.renderedFrames[currentFrame];
+            const frameImg = new Image();
+            frameImg.onload = () => {
+              // 캔버스 지우기
+              tempContext.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+              // 프레임 그리기
+              tempContext.drawImage(frameImg, 0, 0);
+              
+              currentFrame++;
+              
+              // 진행률 표시 (UI 업데이트)
+              const progress = 30 + (currentFrame / this.renderedFrames.length) * 60; // 30% ~ 90%
+              this.updateDownloadProgress(progress, `WebM 비디오 생성 중... ${currentFrame}/${this.renderedFrames.length} 프레임`);
+              console.log(`🎬 WebM 비디오 생성 진행률: ${(currentFrame / this.renderedFrames.length * 100).toFixed(1)}%`);
+              
+              // 다음 프레임 그리기
+              setTimeout(drawNextFrame, frameInterval);
+            };
+            frameImg.src = frame.dataURL;
+          };
+          
+          // 첫 번째 프레임부터 시작
+          drawNextFrame();
+          
+        };
+        img.src = firstFrame.dataURL;
+        
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // 🎬 Canvas Stream으로 비디오 생성 (렌더링 전용 canvas 사용)
+  async createCanvasStreamVideo() {
+    return new Promise(async (resolve, reject) => {
+      try {
+        console.log("🎬 Canvas Stream 비디오 생성 시작...");
+        
+        // 렌더링 전용 canvas 사용
+        if (!this.renderRenderer || !this.renderRenderer.domElement) {
+          throw new Error("렌더링 전용 renderer를 찾을 수 없습니다");
+        }
+        
+        const canvas = this.renderRenderer.domElement;
+        console.log("🎬 렌더링 전용 canvas 정보:", { width: canvas.width, height: canvas.height });
+        
+        // Canvas Stream 생성
+        const stream = canvas.captureStream(this.timelineSettings.framesPerSecond);
+        
+        // MediaRecorder 설정
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 3000000 // 3 Mbps
+        });
+        
+        const chunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
+        
+        mediaRecorder.onstop = () => {
+          try {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            
+            // 비디오 다운로드
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `timeline_render_${Date.now()}.webm`;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // 메모리 정리
+            URL.revokeObjectURL(url);
+            
+            console.log("🎬 Canvas Stream 비디오 생성 완료!");
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        };
+        
+        // 녹화 시작
+        mediaRecorder.start();
+        
+        // 타임라인 재생하면서 녹화
+        await this.recordTimelineForVideo(mediaRecorder);
+        
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // 🎬 타임라인 재생하면서 비디오 녹화
+  async recordTimelineForVideo(mediaRecorder) {
+    const totalFrames = this.renderedFrames.length;
+    const frameInterval = 1000 / this.timelineSettings.framesPerSecond;
+    
+    console.log(`🎬 비디오 녹화 시작: ${totalFrames}프레임, ${frameInterval}ms 간격`);
+    
+    for (let frame = 0; frame < totalFrames; frame++) {
+      const time = frame / this.timelineSettings.framesPerSecond;
+      
+      // 타임라인 시간 설정
+      this.setCurrentFrame(frame);
+      this.updatePlayheadPosition(time);
+      
+      // 애니메이션 업데이트 (렌더링 전용 scene에서만)
+      if (this.renderScene) {
+        console.log(`🎬 비디오 녹화: 렌더링 전용 scene 애니메이션 업데이트 시작...`);
+        
+        // FBX 애니메이션 업데이트
+        if (this.renderAnimationMixers && this.renderClock && this.renderClock.getDelta) {
+          try {
+            const deltaTime = this.renderClock.getDelta();
+            console.log(`🎬 비디오 녹화: deltaTime = ${deltaTime.toFixed(4)}초`);
+            
+            this.renderAnimationMixers.forEach((mixer, index) => {
+              if (mixer && mixer.update && typeof mixer.update === 'function') {
+                console.log(`🎬 비디오 녹화: 믹서 ${index + 1} 업데이트 중...`);
+                mixer.update(deltaTime);
+                console.log(`🎬 비디오 녹화: 믹서 ${index + 1} 업데이트 완료`);
+              } else {
+                console.warn(`🎬 비디오 녹화: 믹서 ${index + 1} 업데이트 실패 - 유효하지 않은 믹서`);
+              }
+            });
+            console.log(`🎬 비디오 녹화: FBX 애니메이션 업데이트 완료 (${this.renderAnimationMixers.length}개 믹서)`);
+          } catch (animationError) {
+            console.warn("⚠️ 비디오 녹화 FBX 애니메이션 업데이트 실패:", animationError);
+          }
+        } else {
+          console.log(`🎬 비디오 녹화: FBX 애니메이션 업데이트 건너뜀 - 믹서 또는 클록 없음`);
+        }
+        
+        // 타임라인 애니메이션 데이터는 currentTime만 업데이트
+        if (this.timelines.motion) {
+          this.timelines.motion.currentTime = time;
+          console.log(`🎬 비디오 녹화: MotionTimeline currentTime 설정 완료 (${time}초)`);
+        }
+        if (this.timelines.light) {
+          this.timelines.light.currentTime = time;
+          console.log(`🎬 비디오 녹화: LightTimeline currentTime 설정 완료 (${time}초)`);
+        }
+      } else {
+        console.warn(`🎬 비디오 녹화: renderScene이 없음`);
+      }
+      
+      // 렌더링 전용 renderer로 씬 렌더링
+      if (this.renderRenderer && this.renderScene && this.renderCamera) {
+        this.renderRenderer.render(this.renderScene, this.renderCamera);
+      }
+      
+      // 진행률 표시
+      const progress = ((frame + 1) / totalFrames) * 100;
+      console.log(`🎬 비디오 녹화 진행률: ${progress.toFixed(1)}%`);
+      
+      // 프레임 간 지연
+      await new Promise(resolve => setTimeout(resolve, frameInterval));
+    }
+    
+    // 녹화 중지
+    mediaRecorder.stop();
+    console.log('🎬 비디오 녹화 완료');
+  }
+
+  // 🎬 GIF 생성
+  async createGIF() {
+    return new Promise((resolve, reject) => {
+      const options = {
+        images: this.renderedFrames.map(frame => frame.dataURL),
+        gifWidth: 1200,
+        gifHeight: 600,
+        interval: 1 / this.timelineSettings.framesPerSecond,
+        progressCallback: (progress) => {
+          console.log(`🎬 GIF 생성 진행률: ${(progress * 100).toFixed(1)}%`);
+        }
+      };
+      
+      gifshot.createGIF(options, (obj) => {
+        if (obj.error) {
+          reject(new Error(obj.error));
+          return;
+        }
+        
+        // GIF 다운로드
+        const a = document.createElement('a');
+        a.href = obj.image;
+        a.download = `timeline_render_${Date.now()}.gif`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        console.log("🎬 GIF 생성 완료!");
+        resolve();
+      });
+    });
+  }
+
+  // 🎬 ZIP으로 프레임 압축
+  async createZIPFromFrames() {
+    try {
+      console.log("🎬 ZIP 생성 시작...");
+      
+      const zip = new JSZip();
+      const framesFolder = zip.folder('frames');
+      
+      // 모든 프레임을 ZIP에 추가
+      for (let i = 0; i < this.renderedFrames.length; i++) {
+        const frame = this.renderedFrames[i];
+        
+        // base64 데이터 추출
+        const base64Data = frame.dataURL.split(',')[1];
+        const fileName = `frame_${frame.frame.toString().padStart(4, '0')}_${frame.time.toFixed(2)}s.png`;
+        
+        framesFolder.file(fileName, base64Data, { base64: true });
+        
+        // 진행률 표시 (UI 업데이트)
+        if (i % 5 === 0 || i === this.renderedFrames.length - 1) {
+          const progress = 50 + ((i + 1) / this.renderedFrames.length) * 40; // 50% ~ 90%
+          this.updateDownloadProgress(progress, `ZIP 파일 생성 중... ${i + 1}/${this.renderedFrames.length} 프레임`);
+          console.log(`🎬 ZIP 생성 진행률: ${((i + 1) / this.renderedFrames.length * 100).toFixed(1)}%`);
+        }
+      }
+      
+      // ZIP 파일 생성 및 다운로드
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `timeline_frames_${Date.now()}.zip`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // 메모리 정리
+      URL.revokeObjectURL(url);
+      
+      console.log("🎬 ZIP 생성 완료!");
+      alert(`총 ${this.renderedFrames.length}개 프레임이 ZIP 파일로 다운로드되었습니다.`);
+      
+    } catch (error) {
+      console.error("🎬 ZIP 생성 중 오류:", error);
+      throw error;
+    }
+  }
+
+  // 🎬 개별 프레임 다운로드
+  async downloadIndividualFrames() {
+    try {
+      console.log("🎬 개별 프레임 다운로드 시작...");
+      
+      // 최대 100개 프레임만 다운로드 (성능 고려)
+      const maxFrames = Math.min(100, this.renderedFrames.length);
+      const frameInterval = Math.max(1, Math.floor(this.renderedFrames.length / maxFrames));
+      
+      for (let i = 0; i < maxFrames; i++) {
+        const frameIndex = i * frameInterval;
+        const frame = this.renderedFrames[frameIndex];
+        
+        if (frame) {
+          // 프레임을 이미지로 다운로드
+          const a = document.createElement('a');
+          a.href = frame.dataURL;
+          a.download = `frame_${frame.frame.toString().padStart(4, '0')}_${frame.time.toFixed(2)}s.png`;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // 진행률 표시
+          const progress = ((i + 1) / maxFrames) * 100;
+          console.log(`🎬 프레임 다운로드 진행률: ${progress.toFixed(1)}%`);
+          
+          // 브라우저 부하 방지를 위한 지연
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log("🎬 개별 프레임 다운로드 완료");
+      alert(`${maxFrames}개 프레임 다운로드가 완료되었습니다.`);
+      
+    } catch (error) {
+      console.error("🎬 개별 프레임 다운로드 중 오류:", error);
+      throw error;
+    }
+  }
+
+  // 🎬 프레임 다운로드 (기존 메서드와 동일)
+  async downloadFrames() {
+    try {
+      console.log("🎬 프레임 다운로드 시작...");
+      
+      if (this.renderedFrames.length === 0) {
+        throw new Error("렌더링된 프레임이 없습니다. 먼저 렌더링을 완료해주세요.");
+      }
+      
+      // 다운로드 진행률 UI 표시
+      this.showDownloadProgressUI();
+      this.updateDownloadProgress(0, "프레임 다운로드 준비 중...");
+      
+      // 개별 프레임 다운로드
+      await this.downloadIndividualFrames();
+      
+    } catch (error) {
+      console.error("🎬 프레임 다운로드 중 오류:", error);
+      this.updateDownloadProgress(0, "프레임 다운로드 실패: " + error.message);
+      alert("프레임 다운로드에 실패했습니다: " + error.message);
+    }
+  }
+
+  // 🎬 다운로드 진행률 UI 표시
+  showDownloadProgressUI() {
+    const downloadProgressContainer = document.querySelector('#download-progress-container');
+    if (downloadProgressContainer) {
+      downloadProgressContainer.style.display = 'block';
+    }
+  }
+
+  // 🎬 다운로드 진행률 업데이트
+  updateDownloadProgress(progress, statusText) {
+    const progressBar = document.querySelector('#download-progress-bar');
+    const progressText = document.querySelector('#download-progress-text');
+    const statusTextElement = document.querySelector('#download-status-text');
+    
+    if (progressBar) {
+      progressBar.style.width = `${progress}%`;
+    }
+    
+    if (progressText) {
+      progressText.textContent = `${progress.toFixed(1)}%`;
+    }
+    
+    if (statusTextElement) {
+      statusTextElement.textContent = statusText;
+    }
+  }
+
+  // 🎬 렌더링 관련 메서드들은 TimelineRenderer.js로 이동됨
+  // 이전의 복잡한 렌더링 로직은 제거하고 새로운 TimelineRenderer 사용
 }
 
 export { Timeline };

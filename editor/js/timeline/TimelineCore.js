@@ -23,11 +23,22 @@ const MAX_FRAMES_LIMIT = 10000;  // 최대 10000개 키프레임
 
 // 트랙 데이터 클래스
 export class TrackData {
-  constructor(initialCapacity = DEFAULT_MAX_FRAMES) {
+  constructor(initialCapacity = DEFAULT_MAX_FRAMES, propertyType = 'vector3') {
     this.capacity = Math.min(initialCapacity, MAX_FRAMES_LIMIT);
-    this.times = new Float32Array(this.capacity); // 키프레임 시간
-    this.values = new Float32Array(this.capacity * 3); // 키프레임 값 (x,y,z)
-    this.interpolations = new Uint8Array(this.capacity); // 보간 타입
+    this.propertyType = propertyType; // 'vector3' 또는 'boolean'
+    
+    if (propertyType === 'boolean') {
+      // boolean 타입 (visible 등) - Uint8Array 사용 (0: false, 1: true)
+      this.times = new Float32Array(this.capacity); // 키프레임 시간
+      this.values = new Uint8Array(this.capacity); // 키프레임 값 (0 또는 1)
+      this.interpolations = new Uint8Array(this.capacity); // 보간 타입
+    } else {
+      // vector3 타입 (position, rotation, scale) - 기존과 동일
+      this.times = new Float32Array(this.capacity); // 키프레임 시간
+      this.values = new Float32Array(this.capacity * 3); // 키프레임 값 (x,y,z)
+      this.interpolations = new Uint8Array(this.capacity); // 보간 타입
+    }
+    
     this.keyframeCount = 0;
     this.dirty = true; // 프리컴파일 필요 여부
     this.eventListeners = new Map(); // 이벤트 리스너들
@@ -43,8 +54,14 @@ export class TrackData {
     try {
       // 새로운 배열 생성
       const newTimes = new Float32Array(maxCapacity);
-      const newValues = new Float32Array(maxCapacity * 3);
-      const newInterpolations = new Uint8Array(maxCapacity);
+      let newValues, newInterpolations;
+
+      if (this.propertyType === 'boolean') {
+        newValues = new Uint8Array(maxCapacity);
+      } else {
+        newValues = new Float32Array(maxCapacity * 3);
+      }
+      newInterpolations = new Uint8Array(maxCapacity);
 
       // 기존 데이터 복사
       newTimes.set(this.times);
@@ -83,7 +100,12 @@ export class TrackData {
     if (this.keyframeCount === 0) {
       // 키프레임이 없으면 최소 크기로 축소
       this.times = new Float32Array(DEFAULT_MAX_FRAMES);
-      this.values = new Float32Array(DEFAULT_MAX_FRAMES * 3);
+      
+      if (this.propertyType === 'boolean') {
+        this.values = new Uint8Array(DEFAULT_MAX_FRAMES);
+      } else {
+        this.values = new Float32Array(DEFAULT_MAX_FRAMES * 3);
+      }
       this.interpolations = new Uint8Array(DEFAULT_MAX_FRAMES);
       this.capacity = DEFAULT_MAX_FRAMES;
       return true;
@@ -135,6 +157,7 @@ export class TrackData {
       time,
       value,
       interpolation,
+      propertyType: this.propertyType,
       valueType: value ? typeof value : 'undefined',
       hasX: value ? typeof value.x !== 'undefined' : false,
       hasY: value ? typeof value.y !== 'undefined' : false,
@@ -146,14 +169,23 @@ export class TrackData {
       return false;
     }
 
-    if (typeof value.x === 'undefined' || typeof value.y === 'undefined' || typeof value.z === 'undefined') {
-      console.error('Invalid value for keyframe: value object is missing required properties', {
-        value,
-        hasX: typeof value.x !== 'undefined',
-        hasY: typeof value.y !== 'undefined',
-        hasZ: typeof value.z !== 'undefined'
-      });
-      return false;
+    if (this.propertyType === 'boolean') {
+      // boolean 타입 (visible 등)
+      if (typeof value !== 'boolean') {
+        console.error('Invalid value for boolean keyframe:', value);
+        return false;
+      }
+    } else {
+      // vector3 타입 (position, rotation, scale)
+      if (typeof value.x === 'undefined' || typeof value.y === 'undefined' || typeof value.z === 'undefined') {
+        console.error('Invalid value for keyframe: value object is missing required properties', {
+          value,
+          hasX: typeof value.x !== 'undefined',
+          hasY: typeof value.y !== 'undefined',
+          hasZ: typeof value.z !== 'undefined'
+        });
+        return false;
+      }
     }
 
     if (this.keyframeCount >= this.capacity) {
@@ -173,9 +205,15 @@ export class TrackData {
 
     const index = this.keyframeCount;
     this.times[index] = time;
-    this.values[index * 3] = value.x;
-    this.values[index * 3 + 1] = value.y;
-    this.values[index * 3 + 2] = value.z;
+    
+    if (this.propertyType === 'boolean') {
+      this.values[index] = value ? 1 : 0;
+    } else {
+      this.values[index * 3] = value.x;
+      this.values[index * 3 + 1] = value.y;
+      this.values[index * 3 + 2] = value.z;
+    }
+    
     this.interpolations[index] = interpolation;
     this.keyframeCount++;
     this.dirty = true;
@@ -205,18 +243,30 @@ export class TrackData {
     }
 
     const removedTime = this.times[index];
-    const removedValue = new THREE.Vector3(
-      this.values[index * 3],
-      this.values[index * 3 + 1],
-      this.values[index * 3 + 2]
-    );
+    let removedValue;
+    
+    if (this.propertyType === 'boolean') {
+      removedValue = this.values[index] === 1;
+    } else {
+      removedValue = new THREE.Vector3(
+        this.values[index * 3],
+        this.values[index * 3 + 1],
+        this.values[index * 3 + 2]
+      );
+    }
 
     // 마지막 키프레임을 현재 위치로 이동
     if (index < this.keyframeCount - 1) {
       this.times[index] = this.times[this.keyframeCount - 1];
-      this.values[index * 3] = this.values[(this.keyframeCount - 1) * 3];
-      this.values[index * 3 + 1] = this.values[(this.keyframeCount - 1) * 3 + 1];
-      this.values[index * 3 + 2] = this.values[(this.keyframeCount - 1) * 3 + 2];
+      
+      if (this.propertyType === 'boolean') {
+        this.values[index] = this.values[this.keyframeCount - 1];
+      } else {
+        this.values[index * 3] = this.values[(this.keyframeCount - 1) * 3];
+        this.values[index * 3 + 1] = this.values[(this.keyframeCount - 1) * 3 + 1];
+        this.values[index * 3 + 2] = this.values[(this.keyframeCount - 1) * 3 + 2];
+      }
+      
       this.interpolations[index] = this.interpolations[this.keyframeCount - 1];
     }
 
@@ -269,15 +319,22 @@ export class TrackData {
     this.sortKeyframes();
 
     // 이벤트 발생
+    let value;
+    if (this.propertyType === 'boolean') {
+      value = this.values[index] === 1;
+    } else {
+      value = new THREE.Vector3(
+        this.values[index * 3],
+        this.values[index * 3 + 1],
+        this.values[index * 3 + 2]
+      );
+    }
+    
     this.emit(KEYFRAME_EVENTS.MOVED, {
       index,
       oldTime,
       newTime,
-      value: new THREE.Vector3(
-        this.values[index * 3],
-        this.values[index * 3 + 1],
-        this.values[index * 3 + 2]
-      )
+      value
     });
 
     return true;
@@ -472,66 +529,93 @@ export class TrackData {
       return null;
     }
 
-    if (this.keyframeCount === 1) {
-      return new THREE.Vector3(
-        this.values[0],
-        this.values[1],
-        this.values[2]
+    if (this.propertyType === 'boolean') {
+      // boolean 타입 (visible) - 단순한 boolean 값 반환
+      if (this.keyframeCount === 1) {
+        return this.values[0] === 1;
+      }
+
+      // 시간 범위 체크
+      if (time <= this.times[0]) {
+        return this.values[0] === 1;
+      }
+
+      if (time >= this.times[this.keyframeCount - 1]) {
+        return this.values[this.keyframeCount - 1] === 1;
+      }
+
+      // 이웃한 키프레임 찾기
+      let nextIndex = 0;
+      while (nextIndex < this.keyframeCount && this.times[nextIndex] < time) {
+        nextIndex++;
+      }
+      const prevIndex = nextIndex - 1;
+
+      // boolean은 보간하지 않고 이전 값 반환 (STEP 보간과 유사)
+      return this.values[prevIndex] === 1;
+    } else {
+      // vector3 타입 (position, rotation, scale) - 기존 로직
+      if (this.keyframeCount === 1) {
+        return new THREE.Vector3(
+          this.values[0],
+          this.values[1],
+          this.values[2]
+        );
+      }
+
+      // 시간 범위 체크
+      if (time <= this.times[0]) {
+        return new THREE.Vector3(
+          this.values[0],
+          this.values[1],
+          this.values[2]
+        );
+      }
+
+      if (time >= this.times[this.keyframeCount - 1]) {
+        const lastIndex = (this.keyframeCount - 1) * 3;
+        return new THREE.Vector3(
+          this.values[lastIndex],
+          this.values[lastIndex + 1],
+          this.values[lastIndex + 2]
+        );
+      }
+
+      // 이웃한 키프레임 찾기
+      let nextIndex = 0;
+      while (nextIndex < this.keyframeCount && this.times[nextIndex] < time) {
+        nextIndex++;
+      }
+      const prevIndex = nextIndex - 1;
+
+      // 보간
+      const prevTime = this.times[prevIndex];
+      const nextTime = this.times[nextIndex];
+      const t = (time - prevTime) / (nextTime - prevTime);
+
+      const prevValue = new THREE.Vector3(
+        this.values[prevIndex * 3],
+        this.values[prevIndex * 3 + 1],
+        this.values[prevIndex * 3 + 2]
       );
-    }
-
-    // 시간 범위 체크
-    if (time <= this.times[0]) {
-      return new THREE.Vector3(
-        this.values[0],
-        this.values[1],
-        this.values[2]
+      const nextValue = new THREE.Vector3(
+        this.values[nextIndex * 3],
+        this.values[nextIndex * 3 + 1],
+        this.values[nextIndex * 3 + 2]
       );
-    }
 
-    if (time >= this.times[this.keyframeCount - 1]) {
-      const lastIndex = (this.keyframeCount - 1) * 3;
-      return new THREE.Vector3(
-        this.values[lastIndex],
-        this.values[lastIndex + 1],
-        this.values[lastIndex + 2]
-      );
-    }
-
-    // 이웃한 키프레임 찾기
-    let nextIndex = 0;
-    while (nextIndex < this.keyframeCount && this.times[nextIndex] < time) {
-      nextIndex++;
-    }
-    const prevIndex = nextIndex - 1;
-
-    // 보간
-    const prevTime = this.times[prevIndex];
-    const nextTime = this.times[nextIndex];
-    const t = (time - prevTime) / (nextTime - prevTime);
-
-    const prevValue = new THREE.Vector3(
-      this.values[prevIndex * 3],
-      this.values[prevIndex * 3 + 1],
-      this.values[prevIndex * 3 + 2]
-    );
-    const nextValue = new THREE.Vector3(
-      this.values[nextIndex * 3],
-      this.values[nextIndex * 3 + 1],
-      this.values[nextIndex * 3 + 2]
-    );
-
-    switch (this.interpolations[prevIndex]) {
-      case INTERPOLATION.LINEAR:
-        return prevValue.lerp(nextValue, t);
-      case INTERPOLATION.STEP:
-        return prevValue;
-      case INTERPOLATION.BEZIER:
-        // 베지어 보간 구현 (현재는 선형 보간으로 대체)
-        console.warn("베지어 보간은 아직 완전히 구현되지 않았습니다. 선형 보간을 사용합니다.");
-        return prevValue.lerp(nextValue, t);
-      default:
-        return prevValue.lerp(nextValue, t);
+      switch (this.interpolations[prevIndex]) {
+        case INTERPOLATION.LINEAR:
+          return prevValue.lerp(nextValue, t);
+        case INTERPOLATION.STEP:
+          return prevValue;
+        case INTERPOLATION.BEZIER:
+          // 베지어 보간 구현 (현재는 선형 보간으로 대체)
+          console.warn("베지어 보간은 아직 완전히 구현되지 않았습니다. 선형 보간을 사용합니다.");
+          return prevValue.lerp(nextValue, t);
+        default:
+          return prevValue.lerp(nextValue, t);
+      }
     }
   }
 
@@ -609,6 +693,8 @@ export class TrackData {
   }
 }
 
+
+
 // 타임라인 데이터 클래스
 export class TimelineData {
   constructor() {
@@ -669,9 +755,34 @@ export class TimelineData {
     }
 
     if (!this.tracks.get(objectUuid).has(property)) {
-      const trackData = new TrackData();
+      // visible 속성은 boolean 타입, 나머지는 vector3 타입
+      const propertyType = property === 'visible' ? 'boolean' : 'vector3';
+      const trackData = new TrackData(undefined, propertyType);
       this.tracks.get(objectUuid).set(property, trackData);
-      console.log(`🔄 UUID 기반 트랙 추가: ${objectUuid} ${property}`);
+      console.log(`🔄 UUID 기반 트랙 추가: ${objectUuid} ${property} (${propertyType})`);
+
+      // visible 트랙은 키프레임 이벤트와 완전히 분리하여 클립 기반으로만 관리
+      if (property === 'visible') {
+        console.log(`🎬 visible 트랙 생성: 키프레임 이벤트 리스너 없이 생성됨`);
+        // visible 트랙은 키프레임 이벤트와 무관하게 클립 기반으로만 관리
+        // 클립 변경 시마다 precomputedData에서 실시간으로 계산됨
+        
+
+      } else {
+        // 다른 속성들은 키프레임 이벤트를 TimelineData로 전달
+        trackData.addEventListener(KEYFRAME_EVENTS.ADDED, (data) => {
+          this.emit('track_keyframe_added', { objectUuid, property, ...data });
+        });
+        trackData.addEventListener(KEYFRAME_EVENTS.REMOVED, (data) => {
+          this.emit('track_keyframe_removed', { objectUuid, property, ...data });
+        });
+        trackData.addEventListener(KEYFRAME_EVENTS.UPDATED, (data) => {
+          this.emit('track_keyframe_updated', { objectUuid, property, ...data });
+        });
+        trackData.addEventListener(KEYFRAME_EVENTS.MOVED, (data) => {
+          this.emit('track_keyframe_moved', { objectUuid, property, ...data });
+        });
+      }
 
       // objectId가 제공된 경우 ID 기반 맵에도 저장
       if (objectId !== null) {
@@ -1134,49 +1245,49 @@ export class TimelineData {
   }
 
   // 트랙 추가 (ID 매핑 지원)
-  addTrack(objectUuid, property, objectId = null) {
-    if (!this.tracks.has(objectUuid)) {
-      this.tracks.set(objectUuid, new Map());
-    }
-    const objectTracks = this.tracks.get(objectUuid);
-    if (!objectTracks.has(property)) {
-      const trackData = new TrackData();
-      objectTracks.set(property, trackData);
+  // addTrack(objectUuid, property, objectId = null) {
+  //   if (!this.tracks.has(objectUuid)) {
+  //     this.tracks.set(objectUuid, new Map());
+  //   }
+  //   const objectTracks = this.tracks.get(objectUuid);
+  //   if (!objectTracks.has(property)) {
+  //     const trackData = new TrackData();
+  //     objectTracks.set(property, trackData);
 
-      // 트랙 데이터의 이벤트를 TimelineData로 전달
-      trackData.addEventListener(KEYFRAME_EVENTS.ADDED, (data) => {
-        this.emit('track_keyframe_added', { objectUuid, property, ...data });
-      });
-      trackData.addEventListener(KEYFRAME_EVENTS.REMOVED, (data) => {
-        this.emit('track_keyframe_removed', { objectUuid, property, ...data });
-      });
-      trackData.addEventListener(KEYFRAME_EVENTS.UPDATED, (data) => {
-        this.emit('track_keyframe_updated', { objectUuid, property, ...data });
-      });
-      trackData.addEventListener(KEYFRAME_EVENTS.MOVED, (data) => {
-        this.emit('track_keyframe_moved', { objectUuid, property, ...data });
-      });
+  //     // 트랙 데이터의 이벤트를 TimelineData로 전달
+  //     trackData.addEventListener(KEYFRAME_EVENTS.ADDED, (data) => {
+  //       this.emit('track_keyframe_added', { objectUuid, property, ...data });
+  //     });
+  //     trackData.addEventListener(KEYFRAME_EVENTS.REMOVED, (data) => {
+  //       this.emit('track_keyframe_removed', { objectUuid, property, ...data });
+  //     });
+  //     trackData.addEventListener(KEYFRAME_EVENTS.UPDATED, (data) => {
+  //       this.emit('track_keyframe_updated', { objectUuid, property, ...data });
+  //     });
+  //     trackData.addEventListener(KEYFRAME_EVENTS.MOVED, (data) => {
+  //       this.emit('track_keyframe_moved', { objectUuid, property, ...data });
+  //     });
 
-      // ID 기반 매핑도 필요하면 생성
-      if (objectId !== null) {
-        if (!this.tracksById.has(objectId)) {
-          this.tracksById.set(objectId, new Map());
-        }
-        this.tracksById.get(objectId).set(property, trackData);
-      }
-    }
-    const td = objectTracks.get(property);
-    // objectId가 주어졌지만 기존에 트랙이 있었다면 매핑 보강
-    if (objectId !== null) {
-      if (!this.tracksById.has(objectId)) {
-        this.tracksById.set(objectId, new Map());
-      }
-      if (!this.tracksById.get(objectId).has(property)) {
-        this.tracksById.get(objectId).set(property, td);
-      }
-    }
-    return td;
-  }
+  //     // ID 기반 매핑도 필요하면 생성
+  //     if (objectId !== null) {
+  //       if (!this.tracksById.has(objectId)) {
+  //         this.tracksById.set(objectId, new Map());
+  //       }
+  //       this.tracksById.get(objectId).set(property, trackData);
+  //     }
+  //   }
+  //   const td = objectTracks.get(property);
+  //   // objectId가 주어졌지만 기존에 트랙이 있었다면 매핑 보강
+  //   if (objectId !== null) {
+  //     if (!this.tracksById.has(objectId)) {
+  //       this.tracksById.set(objectId, new Map());
+  //     }
+  //     if (!this.tracksById.get(objectId).has(property)) {
+  //       this.tracksById.get(objectId).set(property, td);
+  //     }
+  //   }
+  //   return td;
+  // }
 
   // 트랙 삭제
   removeTrack(objectUuid, property) {
@@ -1197,14 +1308,31 @@ export class TimelineData {
   }
 
   // 애니메이션 데이터 사전 계산
-  precomputeAnimationData() {
+  precomputeAnimationData(clipInfoCallback = null, totalSeconds = null, fps = null) {
+    console.log("===############################ precomputeAnimationData 시작 ===");
+    console.log("clipInfoCallback:", clipInfoCallback);
+    console.log("totalSeconds:", totalSeconds);
+    console.log("fps:", fps);
     if (!this.dirty) return;
 
     this.precomputedData = new Map();
 
     // 더 큰 시간 범위를 위해 여유분 추가 (10% 여유)
     const safetyMargin = 1.1;
-    const totalFrames = Math.ceil(this.maxTime * this.frameRate * safetyMargin);
+    
+    // 인자값으로 전달받은 타임라인 설정 사용 (없으면 기존 방식으로 fallback)
+    const timelineTotalSeconds = totalSeconds || this.maxTime || 20;
+    const timelineFps = fps || this.frameRate || 30;
+    const totalFrames = Math.ceil(timelineTotalSeconds * timelineFps * safetyMargin);
+    
+    console.log(`🎬 totalFrames 계산:`, {
+      timelineTotalSeconds,
+      timelineFps,
+      safetyMargin,
+      calculatedTotalFrames: totalFrames,
+      oldMaxTime: this.maxTime,
+      oldFrameRate: this.frameRate
+    });
 
     // console.log("=== precomputeAnimationData 디버깅 ===");
     // console.log("maxTime:", this.maxTime);
@@ -1224,20 +1352,71 @@ export class TimelineData {
         // console.log(`시간 배열: ${Array.from(trackData.times.slice(0, trackData.keyframeCount))}`);
         // console.log(`값 배열: ${Array.from(trackData.values.slice(0, trackData.keyframeCount * 3))}`);
 
-        const frames = new Float32Array(totalFrames * 3);
-
-        // 초기값 설정 (모든 프레임을 0으로 초기화)
-        for (let i = 0; i < totalFrames * 3; i++) {
-          frames[i] = 0;
-        }
-
-        for (let frame = 0; frame < totalFrames; frame++) {
-          const time = frame / this.frameRate;
-          const value = trackData.getValueAtTime(time);
-          if (value) {
-            frames[frame * 3] = value.x;
-            frames[frame * 3 + 1] = value.y;
-            frames[frame * 3 + 2] = value.z;
+        let frames;
+        if (trackData.propertyType === 'boolean' && property === 'visible') {
+          // visible 속성 - 클립 정보 기반으로만 계산 (키프레임과 무관)
+          frames = new Uint8Array(totalFrames);
+          
+          // 기본값으로 모든 프레임을 0(false)로 초기화
+          for (let i = 0; i < totalFrames; i++) {
+            frames[i] = 0;
+          }
+          
+          // 클립 정보가 있으면 클립 범위 내에서만 1(true)로 설정
+          if (clipInfoCallback) {
+            const clipInfo = clipInfoCallback(objectUuid);
+            if (clipInfo) {
+              // clipInfo.left는 전체 타임라인에 대한 퍼센트 위치
+              // 실제 시간으로 변환하려면 전체 타임라인 시간이 필요
+              const totalTimelineSeconds = clipInfo.totalTimelineSeconds || this.maxTime || 20; // 기본값 20초
+              const clipStartTime = (clipInfo.left / 100) * totalTimelineSeconds;
+              const clipDuration = clipInfo.duration;
+              const clipEndTime = clipStartTime + clipDuration;
+              
+              console.log(`🎬 클립 정보로 visible 계산: ${objectUuid}`);
+              console.log(`🎬 클립 시작: ${clipStartTime}s, 지속: ${clipDuration}s, 종료: ${clipEndTime}s`);
+              console.log(`🎬 totalFrames: ${totalFrames}, frameRate: ${this.frameRate}`);
+              
+              // 클립 범위 내의 모든 프레임을 1(true)로 설정
+              for (let frame = 0; frame < totalFrames; frame++) {
+                const time = frame / this.frameRate;
+                if (time >= clipStartTime && time <= clipEndTime) {
+                  frames[frame] = 1;
+                }
+              }
+              
+              // 디버깅: visible 배열 상태 확인
+              const visibleCount = Array.from(frames).filter(v => v === 1).length;
+              console.log(`🎬 visible 배열 생성 완료: 총 ${totalFrames}프레임, visible ${visibleCount}프레임`);
+              console.log(`🎬 visible 배열 처음 10개 값:`, Array.from(frames.slice(0, 10)));
+              console.log(`🎬 visible 배열 마지막 10개 값:`, Array.from(frames.slice(-10)));
+            } else {
+              console.warn(`⚠️ 클립 정보를 찾을 수 없음: ${objectUuid}, 모든 프레임을 0으로 설정`);
+              // 클립 정보가 없으면 모든 프레임을 0(false)로 설정
+              // visible은 클립 기반이므로 키프레임 fallback 로직 사용하지 않음
+            }
+          } else {
+            console.warn(`⚠️ clipInfoCallback이 제공되지 않음: ${objectUuid}, 모든 프레임을 0으로 설정`);
+            // clipInfoCallback이 없으면 모든 프레임을 0(false)로 설정
+            // visible은 클립 기반이므로 키프레임 fallback 로직 사용하지 않음
+          }
+        } else {
+          // vector3 타입 (position, rotation, scale) - Float32Array 사용
+          frames = new Float32Array(totalFrames * 3);
+          
+          // 초기값 설정 (모든 프레임을 0으로 초기화)
+          for (let i = 0; i < totalFrames * 3; i++) {
+            frames[i] = 0;
+          }
+          
+          for (let frame = 0; frame < totalFrames; frame++) {
+            const time = frame / this.frameRate;
+            const value = trackData.getValueAtTime(time);
+            if (value) {
+              frames[frame * 3] = value.x;
+              frames[frame * 3 + 1] = value.y;
+              frames[frame * 3 + 2] = value.z;
+            }
           }
         }
         objectData.set(property, frames);
@@ -1257,20 +1436,40 @@ export class TimelineData {
         // console.log(`시간 배열: ${Array.from(trackData.times.slice(0, trackData.keyframeCount))}`);
         // console.log(`값 배열: ${Array.from(trackData.values.slice(0, trackData.keyframeCount * 3))}`);
 
-        const frames = new Float32Array(totalFrames * 3);
-
-        // 초기값 설정 (모든 프레임을 0으로 초기화)
-        for (let i = 0; i < totalFrames * 3; i++) {
-          frames[i] = 0;
-        }
-
-        for (let frame = 0; frame < totalFrames; frame++) {
-          const time = frame / this.frameRate;
-          const value = trackData.getValueAtTime(time);
-          if (value) {
-            frames[frame * 3] = value.x;
-            frames[frame * 3 + 1] = value.y;
-            frames[frame * 3 + 2] = value.z;
+        let frames;
+        if (trackData.propertyType === 'boolean') {
+          // boolean 타입 (visible) - Uint8Array 사용
+          frames = new Uint8Array(totalFrames);
+          
+          // 초기값 설정 (모든 프레임을 1(true)로 초기화)
+          for (let i = 0; i < totalFrames; i++) {
+            frames[i] = 1;
+          }
+          
+          for (let frame = 0; frame < totalFrames; frame++) {
+            const time = frame / this.frameRate;
+            const value = trackData.getValueAtTime(time);
+            if (value !== undefined) {
+              frames[frame] = value ? 1 : 0;
+            }
+          }
+        } else {
+          // vector3 타입 (position, rotation, scale) - Float32Array 사용
+          frames = new Float32Array(totalFrames * 3);
+          
+          // 초기값 설정 (모든 프레임을 0으로 초기화)
+          for (let i = 0; i < totalFrames * 3; i++) {
+            frames[i] = 0;
+          }
+          
+          for (let frame = 0; frame < totalFrames; frame++) {
+            const time = frame / this.frameRate;
+            const value = trackData.getValueAtTime(time);
+            if (value) {
+              frames[frame * 3] = value.x;
+              frames[frame * 3 + 1] = value.y;
+              frames[frame * 3 + 2] = value.z;
+            }
           }
         }
         objectData.set(property, frames);
@@ -1479,6 +1678,7 @@ export class TimelineData {
 
     return cloned;
   }
+
 }
 
 // 타임라인 코어 클래스

@@ -1684,3 +1684,20 @@ select:hover {
   height: auto !important;
   max-height: 500px;
 }
+
+.topWrapper .toolMenuBar{
+  display: flex;
+  background-color: #000;
+  gap: 2px;
+}
+.topWrapper .toolMenuBar a{
+  width: 30px;
+  height: 30px;
+  background-color: #333;
+  border-radius:2px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  text-decoration: none;
+}

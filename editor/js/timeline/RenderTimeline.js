@@ -14,7 +14,7 @@ export class RenderTimeline {
     this.totalFrames = 0;
     this.fps = 30;
     this.totalSeconds = 180;
-    
+
     // 렌더링 설정
     this.renderSettings = {
       width: 1920,
@@ -26,12 +26,12 @@ export class RenderTimeline {
 
     // 원본 설정 백업
     this.originalSettings = { ...this.renderSettings };
-    
+
     // 새 창용 씬과 렌더러
     this.previewScene = null;
     this.previewRenderer = null;
     this.previewCamera = null;
-    
+
     this.init();
   }
 
@@ -42,7 +42,7 @@ export class RenderTimeline {
       this.totalSeconds = this.timelineData.totalSeconds || 180;
       this.totalFrames = this.totalSeconds * this.fps;
     }
-    
+
     console.log("RenderTimeline 초기화:", {
       fps: this.fps,
       totalSeconds: this.totalSeconds,
@@ -58,7 +58,7 @@ export class RenderTimeline {
     }
 
     // 새 창 열기
-    this.renderWindow = window.open('', 'renderTimeline', 
+    this.renderWindow = window.open('', 'renderTimeline',
       'width=1200,height=800,scrollbars=yes,resizable=yes,menubar=no,toolbar=no'
     );
 
@@ -262,7 +262,7 @@ export class RenderTimeline {
     // 메인 컨테이너 생성
     const container = doc.createElement('div');
     container.className = 'render-container';
-    
+
     // 헤더
     const header = doc.createElement('div');
     header.className = 'render-header';
@@ -393,42 +393,27 @@ export class RenderTimeline {
   setupRenderCanvas() {
     const doc = this.renderWindow.document;
     this.renderCanvas = doc.getElementById('previewCanvas');
-    
+
     if (!this.renderCanvas) {
       console.error('렌더링 캔버스를 찾을 수 없습니다.');
       return;
     }
 
     // 캔버스 크기 설정
-    this.renderCanvas.width = 800;
-    this.renderCanvas.height = 450;
-    
+    this.renderCanvas.width = 1200;
+    this.renderCanvas.height = 600;
+
     this.renderContext = this.renderCanvas.getContext('2d');
-    
+
     // 새 창용 Three.js 씬 생성
     this.createPreviewScene();
-    
+
     // 초기 미리보기 그리기
     this.drawPreviewFrame();
   }
 
   // 새 창용 Three.js 씬 생성
   createPreviewScene() {
-    try {
-      // Three.js 라이브러리 동적 로드
-      this.loadThreeJS().then(() => {
-        this.setupPreviewScene();
-      }).catch(error => {
-        console.warn('Three.js 로드 실패:', error);
-        this.showPreviewStatus('Three.js 로드 실패, 기본 미리보기로 진행', 'warning');
-      });
-    } catch (error) {
-      console.error('Three.js 씬 생성 중 오류:', error);
-    }
-  }
-
-  // 미리보기 씬 설정
-  setupPreviewScene() {
     try {
       // Three.js가 로드되었는지 확인
       if (typeof THREE === 'undefined') {
@@ -441,14 +426,29 @@ export class RenderTimeline {
         children: this.editor.scene ? this.editor.scene.children.length : 'undefined',
         name: this.editor.scene ? this.editor.scene.name : 'undefined'
       });
+
+      // 🚀 핵심: 씬을 깊은 복사하여 애니메이션 믹서까지 포함
+      // UUID 매핑 테이블 생성
+      this.uuidMapping = new Map();
+      this.previewScene = this.deepCloneScene(this.editor.scene);
       
-      // 씬 복사
-      this.previewScene = this.editor.scene.clone();
+      // 🎬 도우미 객체 제거
+      this.removeHelperObjects();
+      
+      // 🎬 FBX 애니메이션 활성화
+      this.activateFBXAnimations();
+      
+      // 🚀 애니메이션 믹서들을 미리보기 씬에 복사
+      console.log('🎬 === 애니메이션 믹서 복사 시작 ===');
+      this.copyAnimationMixersToPreview();
+      console.log('🎬 === 애니메이션 믹서 복사 완료 ===');
+      
       console.log('씬 복사 완료:', {
         children: this.previewScene.children.length,
-        name: this.previewScene.name
+        name: this.previewScene.name,
+        uuidMappingSize: this.uuidMapping.size
       });
-      
+
       // 카메라 복사 및 설정
       if (this.editor.camera) {
         this.previewCamera = this.editor.camera.clone();
@@ -456,7 +456,7 @@ export class RenderTimeline {
       } else {
         // 에디터에 카메라가 없으면 씬에서 찾기
         const sceneCamera = this.editor.scene.getObjectByProperty('type', 'PerspectiveCamera') ||
-                           this.editor.scene.getObjectByProperty('type', 'OrthographicCamera');
+          this.editor.scene.getObjectByProperty('type', 'OrthographicCamera');
         if (sceneCamera) {
           this.previewCamera = sceneCamera.clone();
           console.log('씬에서 카메라 찾아서 복사 완료:', this.previewCamera.type);
@@ -467,29 +467,29 @@ export class RenderTimeline {
           console.log('기본 카메라 생성 완료');
         }
       }
-      
+
       // WebGL 렌더러용 별도 캔버스 생성 (2D 캔버스와 분리)
       const webglCanvas = this.renderWindow.document.createElement('canvas');
-      webglCanvas.width = 800;
-      webglCanvas.height = 450;
+      webglCanvas.width = 1200;
+      webglCanvas.height = 600;
       webglCanvas.style.display = 'none'; // 숨김 처리
-      
+
       // 렌더러 생성 (별도 캔버스 사용)
-      this.previewRenderer = new THREE.WebGLRenderer({ 
+      this.previewRenderer = new THREE.WebGLRenderer({
         canvas: webglCanvas,
         alpha: true,
         antialias: true
       });
       this.previewRenderer.setSize(800, 450);
       this.previewRenderer.setClearColor(0x000000, 1);
-      
+
       console.log('미리보기 씬 설정 완료:', {
         scene: this.previewScene,
         camera: this.previewCamera,
         renderer: this.previewRenderer,
         sceneChildren: this.previewScene.children.length
       });
-      
+
       // 복사된 씬의 객체들 확인
       console.log('복사된 씬의 객체들:');
       this.previewScene.traverse((object) => {
@@ -497,9 +497,588 @@ export class RenderTimeline {
           console.log(`- ${object.name} (${object.type})`);
         }
       });
-      
+
     } catch (error) {
       console.error('미리보기 씬 설정 중 오류:', error);
+    }
+  }
+
+  // 🚀 깊은 복사를 위한 씬 클론 메서드
+  deepCloneScene(originalScene) {
+    try {
+      console.log('🚀 깊은 복사 시작...');
+      
+      // 새 씬 생성
+      const clonedScene = new THREE.Scene();
+      clonedScene.name = originalScene.name;
+      clonedScene.background = originalScene.background;
+      clonedScene.environment = originalScene.environment;
+      clonedScene.fog = originalScene.fog;
+      
+      // userData 복사
+      if (originalScene.userData) {
+        clonedScene.userData = JSON.parse(JSON.stringify(originalScene.userData));
+      }
+      
+      // 모든 자식 객체를 재귀적으로 복사
+      originalScene.children.forEach(child => {
+        const clonedChild = this.deepCloneObject(child);
+        if (clonedChild) {
+          clonedScene.add(clonedChild);
+        }
+      });
+      
+      console.log('✅ 깊은 복사 완료');
+      return clonedScene;
+      
+    } catch (error) {
+      console.error('❌ 깊은 복사 중 오류:', error);
+      // 오류 발생 시 기본 clone 사용
+      return originalScene.clone();
+    }
+  }
+
+  // 🚀 개별 객체 깊은 복사
+  deepCloneObject(originalObject) {
+    try {
+      if (!originalObject) return null;
+      
+      let clonedObject = null;
+      
+      // 객체 타입에 따른 복사
+      if (originalObject.isMesh) {
+        clonedObject = originalObject.clone();
+        
+        // Material 복사
+        if (originalObject.material) {
+          if (Array.isArray(originalObject.material)) {
+            clonedObject.material = originalObject.material.map(mat => mat.clone());
+          } else {
+            clonedObject.material = originalObject.material.clone();
+          }
+        }
+        
+      } else if (originalObject.isGroup) {
+        clonedObject = new THREE.Group();
+        clonedObject.name = originalObject.name;
+        
+        // Transform 복사
+        clonedObject.position.copy(originalObject.position);
+        clonedObject.rotation.copy(originalObject.rotation);
+        clonedObject.scale.copy(originalObject.scale);
+        clonedObject.matrix.copy(originalObject.matrix);
+        clonedObject.matrixWorld.copy(originalObject.matrixWorld);
+        
+        // userData 복사
+        if (originalObject.userData) {
+          clonedObject.userData = JSON.parse(JSON.stringify(originalObject.userData));
+        }
+        
+        // 자식 객체들 복사
+        originalObject.children.forEach(child => {
+          const clonedChild = this.deepCloneObject(child);
+          if (clonedChild) {
+            clonedObject.add(clonedChild);
+          }
+        });
+        
+      } else if (originalObject.isLight) {
+        clonedObject = originalObject.clone();
+        
+        // Light 속성 복사
+        if (originalObject.target) {
+          clonedObject.target = this.deepCloneObject(originalObject.target);
+        }
+        
+      } else if (originalObject.isCamera) {
+        clonedObject = originalObject.clone();
+        
+        // Camera 속성 복사
+        if (originalObject.target) {
+          clonedObject.target = this.deepCloneObject(originalObject.target);
+        }
+        
+      } else if (originalObject.isBone) {
+        // Bone 객체는 기본 clone 사용 (애니메이션과 연결됨)
+        clonedObject = originalObject.clone();
+        
+      } else if (originalObject.isSkinnedMesh) {
+        // SkinnedMesh는 기본 clone 사용 (애니메이션과 연결됨)
+        clonedObject = originalObject.clone();
+        
+      } else if (originalObject.isLine || originalObject.isLineSegments) {
+        // Line 객체들
+        clonedObject = originalObject.clone();
+        
+      } else if (originalObject.isPoints) {
+        // Points 객체
+        clonedObject = originalObject.clone();
+        
+      } else {
+        // 기타 객체는 기본 clone 사용
+        clonedObject = originalObject.clone();
+      }
+      
+      // 공통 속성 복사
+      if (clonedObject) {
+        clonedObject.name = originalObject.name;
+        clonedObject.visible = originalObject.visible;
+        clonedObject.castShadow = originalObject.castShadow;
+        clonedObject.receiveShadow = originalObject.receiveShadow;
+        
+        // userData가 아직 복사되지 않은 경우
+        if (!clonedObject.userData && originalObject.userData) {
+          clonedObject.userData = JSON.parse(JSON.stringify(originalObject.userData));
+        }
+      }
+      
+      // UUID 매핑 저장 (원본 UUID -> 클론된 객체)
+      if (clonedObject && originalObject.uuid) {
+        this.uuidMapping.set(originalObject.uuid, clonedObject);
+        console.log(`🔗 UUID 매핑: ${originalObject.uuid} -> ${clonedObject.name || clonedObject.type}`);
+      }
+      
+      return clonedObject;
+      
+    } catch (error) {
+      console.warn(`⚠️ 객체 복사 실패 (${originalObject.name || originalObject.type}):`, error);
+      return null;
+    }
+  }
+
+  // 🎬 도우미 객체 제거
+  removeHelperObjects() {
+    try {
+      console.log("🎬 도우미 객체 제거 시작...");
+      
+      if (!this.previewScene) {
+        console.warn("⚠️ previewScene이 없어 도우미 제거를 건너뜁니다");
+        return;
+      }
+      
+      const helpersToRemove = [];
+      
+      // 도우미 객체 찾기
+      this.previewScene.traverse((object) => {
+        if (this.isHelperObject(object)) {
+          helpersToRemove.push(object);
+          console.log(`🎬 도우미 객체 발견: ${object.name} (${object.type})`);
+        }
+      });
+      
+      console.log(`🎬 제거할 도우미 객체 ${helpersToRemove.length}개`);
+      
+      // 도우미 객체 제거 (부모에서부터 제거)
+      helpersToRemove.forEach(helper => {
+        try {
+          if (helper.parent) {
+            helper.parent.remove(helper);
+            console.log(`✅ 도우미 객체 제거 완료: ${helper.name} (${helper.type})`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ 도우미 객체 제거 실패 (${helper.name}):`, error);
+        }
+      });
+      
+      // 🚀 추가 검증: 도우미 객체가 실제로 제거되었는지 확인
+      let remainingHelpers = 0;
+      this.previewScene.traverse((object) => {
+        if (this.isHelperObject(object)) {
+          remainingHelpers++;
+          console.log(`⚠️ 여전히 남아있는 도우미: ${object.name} (${object.type})`);
+        }
+      });
+      
+      if (remainingHelpers > 0) {
+        console.warn(`⚠️ ${remainingHelpers}개의 도우미 객체가 여전히 남아있습니다`);
+      } else {
+        console.log("✅ 모든 도우미 객체 제거 완료");
+      }
+      
+    } catch (error) {
+      console.error("❌ 도우미 객체 제거 중 오류:", error);
+    }
+  }
+
+  // 🎬 도우미 객체 식별
+  isHelperObject(object) {
+    // 도우미 객체 타입들
+    const helperTypes = [
+      'GridHelper',
+      'AxesHelper', 
+      'SkeletonHelper',
+      'BoneHelper',
+      'DirectionalLightHelper',
+      'PointLightHelper',
+      'SpotLightHelper',
+      'HemisphereLightHelper',
+      'RectAreaLightHelper',
+      'CameraHelper',
+      'BoxHelper',
+      'Box3Helper',
+      'PlaneHelper',
+      'ArrowHelper',
+      'ConeHelper',
+      'CylinderHelper',
+      'RingHelper',
+      'SphereHelper',
+      'TorusHelper',
+      'TorusKnotHelper',
+      'OctahedronHelper',
+      'TetrahedronHelper',
+      'IcosahedronHelper',
+      'DodecahedronHelper',
+      'EdgesGeometry',
+      'WireframeGeometry',
+      'LineSegments',
+      'Line',
+      'Points'
+    ];
+    
+    // 1. 타입으로 도우미 식별
+    if (helperTypes.includes(object.type)) {
+      return true;
+    }
+    
+    // 2. 이름으로 도우미 식별 (더 정확한 패턴 매칭)
+    if (object.name) {
+      const lowerName = object.name.toLowerCase();
+      const helperKeywords = [
+        'helper', 'grid', 'axis', 'axes', 'skeleton', 'bone', 'wireframe',
+        'gizmo', 'control', 'guide', 'bounding', 'outline', 'selection',
+        'transform', 'manipulator', 'widget', 'tool', 'assist', 'visual',
+        'debug', 'temp', 'temp_', 'temp-', 'temp.', 'temp_', 'temp-',
+        'selection', 'highlight', 'focus', 'target', 'marker', 'indicator'
+      ];
+      
+      if (helperKeywords.some(keyword => lowerName.includes(keyword))) {
+        return true;
+      }
+      
+      // 특정 패턴 매칭
+      if (lowerName.match(/^(grid|axis|helper|gizmo|control|guide|temp|selection)/)) {
+        return true;
+      }
+    }
+    
+    // 3. userData로 도우미 식별
+    if (object.userData) {
+      const helperFlags = [
+        'isHelper', 'isGizmo', 'isControl', 'isGuide', 'isTemporary',
+        'isSelection', 'isHighlight', 'isDebug', 'isVisual', 'isAssist'
+      ];
+      
+      if (helperFlags.some(flag => object.userData[flag])) {
+        return true;
+      }
+      
+      // userData에 helper 관련 정보가 있는지 확인
+      if (object.userData.helperType || object.userData.gizmoType || object.userData.controlType) {
+        return true;
+      }
+    }
+    
+    // 4. 특별한 경우들
+    if (object.isHelper || object.isGizmo || object.isControl || object.isGuide) {
+      return true;
+    }
+    
+    // 5. TransformControls 관련 객체들
+    if (object.type === 'Object3D' && object.name && (
+      object.name.includes('TransformControls') ||
+      object.name.includes('Gizmo') ||
+      object.name.includes('Control')
+    )) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // 🎬 FBX 애니메이션 활성화
+  activateFBXAnimations() {
+    try {
+      console.log("🎬 FBX 애니메이션 활성화 시작...");
+      
+      if (!this.previewScene) {
+        console.warn("⚠️ previewScene이 없어 애니메이션 활성화를 건너뜁니다");
+        return;
+      }
+      
+      let animationMixers = [];
+      let totalAnimations = 0;
+      
+      console.log("🎬 scene traverse 시작...");
+      this.previewScene.traverse((object) => {
+        // FBX 애니메이션 객체 찾기
+        if (object.animations && object.animations.length > 0) {
+          totalAnimations += object.animations.length;
+          console.log(`🎬 애니메이션 발견: ${object.name} (${object.animations.length}개)`);
+          console.log(`  - 객체 타입: ${object.type}`);
+          console.log(`  - 애니메이션 클립들:`, object.animations.map(clip => ({
+            name: clip.name,
+            duration: clip.duration,
+            tracks: clip.tracks.length
+          })));
+          
+          try {
+            // 기존 AnimationMixer가 있다면 제거
+            if (object.animationMixer) {
+              console.log(`  - 기존 AnimationMixer 제거 중...`);
+              try {
+                object.animationMixer.stopAllAction();
+                object.animationMixer.uncacheRoot(object);
+              } catch (e) {
+                console.warn(`  - 기존 믹서 정리 실패:`, e);
+              }
+              object.animationMixer = null;
+            }
+            
+            // 새로운 AnimationMixer 생성
+            if (THREE.AnimationMixer) {
+              console.log(`  - 새로운 AnimationMixer 생성 중...`);
+              object.animationMixer = new THREE.AnimationMixer(object);
+              animationMixers.push(object.animationMixer);
+              console.log(`  - AnimationMixer 생성 완료`);
+            } else {
+              console.warn("⚠️ THREE.AnimationMixer를 찾을 수 없습니다");
+              return;
+            }
+            
+            // 모든 애니메이션 클립 활성화
+            object.animations.forEach((clip, index) => {
+              try {
+                console.log(`  - 클립 ${index + 1}: ${clip.name} (${clip.duration}초, ${clip.tracks.length}개 트랙)`);
+                
+                if (object.animationMixer && object.animationMixer.clipAction) {
+                  const action = object.animationMixer.clipAction(clip);
+                  console.log(`    - clipAction 생성됨:`, action);
+                  
+                  // 액션 설정
+                  if (action.setLoop && THREE.LoopRepeat) {
+                    action.setLoop(THREE.LoopRepeat);
+                    console.log(`    - 루프 설정: THREE.LoopRepeat`);
+                  }
+                  if (action.clampWhenFinished !== undefined) {
+                    action.clampWhenFinished = false;
+                    console.log(`    - clampWhenFinished 설정: false`);
+                  }
+                  
+                  // 액션 재생
+                  if (action.play) {
+                    action.play();
+                    console.log(`    - 애니메이션 재생 시작`);
+                  }
+                  
+                  // 액션 상태 확인
+                  console.log(`    - 액션 상태:`, {
+                    isRunning: action.isRunning(),
+                    timeScale: action.timeScale,
+                    weight: action.weight,
+                    enabled: action.enabled
+                  });
+                } else {
+                  console.warn(`    - clipAction 생성 실패`);
+                }
+              } catch (clipError) {
+                console.warn(`⚠️ 애니메이션 클립 ${clip.name} 활성화 실패:`, clipError);
+              }
+            });
+          } catch (mixerError) {
+            console.warn(`⚠️ 애니메이션 믹서 생성 실패 (${object.name}):`, mixerError);
+          }
+        }
+      });
+      
+      console.log(`🎬 총 ${totalAnimations}개 애니메이션 클립 발견됨`);
+      
+      // 애니메이션 업데이트를 위한 클록 생성
+      if (animationMixers.length > 0) {
+        try {
+          if (THREE.Clock) {
+            this.previewClock = new THREE.Clock();
+            this.previewAnimationMixers = animationMixers;
+            console.log(`✅ ${animationMixers.length}개 애니메이션 믹서 활성화됨`);
+            console.log(`✅ 애니메이션 클록 생성됨:`, this.previewClock);
+          } else {
+            console.warn("⚠️ THREE.Clock을 찾을 수 없어 애니메이션 업데이트를 할 수 없습니다");
+          }
+        } catch (clockError) {
+          console.warn("⚠️ 애니메이션 클록 생성 실패:", clockError);
+        }
+      } else {
+        console.log("⚠️ 활성화할 FBX 애니메이션이 없습니다");
+      }
+      
+    } catch (error) {
+      console.error("❌ FBX 애니메이션 활성화 중 오류:", error);
+    }
+  }
+
+  // 🚀 애니메이션 믹서들을 미리보기 씬에 복사
+  copyAnimationMixersToPreview() {
+    const originalMixers = [];
+    console.log('🔍 === 원본 씬에서 애니메이션 믹서 검색 시작 ===');
+    
+    // 🚀 원본 씬의 모든 객체를 순회하면서 애니메이션 검색
+    this.editor.scene.traverse((object) => {
+      // 🚀 애니메이션이 있는 객체 찾기
+      if (object.animations && object.animations.length > 0) {
+        console.log(`🎬 원본 씬에서 애니메이션 객체 발견: ${object.name} (${object.animations.length}개 클립) - UUID: ${object.uuid}`);
+        console.log(`  - 객체 타입: ${object.type}`);
+        console.log(`  - 애니메이션 클립들:`, object.animations.map(clip => ({
+          name: clip.name,
+          duration: clip.duration,
+          tracks: clip.tracks.length
+        })));
+        
+        originalMixers.push({
+          object: object,
+          animations: object.animations,
+          mixer: object.animationMixer || object.userData.animationMixer
+        });
+      }
+      
+      // 🚀 "Belly Dance" 객체 특별 검색
+      if (object.name && object.name.includes('Belly')) {
+        console.log(`🔍 "Belly" 포함 객체 발견: ${object.name} (${object.type}) - UUID: ${object.uuid}`);
+        console.log(`  - animations: ${object.animations ? object.animations.length : 0}개`);
+        console.log(`  - animationMixer: ${object.animationMixer ? '있음' : '없음'}`);
+        console.log(`  - userData.animationMixer: ${object.userData && object.userData.animationMixer ? '있음' : '없음'}`);
+        
+        // 🚀 userData 상세 분석
+        if (object.userData) {
+          console.log(`  - userData 키들:`, Object.keys(object.userData));
+          if (object.userData.animationMixer) {
+            console.log(`  - userData.animationMixer 상세:`, {
+              _actions: object.userData.animationMixer._actions ? object.userData.animationMixer._actions.length : 0,
+              _clips: object.userData.animationMixer._clips ? object.userData.animationMixer._clips.length : 0
+            });
+          }
+        }
+      }
+      
+      // 🚀 SkinnedMesh 객체 특별 검색 (FBX 캐릭터 애니메이션)
+      if (object.type === 'SkinnedMesh') {
+        console.log(`🔍 SkinnedMesh 객체 발견: ${object.name} - UUID: ${object.uuid}`);
+        console.log(`  - animations: ${object.animations ? object.animations.length : 0}개`);
+        console.log(`  - animationMixer: ${object.animationMixer ? '있음' : '없음'}`);
+        console.log(`  - userData.animationMixer: ${object.userData && object.userData.animationMixer ? '있음' : '없음'}`);
+      }
+    });
+    
+    console.log(`🔍 === 원본 씬에서 애니메이션 믹서 검색 완료: ${originalMixers.length}개 발견 ===`);
+    
+    if (originalMixers.length === 0) {
+      console.log('⚠️ 원본 씬에서 애니메이션 객체를 찾을 수 없습니다!');
+      console.log('🔍 원본 씬 구조 분석:');
+      let sceneInfo = { total: 0, groups: 0, meshes: 0, skinnedMeshes: 0, other: 0 };
+      this.editor.scene.traverse((object) => {
+        sceneInfo.total++;
+        if (object.type === 'Group') sceneInfo.groups++;
+        else if (object.type === 'Mesh') sceneInfo.meshes++;
+        else if (object.type === 'SkinnedMesh') sceneInfo.skinnedMeshes++;
+        else sceneInfo.other++;
+      });
+      console.log('  - 씬 객체 통계:', sceneInfo);
+      return;
+    }
+    
+    // 🚀 미리보기 씬에 애니메이션 믹서 복사
+    let copiedMixers = 0;
+    originalMixers.forEach((mixerData, index) => {
+      const originalObject = mixerData.object;
+      console.log(`\n🎬 === 애니메이션 믹서 ${index + 1}/${originalMixers.length} 복사 시작 ===`);
+      console.log(`  - 원본 객체: ${originalObject.name} (${originalObject.type})`);
+      console.log(`  - UUID: ${originalObject.uuid}`);
+      console.log(`  - 애니메이션 클립 수: ${mixerData.animations.length}`);
+      
+      // 미리보기 씬에서 동일한 객체 찾기
+      let previewObject = null;
+      console.log(`    🔍 미리보기 씬에서 UUID ${originalObject.uuid}로 객체 검색 중...`);
+      this.previewScene.traverse((obj) => {
+        if (obj.uuid === originalObject.uuid) {
+          previewObject = obj;
+          console.log(`      ✅ UUID 매칭 성공: ${obj.name || 'unnamed'} (${obj.type})`);
+        }
+      });
+      
+      if (!previewObject) {
+        console.log(`      ❌ UUID ${originalObject.uuid}로 객체를 찾을 수 없습니다.`);
+        console.log(`      🔍 미리보기 씬의 모든 객체 UUID 목록:`);
+        let objectCount = 0;
+        this.previewScene.traverse((obj) => {
+          if (obj.name && obj.name.includes('Belly')) {
+            console.log(`        - ${obj.name}: ${obj.uuid} (${obj.type})`);
+          }
+          objectCount++;
+          if (objectCount <= 10) { // Limit to first 10 for brevity
+            console.log(`        - ${obj.name || 'unnamed'}: ${obj.uuid} (${obj.type})`);
+          }
+        });
+        console.log(`        ... 총 ${objectCount}개 객체`);
+        return; // 이 객체는 건너뛰기
+      }
+      
+      try {
+        // 🚀 애니메이션 클립들을 미리보기 객체에 복사
+        console.log(`    📋 애니메이션 클립 복사 중...`);
+        const clonedClips = [];
+        mixerData.animations.forEach((clip, clipIndex) => {
+          try {
+            const clonedClip = clip.clone();
+            clonedClips.push(clonedClip);
+            console.log(`      ✅ 클립 ${clipIndex + 1} 복사 완료: ${clip.name} (${clip.duration}초)`);
+          } catch (clipError) {
+            console.warn(`      ❌ 클립 ${clipIndex + 1} 복사 실패:`, clipError);
+          }
+        });
+        
+        if (clonedClips.length === 0) {
+          console.log(`    ⚠️ 복사된 클립이 없습니다.`);
+          return;
+        }
+        
+        // 🚀 미리보기 객체에 새로운 애니메이션 믹서 생성
+        console.log(`    �� 미리보기 객체에 애니메이션 믹서 생성 중...`);
+        const previewMixer = new THREE.AnimationMixer(previewObject);
+        previewObject.animationMixer = previewMixer;
+        
+        // 🚀 클립들을 믹서에 추가하고 액션 생성
+        console.log(`    🎬 믹서에 액션 추가 중...`);
+        clonedClips.forEach((clip, clipIndex) => {
+          try {
+            const action = previewMixer.clipAction(clip);
+            action.setLoop(THREE.LoopRepeat);
+            action.clampWhenFinished = true;
+            action.play();
+            console.log(`      ✅ 액션 ${clipIndex + 1} 생성 완료: ${clip.name} (${action.isRunning() ? '재생 중' : '정지됨'})`);
+          } catch (actionError) {
+            console.warn(`      ❌ 액션 ${clipIndex + 1} 생성 실패:`, actionError);
+          }
+        });
+        
+        copiedMixers++;
+        console.log(`    ✅ 애니메이션 믹서 복사 완료: ${previewObject.name}`);
+        
+      } catch (error) {
+        console.error(`    ❌ 애니메이션 믹서 복사 중 오류:`, error);
+      }
+      
+      console.log(`🎬 === 애니메이션 믹서 ${index + 1}/${originalMixers.length} 복사 완료 ===\n`);
+    });
+    
+    console.log(`📊 === 애니메이션 믹서 복사 결과 ===`);
+    console.log(`  - 원본 믹서: ${originalMixers.length}개`);
+    console.log(`  - 복사된 믹서: ${copiedMixers}개`);
+    
+    // 🚀 미리보기 애니메이션 클록 생성
+    if (copiedMixers > 0) {
+      console.log(`⏱️ 미리보기 애니메이션 클록 생성 중...`);
+      this.previewAnimationClock = new THREE.Clock();
+      console.log(`✅ 미리보기 애니메이션 클록 생성 완료`);
+    } else {
+      console.log(`⚠️ 복사된 믹서가 없어 애니메이션 클록을 생성하지 않습니다.`);
     }
   }
 
@@ -516,7 +1095,7 @@ export class RenderTimeline {
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
       script.integrity = 'sha512-QdTX+2GFXWw25Tvr5cgyRkLZqP6/0ci2Rr/9zJ+QmFzJtG/owwvtHnJxtEWam6/HD2szi/wDgQaR6ySVa2QfA==';
       script.crossOrigin = 'anonymous';
-      
+
       script.onload = () => {
         console.log('Three.js 라이브러리 로드 완료');
         // 전역 THREE 객체가 로드되었는지 확인
@@ -526,12 +1105,12 @@ export class RenderTimeline {
           reject(new Error('Three.js 로드 후에도 객체를 찾을 수 없습니다.'));
         }
       };
-      
+
       script.onerror = () => {
         console.warn('Three.js 로드 실패');
         reject(new Error('Three.js 로드 실패'));
       };
-      
+
       this.renderWindow.document.head.appendChild(script);
     });
   }
@@ -615,7 +1194,7 @@ export class RenderTimeline {
   // 렌더링 설정 업데이트
   updateRenderSettings() {
     const doc = this.renderWindow.document;
-    
+
     const resolution = doc.getElementById('resolutionSelect').value;
     const quality = doc.getElementById('qualitySelect').value;
     const format = doc.getElementById('formatSelect').value;
@@ -643,11 +1222,11 @@ export class RenderTimeline {
   // 렌더링 정보 업데이트
   updateRenderInfo() {
     const doc = this.renderWindow.document;
-    
+
     // 예상 소요 시간 계산 (프레임당 0.1초 가정)
     const estimatedSeconds = this.totalFrames * 0.1;
     const estimatedTime = this.formatTime(estimatedSeconds);
-    
+
     // 예상 파일 크기 계산 (품질에 따라)
     let fileSizeMB = 0;
     switch (this.renderSettings.quality) {
@@ -678,7 +1257,7 @@ export class RenderTimeline {
     if (this.isRendering) return;
 
     this.updateRenderSettings();
-    
+
     this.isRendering = true;
     this.currentFrame = 0;
 
@@ -701,7 +1280,7 @@ export class RenderTimeline {
   // 렌더링 중지
   stopRendering() {
     this.isRendering = false;
-    
+
     // UI 상태 복원
     const doc = this.renderWindow.document;
     const startBtn = doc.getElementById('startRender');
@@ -732,30 +1311,52 @@ export class RenderTimeline {
         progressText.textContent = `${progress.toFixed(1)}% 완료 (${this.currentFrame} / ${this.totalFrames} 프레임)`;
       }
 
+      // 미리보기 Canvas에 현재 프레임 표시
+      await this.updatePreviewCanvasWithCurrentFrame();
+
       this.currentFrame++;
 
-      // 프레임 간 지연 (실제 렌더링에서는 필요 없음)
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // 프레임 간 지연 (애니메이션 속도 조절)
+      const frameDelay = 1000 / this.fps; // 설정된 FPS에 맞는 지연
+      await new Promise(resolve => setTimeout(resolve, frameDelay));
     }
 
     if (this.currentFrame >= this.totalFrames) {
       this.renderComplete();
     }
   }
+  // 현재 프레임을 미리보기 Canvas에 표시
+  async updatePreviewCanvasWithCurrentFrame() {
+    try {
+      // 현재 시간 계산
+      const currentTime = this.currentFrame / this.fps;
 
+      // 씬 상태 업데이트
+      await this.updateSceneAtTime(currentTime);
+
+      // 미리보기 Canvas 업데이트
+      await this.renderSceneToCanvas();
+
+      // 미리보기 상태 표시
+      this.showPreviewStatus(`프레임 ${this.currentFrame} 렌더링 중... (${currentTime.toFixed(2)}초)`, 'info');
+
+    } catch (error) {
+      console.error('미리보기 Canvas 업데이트 중 오류:', error);
+    }
+  }
   // 개별 프레임 렌더링
   async renderFrame(frameNumber) {
     const currentTime = frameNumber / this.fps;
-    
+
     console.log(`프레임 ${frameNumber} 렌더링 중... (${currentTime.toFixed(2)}초)`);
 
     // 여기서 실제 3D 씬을 렌더링합니다
     // 1. 현재 시간에 맞는 애니메이션 상태로 씬 업데이트
     await this.updateSceneAtTime(currentTime);
-    
+
     // 2. 씬을 캔버스에 렌더링
     await this.renderSceneToCanvas();
-    
+
     // 3. 프레임을 파일에 저장 (실제 구현에서는 MediaRecorder 등 사용)
     // this.saveFrame(frameNumber);
   }
@@ -770,65 +1371,136 @@ export class RenderTimeline {
     console.log(`=== 미리보기 씬 상태 업데이트 시작: ${time.toFixed(2)}초 ===`);
 
     try {
-      // MotionTimeline 애니메이션 업데이트 (미리보기 씬에만 적용)
-      if (this.editor.motionTimeline) {
-        console.log('✅ MotionTimeline 발견, 애니메이션 적용 시작...');
-        console.log('MotionTimeline 상태:', {
-          hasTimelineData: !!this.editor.motionTimeline.timelineData,
-          timelineData: this.editor.motionTimeline.timelineData,
-          tracksCount: this.editor.motionTimeline.timelineData ? this.editor.motionTimeline.timelineData.tracks.size : 0
-        });
-        
-        // 원본 타임라인의 애니메이션 데이터를 미리보기 씬에 적용
-        this.applyMotionTimelineToPreview(time);
-        console.log('✅ MotionTimeline 애니메이션 미리보기 씬에 적용 완료');
-      } else {
-        console.warn('❌ MotionTimeline을 찾을 수 없습니다.');
-      }
+      // 🚀 핵심: FBX 애니메이션 믹서 업데이트 (최우선)
+      console.log('🔄 FBX 애니메이션 믹서 업데이트 시작...');
+      this.updatePreviewAnimationMixers(time);
 
-      // LightTimeline 애니메이션 업데이트 (미리보기 씬에만 적용)
-      if (this.editor.lightTimeline) {
-        console.log('✅ LightTimeline 발견, 애니메이션 적용 시작...');
-        console.log('LightTimeline 상태:', {
-          hasTimelineData: !!this.editor.lightTimeline.timelineData,
-          timelineData: this.editor.lightTimeline.timelineData,
-          tracksCount: this.editor.lightTimeline.timelineData ? this.editor.lightTimeline.timelineData.tracks.size : 0
-        });
-        
-        this.applyLightTimelineToPreview(time);
-        console.log('✅ LightTimeline 애니메이션 미리보기 씬에 적용 완료');
-      } else {
-        console.warn('❌ LightTimeline을 찾을 수 없습니다.');
-      }
-
-      // AudioTimeline 업데이트 (렌더링 중에는 오디오 재생하지 않음)
-      if (this.editor.audioTimeline) {
-        console.log('✅ AudioTimeline 발견, 시간 업데이트...');
-        console.log('AudioTimeline 시간 업데이트 완료');
-      } else {
-        console.warn('❌ AudioTimeline을 찾을 수 없습니다.');
-      }
-
-      // 미리보기 씬의 모든 객체에 애니메이션 업데이트 적용
+      // 그 다음 기본 애니메이션 업데이트 (Three.js 애니메이션, 키프레임 등)
       console.log('🔄 미리보기 씬 객체 애니메이션 업데이트 시작...');
       this.updatePreviewSceneObjects(time);
+
+      // 마지막으로 타임라인 데이터를 직접 객체에 적용 (최우선 적용)
+      console.log('🎯 타임라인 데이터를 객체에 적용 시작...');
+      this.applyTimelineDataToObjects(time);
 
       // 디버깅: 미리보기 씬의 객체 상태 출력
       console.log('📊 미리보기 씬 객체 상태 확인:');
       this.previewScene.traverse((object) => {
-        if (object.name) {
-          console.log(`  - ${object.name} (${object.type}):`, {
-            위치: object.position,
-            회전: object.rotation,
-            크기: object.scale,
-            가시성: object.visible
-          });
-        }
+        console.log(`  - ${object.name || 'unnamed'} (${object.type}): {위치: ${object.position}, 회전: ${object.rotation}, 크기: ${object.scale}, 가시성: ${object.visible}}`);
       });
+
+      // 🚀 애니메이션 디버깅 정보 표시
+      this.showAnimationDebugInfo();
 
       console.log(`=== 미리보기 씬 상태 업데이트 완료: ${time.toFixed(2)}초 ===`);
     } catch (error) {
       console.error('❌ 미리보기 씬 상태 업데이트 중 오류 발생:', error);
+    }
+  }
+
+  // 🚀 FBX 애니메이션 믹서 업데이트
+  updatePreviewAnimationMixers(time) {
+    if (!this.previewScene) {
+      console.log('⚠️ previewScene이 없어 애니메이션 믹서 업데이트를 건너뜁니다');
+      return;
+    }
+
+    if (!this.previewAnimationClock) {
+      console.log('⚠️ previewAnimationClock이 없어 애니메이션 믹서 업데이트를 건너뜁니다');
+      return;
+    }
+
+    try {
+      console.log(`🔄 FBX 애니메이션 믹서 업데이트 시작 (시간: ${time.toFixed(2)}초)`);
+      
+      // 애니메이션 클록 업데이트
+      const deltaTime = this.previewAnimationClock.getDelta();
+      console.log(`⏱️ 애니메이션 클록 deltaTime: ${deltaTime.toFixed(4)}초`);
+      
+      // 미리보기 씬의 모든 애니메이션 믹서 업데이트
+      let updatedMixers = 0;
+      let totalActions = 0;
+      let activeActions = 0;
+      
+      this.previewScene.traverse((object) => {
+        if (object.animationMixer) {
+          const mixer = object.animationMixer;
+          console.log(`🎬 객체 ${object.name}의 애니메이션 믹서 처리 중...`);
+          
+          // 🚀 핵심: 특정 시간으로 애니메이션 설정
+          if (mixer._actions && mixer._actions.length > 0) {
+            console.log(`  - 믹서에 ${mixer._actions.length}개의 액션 발견`);
+            
+            mixer._actions.forEach((action, index) => {
+              totalActions++;
+              
+              if (action._clip) {
+                const clip = action._clip;
+                console.log(`    - 액션 ${index + 1}: ${clip.name} (지속시간: ${clip.duration}초)`);
+                
+                // 🚀 현재 시간을 클립의 시간 범위로 변환
+                const clipTime = time % clip.duration;
+                const previousTime = action.time || 0;
+                
+                console.log(`      - 이전 시간: ${previousTime.toFixed(3)}초`);
+                console.log(`      - 새 시간: ${clipTime.toFixed(3)}초`);
+                console.log(`      - 시간 변화: ${(clipTime - previousTime).toFixed(3)}초`);
+                
+                // 🚀 액션 시간 설정
+                action.time = clipTime;
+                
+                // 🚀 액션이 활성 상태인지 확인하고 필요시 재시작
+                if (!action.isRunning()) {
+                  console.log(`      - 액션이 비활성 상태입니다. 재시작합니다.`);
+                  action.play();
+                  activeActions++;
+                } else {
+                  console.log(`      - 액션이 활성 상태입니다.`);
+                  activeActions++;
+                }
+                
+                // 🚀 액션 상태 상세 정보
+                console.log(`      - 액션 상태:`, {
+                  isRunning: action.isRunning(),
+                  timeScale: action.timeScale,
+                  weight: action.weight,
+                  enabled: action.enabled,
+                  time: action.time,
+                  duration: action._clip.duration
+                });
+              } else {
+                console.log(`    - 액션 ${index + 1}: 클립이 없습니다.`);
+              }
+            });
+          } else {
+            console.log(`  - 믹서에 액션이 없습니다.`);
+          }
+          
+          // 🚀 믹서 업데이트
+          try {
+            mixer.update(deltaTime);
+            updatedMixers++;
+            console.log(`  - 믹서 업데이트 완료`);
+          } catch (mixerUpdateError) {
+            console.warn(`  - 믹서 업데이트 실패:`, mixerUpdateError);
+          }
+        } else if (object.animations && object.animations.length > 0) {
+          console.log(`⚠️ 객체 ${object.name}에 애니메이션이 있지만 믹서가 없습니다.`);
+        }
+      });
+
+      console.log(`📊 애니메이션 믹서 업데이트 결과:`);
+      console.log(`  - 업데이트된 믹서: ${updatedMixers}개`);
+      console.log(`  - 총 액션: ${totalActions}개`);
+      console.log(`  - 활성 액션: ${activeActions}개`);
+      
+      if (updatedMixers > 0) {
+        console.log(`✅ ${updatedMixers}개 애니메이션 믹서 업데이트 완료`);
+      } else {
+        console.log(`⚠️ 업데이트된 애니메이션 믹서가 없습니다.`);
+      }
+    } catch (error) {
+      console.error('❌ FBX 애니메이션 믹서 업데이트 중 오류:', error);
     }
   }
 
@@ -838,40 +1510,40 @@ export class RenderTimeline {
 
     const scene = this.editor.scene;
     let updatedObjects = 0;
-    
+
     // 씬의 모든 객체를 순회하며 애니메이션 업데이트
     scene.traverse((object) => {
       let objectUpdated = false;
-      
+
       // 사용자 정의 애니메이션이 있는 경우
       if (object.userData && object.userData.animations) {
         this.updateObjectAnimation(object, time);
         objectUpdated = true;
       }
-      
+
       // 키프레임 애니메이션이 있는 경우
       if (object.userData && object.userData.keyframes) {
         this.updateObjectKeyframes(object, time);
         objectUpdated = true;
       }
-      
+
       // Three.js 기본 애니메이션 클립이 있는 경우
       if (object.animations && object.animations.length > 0) {
         this.updateObjectAnimations(object, time);
         objectUpdated = true;
       }
-      
+
       // 위치, 회전, 크기 애니메이션이 있는 경우
       if (object.userData && (object.userData.positionAnimation || object.userData.rotationAnimation || object.userData.scaleAnimation)) {
         this.updateObjectTransformAnimation(object, time);
         objectUpdated = true;
       }
-      
+
       if (objectUpdated) {
         updatedObjects++;
       }
     });
-    
+
     console.log(`애니메이션 업데이트 완료: ${updatedObjects}개 객체`);
   }
 
@@ -883,7 +1555,7 @@ export class RenderTimeline {
           if (animation.duration > 0) {
             // 애니메이션 시간을 0-1 범위로 정규화
             const normalizedTime = (time % animation.duration) / animation.duration;
-            
+
             // 애니메이션 클립 실행
             if (animation.tracks && animation.tracks.length > 0) {
               animation.tracks.forEach(track => {
@@ -923,7 +1595,7 @@ export class RenderTimeline {
           this.interpolatePosition(object, posAnim.keyframes, time);
         }
       }
-      
+
       // 회전 애니메이션
       if (object.userData.rotationAnimation) {
         const rotAnim = object.userData.rotationAnimation;
@@ -931,7 +1603,7 @@ export class RenderTimeline {
           this.interpolateRotation(object, rotAnim.keyframes, time);
         }
       }
-      
+
       // 크기 애니메이션
       if (object.userData.scaleAnimation) {
         const scaleAnim = object.userData.scaleAnimation;
@@ -992,10 +1664,10 @@ export class RenderTimeline {
   // 현재 시간에 맞는 키프레임 찾기
   findCurrentKeyframe(keyframes, time) {
     if (keyframes.length === 0) return null;
-    
+
     // 시간순으로 정렬
     const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
-    
+
     // 현재 시간보다 작거나 같은 가장 가까운 키프레임 찾기
     let currentKeyframe = sortedKeyframes[0];
     for (let i = 0; i < sortedKeyframes.length; i++) {
@@ -1005,18 +1677,18 @@ export class RenderTimeline {
         break;
       }
     }
-    
+
     return currentKeyframe;
   }
 
   // 위치 보간
   interpolatePosition(object, keyframes, time) {
     if (keyframes.length < 2) return;
-    
+
     const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
     const currentKeyframe = this.findCurrentKeyframe(sortedKeyframes, time);
     const nextKeyframe = sortedKeyframes.find(k => k.time > time);
-    
+
     if (currentKeyframe && nextKeyframe) {
       const t = (time - currentKeyframe.time) / (nextKeyframe.time - currentKeyframe.time);
       object.position.lerpVectors(currentKeyframe.position, nextKeyframe.position, t);
@@ -1028,11 +1700,11 @@ export class RenderTimeline {
   // 회전 보간
   interpolateRotation(object, keyframes, time) {
     if (keyframes.length < 2) return;
-    
+
     const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
     const currentKeyframe = this.findCurrentKeyframe(sortedKeyframes, time);
     const nextKeyframe = sortedKeyframes.find(k => k.time > time);
-    
+
     if (currentKeyframe && nextKeyframe) {
       const t = (time - currentKeyframe.time) / (nextKeyframe.time - currentKeyframe.time);
       object.quaternion.slerpQuaternions(currentKeyframe.rotation, nextKeyframe.rotation, t);
@@ -1044,11 +1716,11 @@ export class RenderTimeline {
   // 크기 보간
   interpolateScale(object, keyframes, time) {
     if (keyframes.length < 2) return;
-    
+
     const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
     const currentKeyframe = this.findCurrentKeyframe(sortedKeyframes, time);
     const nextKeyframe = sortedKeyframes.find(k => k.time > time);
-    
+
     if (currentKeyframe && nextKeyframe) {
       const t = (time - currentKeyframe.time) / (nextKeyframe.time - currentKeyframe.time);
       object.scale.lerpVectors(currentKeyframe.scale, nextKeyframe.scale, t);
@@ -1065,6 +1737,12 @@ export class RenderTimeline {
     }
 
     try {
+      // 🚀 핵심: 렌더링 직전에 애니메이션 믹서 업데이트
+      if (this.previewAnimationClock) {
+        const currentTime = this.currentFrame / this.fps;
+        this.updatePreviewAnimationMixers(currentTime);
+      }
+
       // 미리보기 씬 렌더링
       this.previewRenderer.render(this.previewScene, this.previewCamera);
       
@@ -1072,6 +1750,8 @@ export class RenderTimeline {
       this.updatePreviewCanvas();
       
       console.log('미리보기 씬 렌더링 완료:', {
+        frame: this.currentFrame,
+        time: (this.currentFrame / this.fps).toFixed(2),
         width: this.renderSettings.width,
         height: this.renderSettings.height,
         camera: this.previewCamera.type
@@ -1092,12 +1772,12 @@ export class RenderTimeline {
     try {
       // 미리보기 씬 렌더링
       this.previewRenderer.render(this.previewScene, this.previewCamera);
-      
+
       // 렌더링 결과를 미리보기 캔버스에 표시 (고정 해상도 사용)
       this.updatePreviewCanvasForPreview();
-      
+
       console.log('미리보기 전용 렌더링 완료');
-      
+
     } catch (error) {
       console.error('미리보기 전용 렌더링 중 오류:', error);
     }
@@ -1109,22 +1789,22 @@ export class RenderTimeline {
 
     // WebGL 렌더러의 DOM 요소를 캔버스에 복사
     const rendererElement = this.previewRenderer.domElement;
-    
+
     // 현재 렌더러의 실제 크기 가져오기
     const rendererSize = new THREE.Vector2();
     this.previewRenderer.getSize(rendererSize);
     const currentWidth = rendererSize.width;
     const currentHeight = rendererSize.height;
-    
+
     // 캔버스 크기에 맞게 스케일링
     const scale = Math.min(
       this.renderCanvas.width / currentWidth,
       this.renderCanvas.height / currentHeight
     );
-    
+
     const scaledWidth = currentWidth * scale;
     const scaledHeight = currentHeight * scale;
-    
+
     // 캔버스 중앙에 렌더링 결과 표시
     const offsetX = (this.renderCanvas.width - scaledWidth) / 2;
     const offsetY = (this.renderCanvas.height - scaledHeight) / 2;
@@ -1138,61 +1818,61 @@ export class RenderTimeline {
       // WebGL 컨텍스트에서 픽셀 데이터 읽기 (현재 렌더러 크기 사용)
       const gl = this.previewRenderer.getContext();
       const pixels = new Uint8Array(currentWidth * currentHeight * 4);
-      
+
       // 픽셀 데이터 읽기
       gl.readPixels(0, 0, currentWidth, currentHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-      
+
       // ImageData 생성
       const imageData = this.renderContext.createImageData(currentWidth, currentHeight);
-      
+
       // RGBA 순서를 맞추기 위해 픽셀 데이터 복사 (WebGL은 아래에서 위로, Canvas는 위에서 아래로)
       for (let y = 0; y < currentHeight; y++) {
         for (let x = 0; x < currentWidth; x++) {
           const srcIndex = (y * currentWidth + x) * 4;
           const dstIndex = ((currentHeight - 1 - y) * currentWidth + x) * 4;
-          
+
           imageData.data[dstIndex] = pixels[srcIndex];     // R
           imageData.data[dstIndex + 1] = pixels[srcIndex + 1]; // G
           imageData.data[dstIndex + 2] = pixels[srcIndex + 2]; // B
           imageData.data[dstIndex + 3] = pixels[srcIndex + 3]; // A
         }
       }
-      
+
       // 임시 캔버스에 ImageData 그리기
       const tempCanvas = this.renderWindow.document.createElement('canvas');
       tempCanvas.width = currentWidth;
       tempCanvas.height = currentHeight;
       const tempContext = tempCanvas.getContext('2d');
       tempContext.putImageData(imageData, 0, 0);
-      
+
       // 미리보기 캔버스에 스케일링하여 그리기
       this.renderContext.drawImage(
         tempCanvas,
         offsetX, offsetY,
         scaledWidth, scaledHeight
       );
-      
+
     } catch (error) {
       console.warn('WebGL 픽셀 데이터를 읽을 수 없습니다:', error);
-      
+
       // 대체 방법: 간단한 프레임 표시
       this.renderContext.fillStyle = '#333';
       this.renderContext.fillRect(offsetX, offsetY, scaledWidth, scaledHeight);
-      
+
       this.renderContext.fillStyle = '#4CAF50';
       this.renderContext.font = '16px Arial';
       this.renderContext.textAlign = 'center';
       this.renderContext.fillText(
-        `프레임 ${this.currentFrame}`, 
-        this.renderCanvas.width / 2, 
+        `프레임 ${this.currentFrame}`,
+        this.renderCanvas.width / 2,
         this.renderCanvas.height / 2
       );
-      
+
       this.renderContext.font = '14px Arial';
       this.renderContext.fillStyle = '#888';
       this.renderContext.fillText(
-        '애니메이션 미리보기', 
-        this.renderCanvas.width / 2, 
+        '애니메이션 미리보기',
+        this.renderCanvas.width / 2,
         this.renderCanvas.height / 2 + 25
       );
     }
@@ -1205,16 +1885,16 @@ export class RenderTimeline {
     // 미리보기용 고정 해상도 사용
     const previewWidth = 640;
     const previewHeight = 360;
-    
+
     // 캔버스 크기에 맞게 스케일링
     const scale = Math.min(
       this.renderCanvas.width / previewWidth,
       this.renderCanvas.height / previewHeight
     );
-    
+
     const scaledWidth = previewWidth * scale;
     const scaledHeight = previewHeight * scale;
-    
+
     // 캔버스 중앙에 렌더링 결과 표시
     const offsetX = (this.renderCanvas.width - scaledWidth) / 2;
     const offsetY = (this.renderCanvas.height - scaledHeight) / 2;
@@ -1228,61 +1908,61 @@ export class RenderTimeline {
       // WebGL 컨텍스트에서 픽셀 데이터 읽기 (고정 해상도 사용)
       const gl = this.previewRenderer.getContext();
       const pixels = new Uint8Array(previewWidth * previewHeight * 4);
-      
+
       // 픽셀 데이터 읽기
       gl.readPixels(0, 0, previewWidth, previewHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-      
+
       // ImageData 생성
       const imageData = this.renderContext.createImageData(previewWidth, previewHeight);
-      
+
       // RGBA 순서를 맞추기 위해 픽셀 데이터 복사 (WebGL은 아래에서 위로, Canvas는 위에서 아래로)
       for (let y = 0; y < previewHeight; y++) {
         for (let x = 0; x < previewWidth; x++) {
           const srcIndex = (y * previewWidth + x) * 4;
           const dstIndex = ((previewHeight - 1 - y) * previewWidth + x) * 4;
-          
+
           imageData.data[dstIndex] = pixels[srcIndex];     // R
           imageData.data[dstIndex + 1] = pixels[srcIndex + 1]; // G
           imageData.data[dstIndex + 2] = pixels[srcIndex + 2]; // B
           imageData.data[dstIndex + 3] = pixels[srcIndex + 3]; // A
         }
       }
-      
+
       // 임시 캔버스에 ImageData 그리기
       const tempCanvas = this.renderWindow.document.createElement('canvas');
       tempCanvas.width = previewWidth;
       tempCanvas.height = previewHeight;
       const tempContext = tempCanvas.getContext('2d');
       tempContext.putImageData(imageData, 0, 0);
-      
+
       // 미리보기 캔버스에 스케일링하여 그리기
       this.renderContext.drawImage(
         tempCanvas,
         offsetX, offsetY,
         scaledWidth, scaledHeight
       );
-      
+
     } catch (error) {
       console.warn('미리보기 WebGL 픽셀 데이터를 읽을 수 없습니다:', error);
-      
+
       // 대체 방법: 간단한 프레임 표시
       this.renderContext.fillStyle = '#333';
       this.renderContext.fillRect(offsetX, offsetY, scaledWidth, scaledHeight);
-      
+
       this.renderContext.fillStyle = '#4CAF50';
       this.renderContext.font = '16px Arial';
       this.renderContext.textAlign = 'center';
       this.renderContext.fillText(
-        `프레임 ${this.currentFrame}`, 
-        this.renderCanvas.width / 2, 
+        `프레임 ${this.currentFrame}`,
+        this.renderCanvas.width / 2,
         this.renderCanvas.height / 2
       );
-      
+
       this.renderContext.font = '14px Arial';
       this.renderContext.fillStyle = '#888';
       this.renderContext.fillText(
-        '애니메이션 미리보기', 
-        this.renderCanvas.width / 2, 
+        '애니메이션 미리보기',
+        this.renderCanvas.width / 2,
         this.renderCanvas.height / 2 + 25
       );
     }
@@ -1291,7 +1971,7 @@ export class RenderTimeline {
   // 렌더링 완료
   renderComplete() {
     this.isRendering = false;
-    
+
     const doc = this.renderWindow.document;
     const startBtn = doc.getElementById('startRender');
     const stopBtn = doc.getElementById('stopRender');
@@ -1308,7 +1988,7 @@ export class RenderTimeline {
     }
 
     console.log('렌더링 완료!');
-    
+
     // 다운로드 링크 생성 (실제 구현에서는 실제 파일 생성)
     this.createDownloadLink();
   }
@@ -1316,7 +1996,7 @@ export class RenderTimeline {
   // 다운로드 링크 생성
   createDownloadLink() {
     const doc = this.renderWindow.document;
-    
+
     const downloadSection = doc.createElement('div');
     downloadSection.className = 'render-info';
     downloadSection.style.marginTop = '20px';
@@ -1361,29 +2041,29 @@ export class RenderTimeline {
   async downloadVideo() {
     try {
       console.log('비디오 다운로드 시작...');
-      
+
       // 다운로드 상태 표시
       this.showDownloadStatus('비디오 렌더링 중...', 'info');
-      
+
       // MediaRecorder 설정
       const stream = this.renderCanvas.captureStream(30); // 30 FPS
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'video/webm;codecs=vp9',
         videoBitsPerSecond: 5000000 // 5 Mbps
       });
-      
+
       const chunks = [];
-      
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunks.push(event.data);
         }
       };
-      
+
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
-        
+
         // 다운로드 링크 생성
         const a = this.renderWindow.document.createElement('a');
         a.href = url;
@@ -1392,20 +2072,20 @@ export class RenderTimeline {
         this.renderWindow.document.body.appendChild(a);
         a.click();
         this.renderWindow.document.body.removeChild(a);
-        
+
         // 메모리 정리
         URL.revokeObjectURL(url);
-        
+
         this.showDownloadStatus('비디오 다운로드 완료!', 'success');
         console.log('비디오 다운로드 완료');
       };
-      
+
       // 렌더링 시작
       mediaRecorder.start();
-      
+
       // 타임라인 재생하면서 녹화
       await this.recordTimeline(mediaRecorder);
-      
+
     } catch (error) {
       console.error('비디오 다운로드 중 오류:', error);
       this.showDownloadStatus('비디오 다운로드 실패', 'error');
@@ -1416,26 +2096,26 @@ export class RenderTimeline {
   async recordTimeline(mediaRecorder) {
     const totalFrames = this.totalFrames;
     const frameInterval = 1000 / this.fps; // 프레임 간격 (밀리초)
-    
+
     console.log(`녹화 시작: ${totalFrames}프레임, ${frameInterval}ms 간격`);
-    
+
     for (let frame = 0; frame < totalFrames; frame++) {
       const time = frame / this.fps;
-      
+
       // 씬 상태 업데이트
       await this.updateSceneAtTime(time);
-      
+
       // 씬 렌더링
       await this.renderSceneToCanvas();
-      
+
       // 진행률 표시
       const progress = ((frame + 1) / totalFrames) * 100;
       this.showDownloadProgress(progress, frame + 1, totalFrames);
-      
+
       // 프레임 간 지연
       await new Promise(resolve => setTimeout(resolve, frameInterval));
     }
-    
+
     // 녹화 중지
     mediaRecorder.stop();
     console.log('녹화 완료');
@@ -1445,15 +2125,15 @@ export class RenderTimeline {
   async downloadFrames() {
     try {
       console.log('프레임 다운로드 시작...');
-      
+
       // 다운로드 상태 표시
       this.showDownloadStatus('프레임 렌더링 중...', 'info');
-      
+
       // JSZip 라이브러리 동적 로드
       if (typeof JSZip === 'undefined') {
         await this.loadJSZip();
       }
-      
+
       // ZIP 파일 생성을 위한 JSZip 라이브러리 확인
       if (typeof JSZip === 'undefined') {
         // JSZip이 없으면 개별 다운로드
@@ -1462,7 +2142,7 @@ export class RenderTimeline {
         // JSZip으로 압축 다운로드
         await this.downloadFramesAsZip();
       }
-      
+
     } catch (error) {
       console.error('프레임 다운로드 중 오류:', error);
       this.showDownloadStatus('프레임 다운로드 실패', 'error');
@@ -1473,29 +2153,29 @@ export class RenderTimeline {
   async loadJSZip() {
     try {
       this.showDownloadStatus('JSZip 라이브러리 로딩 중...', 'info');
-      
+
       // CDN에서 JSZip 로드
       const script = this.renderWindow.document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
       script.integrity = 'sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxfRXVXehLp89f3WfAXzWfqRAPqFqQwe/flFLhOq7/OsF9Vq0i0mUJbvw==';
       script.crossOrigin = 'anonymous';
-      
+
       return new Promise((resolve, reject) => {
         script.onload = () => {
           console.log('JSZip 라이브러리 로드 완료');
           this.showDownloadStatus('JSZip 로드 완료', 'success');
           resolve();
         };
-        
+
         script.onerror = () => {
           console.warn('JSZip 로드 실패, 개별 다운로드로 진행');
           this.showDownloadStatus('JSZip 로드 실패, 개별 다운로드로 진행', 'warning');
           reject(new Error('JSZip 로드 실패'));
         };
-        
+
         this.renderWindow.document.head.appendChild(script);
       });
-      
+
     } catch (error) {
       console.warn('JSZip 로드 중 오류:', error);
       throw error;
@@ -1506,30 +2186,30 @@ export class RenderTimeline {
   async downloadIndividualFrames() {
     const totalFrames = Math.min(100, this.totalFrames); // 최대 100프레임
     const frameInterval = Math.max(1, Math.floor(this.totalFrames / totalFrames));
-    
+
     console.log(`개별 프레임 다운로드: ${totalFrames}프레임`);
-    
+
     for (let i = 0; i < totalFrames; i++) {
       const frame = i * frameInterval;
       const time = frame / this.fps;
-      
+
       // 씬 상태 업데이트
       await this.updateSceneAtTime(time);
-      
+
       // 씬 렌더링
       await this.renderSceneToCanvas();
-      
+
       // 프레임을 이미지로 변환하여 다운로드
       await this.downloadFrameAsImage(frame, time);
-      
+
       // 진행률 표시
       const progress = ((i + 1) / totalFrames) * 100;
       this.showDownloadProgress(progress, i + 1, totalFrames);
-      
+
       // 프레임 간 지연
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
+
     this.showDownloadStatus('프레임 다운로드 완료!', 'success');
   }
 
@@ -1538,7 +2218,7 @@ export class RenderTimeline {
     try {
       // 캔버스를 이미지로 변환
       const dataURL = this.renderCanvas.toDataURL('image/png');
-      
+
       // 다운로드 링크 생성
       const a = this.renderWindow.document.createElement('a');
       a.href = dataURL;
@@ -1547,7 +2227,7 @@ export class RenderTimeline {
       this.renderWindow.document.body.appendChild(a);
       a.click();
       this.renderWindow.document.body.removeChild(a);
-      
+
     } catch (error) {
       console.warn(`프레임 ${frameNumber} 다운로드 실패:`, error);
     }
@@ -1557,41 +2237,41 @@ export class RenderTimeline {
   async downloadFramesAsZip() {
     const totalFrames = Math.min(200, this.totalFrames); // 최대 200프레임
     const frameInterval = Math.max(1, Math.floor(this.totalFrames / totalFrames));
-    
+
     console.log(`ZIP 프레임 다운로드: ${totalFrames}프레임`);
-    
+
     const zip = new JSZip();
     const framesFolder = zip.folder('frames');
-    
+
     for (let i = 0; i < totalFrames; i++) {
       const frame = i * frameInterval;
       const time = frame / this.fps;
-      
+
       // 씬 상태 업데이트
       await this.updateSceneAtTime(time);
-      
+
       // 씬 렌더링
       await this.renderSceneToCanvas();
-      
+
       // 프레임을 이미지로 변환하여 ZIP에 추가
       const dataURL = this.renderCanvas.toDataURL('image/png');
       const base64Data = dataURL.split(',')[1];
       const fileName = `frame_${frame.toString().padStart(4, '0')}_${time.toFixed(2)}s.png`;
-      
+
       framesFolder.file(fileName, base64Data, { base64: true });
-      
+
       // 진행률 표시
       const progress = ((i + 1) / totalFrames) * 100;
       this.showDownloadProgress(progress, i + 1, totalFrames);
-      
+
       // 프레임 간 지연
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    
+
     // ZIP 파일 생성 및 다운로드
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(zipBlob);
-    
+
     const a = this.renderWindow.document.createElement('a');
     a.href = url;
     a.download = `timeline_frames_${Date.now()}.zip`;
@@ -1599,10 +2279,10 @@ export class RenderTimeline {
     this.renderWindow.document.body.appendChild(a);
     a.click();
     this.renderWindow.document.body.removeChild(a);
-    
+
     // 메모리 정리
     URL.revokeObjectURL(url);
-    
+
     this.showDownloadStatus('ZIP 프레임 다운로드 완료!', 'success');
   }
 
@@ -1614,22 +2294,39 @@ export class RenderTimeline {
     }
 
     console.log('현재 프레임 미리보기 시작...');
-    
+
     try {
-      const currentTime = this.currentFrame / this.fps;
+      // 현재 타임라인 시간 가져오기
+      let currentTime = 0;
+      if (this.editor.timeline && this.editor.timeline.currentSeconds !== undefined) {
+        currentTime = this.editor.timeline.currentSeconds;
+      } else if (this.editor.motionTimeline && this.editor.motionTimeline.currentTime !== undefined) {
+        currentTime = this.editor.motionTimeline.currentTime;
+      } else {
+        currentTime = this.currentFrame / this.fps;
+      }
+
       console.log(`현재 프레임: ${this.currentFrame}, 시간: ${currentTime.toFixed(2)}초`);
-      
+
+      // 🚀 핵심: 애니메이션 클록 재설정
+      if (this.previewAnimationClock) {
+        this.previewAnimationClock.start();
+      }
+
+      // 🚀 핵심: 현재 시간에 맞는 애니메이션 믹서 업데이트
+      this.updatePreviewAnimationMixers(currentTime);
+
       // 씬 상태 업데이트
       await this.updateSceneAtTime(currentTime);
-      
+
       // 씬을 캔버스에 렌더링
       await this.renderSceneToCanvas();
-      
+
       console.log('현재 프레임 미리보기 완료');
-      
+
       // 미리보기 상태 표시
       this.showPreviewStatus('현재 프레임 미리보기 완료', 'success');
-      
+
     } catch (error) {
       console.error('현재 프레임 미리보기 중 오류 발생:', error);
       this.showPreviewStatus('미리보기 중 오류 발생', 'error');
@@ -1644,7 +2341,7 @@ export class RenderTimeline {
     }
 
     console.log('타임라인 미리보기 시작...');
-    
+
     try {
       // 빠른 미리보기를 위해 낮은 해상도로 설정
       const originalRendererSize = new THREE.Vector2();
@@ -1660,23 +2357,31 @@ export class RenderTimeline {
       // 미리보기용 프레임 수 제한 (성능 향상을 위해)
       const previewFrames = Math.min(60, this.totalFrames); // 최대 60프레임
       const frameInterval = Math.max(1, Math.floor(this.totalFrames / previewFrames));
-      
+
       console.log(`미리보기 설정: ${previewFrames}프레임, ${frameInterval}프레임 간격`);
 
       // 미리보기 진행률 표시
       this.showPreviewProgress(0, previewFrames);
 
+      // 🚀 핵심: 애니메이션 클록 재설정
+      if (this.previewAnimationClock) {
+        this.previewAnimationClock.start();
+      }
+
       // 애니메이션 미리보기 시작
       for (let i = 0; i < previewFrames; i++) {
         const frame = i * frameInterval;
         const time = frame / this.fps;
-        
+
         this.showPreviewProgress(i + 1, previewFrames);
         this.showPreviewStatus(`미리보기 프레임 ${i + 1}/${previewFrames}: ${frame}프레임 (${time.toFixed(2)}초)`, 'info');
+
+        // 🚀 핵심: 각 프레임마다 애니메이션 믹서 업데이트
+        this.updatePreviewAnimationMixers(time);
         
         await this.updateSceneAtTime(time);
         await this.renderSceneToCanvas(); // renderSceneToCanvasForPreview 대신 renderSceneToCanvas 사용
-        
+
         await new Promise(resolve => setTimeout(resolve, 100)); // 시각적 확인을 위한 딜레이
       }
 
@@ -1696,15 +2401,15 @@ export class RenderTimeline {
   // 미리보기 진행률 표시
   showPreviewProgress(current, total) {
     if (!this.renderWindow || this.renderWindow.closed) return;
-    
+
     const doc = this.renderWindow.document;
     const progressElement = doc.getElementById('previewProgress');
-    
+
     if (!progressElement) {
       // 진행률 표시 요소가 없으면 생성
       this.createPreviewProgressElement();
     }
-    
+
     const progress = (current / total) * 100;
     const progressElement2 = doc.getElementById('previewProgress');
     if (progressElement2) {
@@ -1716,10 +2421,10 @@ export class RenderTimeline {
   // 미리보기 진행률 요소 생성
   createPreviewProgressElement() {
     if (!this.renderWindow || this.renderWindow.closed) return;
-    
+
     const doc = this.renderWindow.document;
     const previewSection = doc.querySelector('.render-preview');
-    
+
     if (previewSection) {
       const progressContainer = doc.createElement('div');
       progressContainer.style.cssText = `
@@ -1728,7 +2433,7 @@ export class RenderTimeline {
         border-radius: 4px;
         overflow: hidden;
       `;
-      
+
       const progressBar = doc.createElement('div');
       progressBar.id = 'previewProgress';
       progressBar.style.cssText = `
@@ -1742,7 +2447,7 @@ export class RenderTimeline {
         transition: width 0.3s ease;
       `;
       progressBar.textContent = '0/0 (0%)';
-      
+
       progressContainer.appendChild(progressBar);
       previewSection.appendChild(progressContainer);
     }
@@ -1751,17 +2456,17 @@ export class RenderTimeline {
   // 미리보기 상태 표시
   showPreviewStatus(message, type = 'info') {
     if (!this.renderWindow || this.renderWindow.closed) return;
-    
+
     const doc = this.renderWindow.document;
     const previewSection = doc.querySelector('.render-preview');
-    
+
     if (previewSection) {
       // 기존 상태 메시지 제거
       const existingStatus = previewSection.querySelector('.preview-status');
       if (existingStatus) {
         existingStatus.remove();
       }
-      
+
       // 새 상태 메시지 생성
       const statusElement = doc.createElement('div');
       statusElement.className = 'preview-status';
@@ -1773,7 +2478,7 @@ export class RenderTimeline {
         font-size: 14px;
         font-weight: bold;
       `;
-      
+
       // 타입에 따른 스타일 설정
       switch (type) {
         case 'success':
@@ -1792,10 +2497,10 @@ export class RenderTimeline {
           statusElement.style.background = '#2196F3';
           statusElement.style.color = 'white';
       }
-      
+
       statusElement.textContent = message;
       previewSection.appendChild(statusElement);
-      
+
       // 3초 후 자동으로 제거
       setTimeout(() => {
         if (statusElement.parentNode) {
@@ -1810,40 +2515,40 @@ export class RenderTimeline {
     if (!this.renderContext) return;
 
     const canvas = this.renderCanvas;
-    
+
     // 배경
     this.renderContext.fillStyle = '#000';
     this.renderContext.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     // 그리드
     this.renderContext.strokeStyle = '#333';
     this.renderContext.lineWidth = 1;
-    
+
     for (let x = 0; x < canvas.width; x += 50) {
       this.renderContext.beginPath();
       this.renderContext.moveTo(x, 0);
       this.renderContext.lineTo(x, canvas.height);
       this.renderContext.stroke();
     }
-    
+
     for (let y = 0; y < canvas.height; y += 50) {
       this.renderContext.beginPath();
       this.renderContext.moveTo(0, y);
       this.renderContext.lineTo(canvas.width, y);
       this.renderContext.stroke();
     }
-    
+
     // 중앙 텍스트
     this.renderContext.fillStyle = '#4CAF50';
     this.renderContext.font = '24px Arial';
     this.renderContext.textAlign = 'center';
     this.renderContext.fillText('렌더링 미리보기', canvas.width / 2, canvas.height / 2);
-    
+
     this.renderContext.font = '16px Arial';
     this.renderContext.fillStyle = '#888';
     this.renderContext.fillText(
-      `${this.renderSettings.width} x ${this.renderSettings.height}`, 
-      canvas.width / 2, 
+      `${this.renderSettings.width} x ${this.renderSettings.height}`,
+      canvas.width / 2,
       canvas.height / 2 + 30
     );
   }
@@ -1866,17 +2571,17 @@ export class RenderTimeline {
   // 다운로드 상태 표시
   showDownloadStatus(message, type = 'info') {
     if (!this.renderWindow || this.renderWindow.closed) return;
-    
+
     const doc = this.renderWindow.document;
     const downloadSection = doc.querySelector('.render-info:last-child');
-    
+
     if (downloadSection) {
       // 기존 상태 메시지 제거
       const existingStatus = downloadSection.querySelector('.download-status');
       if (existingStatus) {
         existingStatus.remove();
       }
-      
+
       // 새 상태 메시지 생성
       const statusElement = doc.createElement('div');
       statusElement.className = 'download-status';
@@ -1888,7 +2593,7 @@ export class RenderTimeline {
         font-size: 14px;
         font-weight: bold;
       `;
-      
+
       // 타입에 따른 스타일 설정
       switch (type) {
         case 'success':
@@ -1907,10 +2612,10 @@ export class RenderTimeline {
           statusElement.style.background = '#2196F3';
           statusElement.style.color = 'white';
       }
-      
+
       statusElement.textContent = message;
       downloadSection.appendChild(statusElement);
-      
+
       // 5초 후 자동으로 제거
       setTimeout(() => {
         if (statusElement.parentNode) {
@@ -1923,17 +2628,17 @@ export class RenderTimeline {
   // 다운로드 진행률 표시
   showDownloadProgress(progress, current, total) {
     if (!this.renderWindow || this.renderWindow.closed) return;
-    
+
     const doc = this.renderWindow.document;
     const downloadSection = doc.querySelector('.render-info:last-child');
-    
+
     if (downloadSection) {
       // 기존 진행률 표시 제거
       const existingProgress = downloadSection.querySelector('.download-progress');
       if (existingProgress) {
         existingProgress.remove();
       }
-      
+
       // 새 진행률 표시 생성
       const progressContainer = doc.createElement('div');
       progressContainer.className = 'download-progress';
@@ -1943,7 +2648,7 @@ export class RenderTimeline {
         border-radius: 4px;
         overflow: hidden;
       `;
-      
+
       const progressBar = doc.createElement('div');
       progressBar.style.cssText = `
         width: ${progress}%;
@@ -1956,7 +2661,7 @@ export class RenderTimeline {
         transition: width 0.3s ease;
       `;
       progressBar.textContent = `${current}/${total} (${progress.toFixed(1)}%)`;
-      
+
       progressContainer.appendChild(progressBar);
       downloadSection.appendChild(progressContainer);
     }
@@ -1968,23 +2673,105 @@ export class RenderTimeline {
       console.log('미리보기 씬이 아직 생성되지 않았습니다.');
       return;
     }
+
+    console.log('🔍 === 애니메이션 디버깅 정보 시작 ===');
     
     const scene = this.previewScene;
     let animationObjects = 0;
     let totalObjects = 0;
-    
+    let fbxMixers = 0;
+    let activeActions = 0;
+    let totalActions = 0;
+
     scene.traverse((object) => {
       totalObjects++;
-      
+
+      // 🚀 FBX 애니메이션 믹서 확인 (userData.animationMixer)
+      if (object.userData && object.userData.animationMixer) {
+        fbxMixers++;
+        const mixer = object.userData.animationMixer;
+        const actions = mixer._actions ? mixer._actions.length : 0;
+        totalActions += actions;
+        
+        console.log(`🎬 FBX 애니메이션 믹서 발견 (userData):`, {
+          name: object.name || 'unnamed',
+          type: object.type,
+          mixer: mixer,
+          actions: actions,
+          animations: object.animations ? object.animations.length : 0
+        });
+        
+        // 액션 상태 상세 정보
+        if (mixer._actions) {
+          mixer._actions.forEach((action, index) => {
+            if (action.isRunning()) activeActions++;
+            console.log(`  - 액션 ${index + 1}:`, {
+              name: action._clip ? action._clip.name : 'unknown',
+              isRunning: action.isRunning(),
+              time: action.time,
+              weight: action.weight,
+              enabled: action.enabled
+            });
+          });
+        }
+      }
+
+      // 🚀 FBX 애니메이션 믹서 확인 (직접 속성)
+      if (object.animationMixer) {
+        fbxMixers++;
+        const mixer = object.animationMixer;
+        const actions = mixer._actions ? mixer._actions.length : 0;
+        totalActions += actions;
+        
+        console.log(`🎬 FBX 애니메이션 믹서 발견 (직접):`, {
+          name: object.name || 'unnamed',
+          type: object.type,
+          mixer: mixer,
+          actions: actions,
+          animations: object.animations ? object.animations.length : 0
+        });
+        
+        // 액션 상태 상세 정보
+        if (mixer._actions) {
+          mixer._actions.forEach((action, index) => {
+            if (action.isRunning()) activeActions++;
+            console.log(`  - 액션 ${index + 1}:`, {
+              name: action._clip ? action._clip.name : 'unknown',
+              isRunning: action.isRunning(),
+              time: action.time,
+              weight: action.weight,
+              enabled: action.enabled
+            });
+          });
+        }
+      }
+
+      // 🚀 애니메이션 클립 확인
+      if (object.animations && object.animations.length > 0) {
+        animationObjects++;
+        console.log(`🎬 애니메이션 클립 발견:`, {
+          name: object.name || 'unnamed',
+          type: object.type,
+          clips: object.animations.length,
+          clipDetails: object.animations.map((clip, index) => ({
+            index: index,
+            name: clip.name,
+            duration: clip.duration,
+            tracks: clip.tracks.length
+          }))
+        });
+      }
+
+      // 🚀 사용자 정의 애니메이션 데이터 확인
       if (object.userData && (
-        object.userData.animations || 
-        object.userData.keyframes || 
-        object.userData.positionAnimation || 
-        object.userData.rotationAnimation || 
+        object.userData.animations ||
+        object.userData.keyframes ||
+        object.userData.positionAnimation ||
+        object.userData.rotationAnimation ||
         object.userData.scaleAnimation
       )) {
         animationObjects++;
-        console.log(`애니메이션 객체 발견:`, {
+        console.log(`🎬 사용자 정의 애니메이션 데이터 발견:`, {
           name: object.name || 'unnamed',
           type: object.type,
           userData: object.userData,
@@ -1992,50 +2779,89 @@ export class RenderTimeline {
         });
       }
     });
-    
-    console.log(`미리보기 씬 애니메이션 디버깅 정보: 총 ${totalObjects}개 객체 중 ${animationObjects}개가 애니메이션 포함`);
-    
-    // 타임라인 정보도 표시
+
+    console.log(`📊 === 애니메이션 디버깅 정보 요약 ===`);
+    console.log(`  - 총 객체 수: ${totalObjects}개`);
+    console.log(`  - 애니메이션 포함 객체: ${animationObjects}개`);
+    console.log(`  - FBX 애니메이션 믹서: ${fbxMixers}개`);
+    console.log(`  - 총 액션 수: ${totalActions}개`);
+    console.log(`  - 활성 액션 수: ${activeActions}개`);
+
+    // 🚀 미리보기 애니메이션 클록 정보
+    if (this.previewAnimationClock) {
+      console.log('⏱️ 미리보기 애니메이션 클록 상태:', {
+        autoStart: this.previewAnimationClock.autoStart,
+        startTime: this.previewAnimationClock.startTime,
+        oldTime: this.previewAnimationClock.oldTime,
+        elapsedTime: this.previewAnimationClock.elapsedTime,
+        running: this.previewAnimationClock.running
+      });
+    } else {
+      console.log('⚠️ 미리보기 애니메이션 클록이 없습니다.');
+    }
+
+    // 🚀 타임라인 정보 표시
+    if (this.editor.timeline && this.editor.timeline.timelines && this.editor.timeline.timelines.motion) {
+      const motionTimeline = this.editor.timeline.timelines.motion;
+      console.log('🎯 MotionTimeline 상태:', {
+        hasTimelineData: !!motionTimeline.timelineData,
+        tracksSize: motionTimeline.timelineData ? motionTimeline.timelineData.tracks.size : 'undefined',
+        tracksKeys: motionTimeline.timelineData ? Array.from(motionTimeline.timelineData.tracks.keys()) : 'undefined'
+      });
+    } else {
+      console.log('⚠️ editor.timeline.timelines.motion이 없습니다.');
+    }
+
     if (this.editor.motionTimeline) {
-      console.log('MotionTimeline 상태:', {
+      console.log('🎯 editor.motionTimeline 상태:', {
         currentTime: this.editor.motionTimeline.currentTime,
         hasUpdateAnimation: typeof this.editor.motionTimeline.updateAnimation === 'function',
-        hasUpdateFrame: typeof this.editor.motionTimeline.updateFrame === 'function'
+        hasUpdateFrame: typeof this.editor.motionTimeline.updateFrame === 'function',
+        hasTimelineData: !!this.editor.motionTimeline.timelineData,
+        timelineDataTracks: this.editor.motionTimeline.timelineData ? this.editor.motionTimeline.timelineData.tracks.size : 'undefined'
       });
+    } else {
+      console.log('⚠️ editor.motionTimeline이 없습니다.');
     }
-    
+
     if (this.editor.lightTimeline) {
-      console.log('LightTimeline 상태:', {
+      console.log('💡 LightTimeline 상태:', {
         currentTime: this.editor.lightTimeline.currentTime,
         hasUpdateAnimation: typeof this.editor.lightTimeline.updateAnimation === 'function',
         hasUpdateFrame: typeof this.editor.lightTimeline.updateFrame === 'function'
       });
+    } else {
+      console.log('⚠️ editor.lightTimeline이 없습니다.');
     }
-    
+
     if (this.editor.audioTimeline) {
-      console.log('AudioTimeline 상태:', {
+      console.log('🎵 AudioTimeline 상태:', {
         currentTime: this.editor.audioTimeline.currentTime
       });
+    } else {
+      console.log('⚠️ editor.audioTimeline이 없습니다.');
     }
+
+    console.log('🔍 === 애니메이션 디버깅 정보 완료 ===');
   }
 
   // MotionTimeline 애니메이션을 미리보기 씬에 적용
   applyMotionTimelineToPreview(time) {
     if (!this.editor.motionTimeline || !this.previewScene) return;
-    
+
     try {
       console.log('MotionTimeline 애니메이션 적용 시작:', time);
-      
+
       // MotionTimeline의 TimelineData에서 직접 애니메이션 데이터 가져오기
       if (this.editor.motionTimeline.timelineData) {
         const timelineData = this.editor.motionTimeline.timelineData;
         console.log('TimelineData 발견:', timelineData);
-        
+
         // 모든 트랙에 대해 애니메이션 적용
         timelineData.getAllTracksByUuid().forEach((trackInfo, trackKey) => {
           const objectUuid = trackKey.split('_')[0];
           const property = trackKey.split('_')[1];
-          
+
           // 미리보기 씬에서 해당 객체 찾기
           let previewObject = null;
           this.previewScene.traverse((object) => {
@@ -2043,18 +2869,18 @@ export class RenderTimeline {
               previewObject = object;
             }
           });
-          
+
           if (!previewObject) {
             console.log(`미리보기 씬에서 객체를 찾을 수 없습니다: ${objectUuid}`);
             return;
           }
-          
+
           // TrackData에서 현재 시간에 맞는 값 가져오기
           const trackData = timelineData.getObjectTracks(objectUuid);
           if (trackData && trackData.has(property)) {
             const propertyTrack = trackData.get(property);
             const value = propertyTrack.getValueAtTime(time);
-            
+
             if (value !== null && value !== undefined) {
               console.log(`애니메이션 적용: ${objectUuid} ${property} =`, value);
               this.applyValueToPreviewObject(previewObject, property, value);
@@ -2062,7 +2888,7 @@ export class RenderTimeline {
           }
         });
       }
-      
+
       // 또는 기존 방식으로 원본 씬의 상태를 미리보기 씬에 복사
       this.previewScene.traverse((object) => {
         if (this.editor.scene) {
@@ -2075,7 +2901,7 @@ export class RenderTimeline {
           }
         }
       });
-      
+
       console.log('MotionTimeline 애니메이션 미리보기 씬에 적용 완료');
     } catch (error) {
       console.warn('MotionTimeline 애니메이션 적용 중 오류:', error);
@@ -2085,20 +2911,20 @@ export class RenderTimeline {
   // LightTimeline 애니메이션을 미리보기 씬에 적용
   applyLightTimelineToPreview(time) {
     if (!this.editor.lightTimeline || !this.previewScene) return;
-    
+
     try {
       console.log('LightTimeline 애니메이션 적용 시작:', time);
-      
+
       // LightTimeline의 TimelineData에서 직접 애니메이션 데이터 가져오기
       if (this.editor.lightTimeline.timelineData) {
         const timelineData = this.editor.lightTimeline.timelineData;
         console.log('LightTimeline TimelineData 발견:', timelineData);
-        
+
         // 모든 트랙에 대해 애니메이션 적용
         timelineData.getAllTracksByUuid().forEach((trackInfo, trackKey) => {
           const objectUuid = trackKey.split('_')[0];
           const property = trackKey.split('_')[1];
-          
+
           // 미리보기 씬에서 해당 조명 객체 찾기
           let previewObject = null;
           this.previewScene.traverse((object) => {
@@ -2106,18 +2932,18 @@ export class RenderTimeline {
               previewObject = object;
             }
           });
-          
+
           if (!previewObject) {
             console.log(`미리보기 씬에서 조명 객체를 찾을 수 없습니다: ${objectUuid}`);
             return;
           }
-          
+
           // TrackData에서 현재 시간에 맞는 값 가져오기
           const trackData = timelineData.getObjectTracks(objectUuid);
           if (trackData && trackData.has(property)) {
             const propertyTrack = trackData.get(property);
             const value = propertyTrack.getValueAtTime(time);
-            
+
             if (value !== null && value !== undefined) {
               console.log(`조명 애니메이션 적용: ${objectUuid} ${property} =`, value);
               this.applyLightValueToPreviewObject(previewObject, property, value);
@@ -2125,7 +2951,7 @@ export class RenderTimeline {
           }
         });
       }
-      
+
     } catch (error) {
       console.warn('LightTimeline 애니메이션 적용 중 오류:', error);
     }
@@ -2137,40 +2963,40 @@ export class RenderTimeline {
 
     const scene = this.previewScene;
     let updatedObjects = 0;
-    
+
     // 미리보기 씬의 모든 객체를 순회하며 애니메이션 업데이트
     scene.traverse((object) => {
       let objectUpdated = false;
-      
+
       // 사용자 정의 애니메이션이 있는 경우
       if (object.userData && object.userData.animations) {
         this.updatePreviewObjectAnimation(object, time);
         objectUpdated = true;
       }
-      
+
       // 키프레임 애니메이션이 있는 경우
       if (object.userData && object.userData.keyframes) {
         this.updatePreviewObjectKeyframes(object, time);
         objectUpdated = true;
       }
-      
+
       // Three.js 기본 애니메이션 클립이 있는 경우
       if (object.animations && object.animations.length > 0) {
         this.updatePreviewObjectAnimations(object, time);
         objectUpdated = true;
       }
-      
+
       // 위치, 회전, 크기 애니메이션이 있는 경우
       if (object.userData && (object.userData.positionAnimation || object.userData.rotationAnimation || object.userData.scaleAnimation)) {
         this.updatePreviewObjectTransformAnimation(object, time);
         objectUpdated = true;
       }
-      
+
       if (objectUpdated) {
         updatedObjects++;
       }
     });
-    
+
     console.log(`미리보기 씬 애니메이션 업데이트 완료: ${updatedObjects}개 객체`);
   }
 
@@ -2182,7 +3008,7 @@ export class RenderTimeline {
           if (animation.duration > 0) {
             // 애니메이션 시간을 0-1 범위로 정규화
             const normalizedTime = (time % animation.duration) / animation.duration;
-            
+
             // 애니메이션 클립 실행
             if (animation.tracks && animation.tracks.length > 0) {
               animation.tracks.forEach(track => {
@@ -2222,7 +3048,7 @@ export class RenderTimeline {
           this.interpolatePreviewPosition(object, posAnim.keyframes, time);
         }
       }
-      
+
       // 회전 애니메이션
       if (object.userData.rotationAnimation) {
         const rotAnim = object.userData.rotationAnimation;
@@ -2230,7 +3056,7 @@ export class RenderTimeline {
           this.interpolatePreviewRotation(object, rotAnim.keyframes, time);
         }
       }
-      
+
       // 크기 애니메이션
       if (object.userData.scaleAnimation) {
         const scaleAnim = object.userData.scaleAnimation;
@@ -2291,11 +3117,11 @@ export class RenderTimeline {
   // 미리보기 씬용 위치 보간
   interpolatePreviewPosition(object, keyframes, time) {
     if (keyframes.length < 2) return;
-    
+
     const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
     const currentKeyframe = this.findCurrentKeyframe(sortedKeyframes, time);
     const nextKeyframe = sortedKeyframes.find(k => k.time > time);
-    
+
     if (currentKeyframe && nextKeyframe) {
       const t = (time - currentKeyframe.time) / (nextKeyframe.time - currentKeyframe.time);
       object.position.lerpVectors(currentKeyframe.position, nextKeyframe.position, t);
@@ -2307,11 +3133,11 @@ export class RenderTimeline {
   // 미리보기 씬용 회전 보간
   interpolatePreviewRotation(object, keyframes, time) {
     if (keyframes.length < 2) return;
-    
+
     const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
     const currentKeyframe = this.findCurrentKeyframe(sortedKeyframes, time);
     const nextKeyframe = sortedKeyframes.find(k => k.time > time);
-    
+
     if (currentKeyframe && nextKeyframe) {
       const t = (time - currentKeyframe.time) / (nextKeyframe.time - currentKeyframe.time);
       object.quaternion.slerpQuaternions(currentKeyframe.rotation, nextKeyframe.rotation, t);
@@ -2323,11 +3149,11 @@ export class RenderTimeline {
   // 미리보기 씬용 크기 보간
   interpolatePreviewScale(object, keyframes, time) {
     if (keyframes.length < 2) return;
-    
+
     const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
     const currentKeyframe = this.findCurrentKeyframe(sortedKeyframes, time);
     const nextKeyframe = sortedKeyframes.find(k => k.time > time);
-    
+
     if (currentKeyframe && nextKeyframe) {
       const t = (time - currentKeyframe.time) / (nextKeyframe.time - currentKeyframe.time);
       object.scale.lerpVectors(currentKeyframe.scale, nextKeyframe.scale, t);
@@ -2340,17 +3166,17 @@ export class RenderTimeline {
   applyKeyframeAnimationToObject(obj, time) {
     try {
       if (!obj.animation || !obj.animation.keyframes) return;
-      
+
       const keyframes = obj.animation.keyframes;
       if (keyframes.length === 0) return;
-      
+
       // 시간순으로 정렬
       const sortedKeyframes = keyframes.sort((a, b) => a.time - b.time);
-      
+
       // 현재 시간에 맞는 키프레임 찾기
       let currentKeyframe = sortedKeyframes[0];
       let nextKeyframe = null;
-      
+
       for (let i = 0; i < sortedKeyframes.length; i++) {
         if (sortedKeyframes[i].time <= time) {
           currentKeyframe = sortedKeyframes[i];
@@ -2361,7 +3187,7 @@ export class RenderTimeline {
           break;
         }
       }
-      
+
       // 미리보기 씬에서 해당 객체 찾기
       let previewObject = null;
       this.previewScene.traverse((object) => {
@@ -2369,9 +3195,9 @@ export class RenderTimeline {
           previewObject = object;
         }
       });
-      
+
       if (!previewObject) return;
-      
+
       // 키프레임 값 적용
       if (currentKeyframe.position) {
         if (nextKeyframe && nextKeyframe.position) {
@@ -2386,7 +3212,7 @@ export class RenderTimeline {
           previewObject.position.copy(currentKeyframe.position);
         }
       }
-      
+
       if (currentKeyframe.rotation) {
         if (nextKeyframe && nextKeyframe.rotation) {
           // 회전 보간
@@ -2400,7 +3226,7 @@ export class RenderTimeline {
           previewObject.quaternion.copy(currentKeyframe.rotation);
         }
       }
-      
+
       if (currentKeyframe.scale) {
         if (nextKeyframe && nextKeyframe.scale) {
           // 크기 보간
@@ -2414,7 +3240,7 @@ export class RenderTimeline {
           previewObject.scale.copy(currentKeyframe.scale);
         }
       }
-      
+
     } catch (error) {
       console.warn('키프레임 애니메이션 적용 중 오류:', error);
     }
@@ -2430,29 +3256,29 @@ export class RenderTimeline {
             console.log(`위치 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         case 'rotation':
           if (value && typeof value.x === 'number' && typeof value.y === 'number' && typeof value.z === 'number') {
             object.rotation.set(value.x, value.y, value.z);
             console.log(`회전 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         case 'scale':
           if (value && typeof value.x === 'number' && typeof value.y === 'number' && typeof value.z === 'number') {
             object.scale.set(value.x, value.y, value.z);
             console.log(`크기 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         case 'quaternion':
-          if (value && typeof value.x === 'number' && typeof value.y === 'number' && 
-              typeof value.z === 'number' && typeof value.w === 'number') {
+          if (value && typeof value.x === 'number' && typeof value.y === 'number' &&
+            typeof value.z === 'number' && typeof value.w === 'number') {
             object.quaternion.set(value.x, value.y, value.z, value.w);
             console.log(`쿼터니언 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         default:
           console.log(`알 수 없는 속성: ${property}`, value);
       }
@@ -2471,28 +3297,28 @@ export class RenderTimeline {
             console.log(`조명 강도 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         case 'color':
           if (value && typeof value.r === 'number' && typeof value.g === 'number' && typeof value.b === 'number') {
             object.color.setRGB(value.r, value.g, value.b);
             console.log(`조명 색상 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         case 'position':
           if (value && typeof value.x === 'number' && typeof value.y === 'number' && typeof value.z === 'number') {
             object.position.set(value.x, value.y, value.z);
             console.log(`조명 위치 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         case 'rotation':
           if (value && typeof value.x === 'number' && typeof value.y === 'number' && typeof value.z === 'number') {
             object.rotation.set(value.x, value.y, value.z);
             console.log(`조명 회전 업데이트: ${object.name}`, value);
           }
           break;
-          
+
         default:
           console.log(`알 수 없는 조명 속성: ${property}`, value);
       }
@@ -2500,4 +3326,536 @@ export class RenderTimeline {
       console.warn(`조명 애니메이션 값 적용 중 오류 (${property}):`, error);
     }
   }
+
+  // 타임라인 데이터를 실제 객체에 직접 적용
+  applyTimelineDataToObjects(time) {
+    if (!this.editor || !this.editor.scene) return;
+
+    console.log(`=== 타임라인 데이터를 객체에 적용 시작: ${time.toFixed(2)}초 ===`);
+
+    try {
+      // 🚀 핵심: editor.timeline.timelines.motion.timelineData.tracks에서 직접 데이터 가져오기
+      if (this.editor.timeline && this.editor.timeline.timelines && this.editor.timeline.timelines.motion && this.editor.timeline.timelines.motion.timelineData) {
+        console.log('✅ editor.timeline.timelines.motion.timelineData에서 데이터 발견!');
+        this.applyMotionTimelineDataFromEditor(time);
+      }
+      // 대안: scene.userData.motionTimeline에서 가져오기
+      else if (this.editor.scene.userData && this.editor.scene.userData.motionTimeline) {
+        console.log('⚠️ scene.userData.motionTimeline에서 데이터 가져오기 (대안)');
+        this.applyMotionTimelineDataFromScene(time);
+      }
+      // 대안: editor.motionTimeline에서 가져오기
+      else if (this.editor.motionTimeline && this.editor.motionTimeline.timelineData) {
+        console.log('⚠️ editor.motionTimeline.timelineData에서 데이터 가져오기 (대안)');
+        this.applyMotionTimelineData(time);
+      }
+      // 최후 수단: 원본 씬 상태 복사
+      else {
+        console.log('❌ motionTimeline 데이터를 찾을 수 없어 원본 씬 상태를 복사합니다.');
+        this.copyOriginalSceneState();
+      }
+
+      // LightTimeline 데이터 적용
+      if (this.editor.lightTimeline && this.editor.lightTimeline.timelineData) {
+        this.applyLightTimelineData(time);
+      }
+
+      console.log('타임라인 데이터 적용 완료');
+    } catch (error) {
+      console.error('타임라인 데이터 적용 중 오류:', error);
+    }
+  }
+
+  // 🚀 핵심: editor.timeline.timelines.motion.timelineData.tracks에서 직접 데이터 가져와서 적용
+  applyMotionTimelineDataFromEditor(time) {
+    const timelineData = this.editor.timeline.timelines.motion.timelineData;
+    if (!timelineData) {
+      console.log('❌ editor.timeline.timelines.motion.timelineData가 없습니다.');
+      return;
+    }
+
+    console.log('🔍 editor.timeline.timelines.motion.timelineData 구조 분석:', {
+      hasTracks: !!timelineData.tracks,
+      tracksSize: timelineData.tracks ? timelineData.tracks.size : 'undefined',
+      tracksKeys: timelineData.tracks ? Array.from(timelineData.tracks.keys()) : 'undefined'
+    });
+
+    try {
+      if (timelineData.tracks && timelineData.tracks.size > 0) {
+        console.log('✅ editor.timeline.timelines.motion.timelineData tracks 발견:', timelineData.tracks.size);
+
+        // 🚀 핵심: 각 객체별로 클립 시간 범위 확인 및 가시성 처리
+        timelineData.tracks.forEach((objectTracks, objectUuid) => {
+          console.log(`🔍 객체 UUID ${objectUuid} 처리 시작...`);
+          
+          // scene에서 해당 객체 찾기
+          const originalObject = this.editor.scene.getObjectByProperty('uuid', objectUuid);
+          if (!originalObject) {
+            console.warn(`⚠️ UUID ${objectUuid}의 객체를 scene에서 찾을 수 없음`);
+            return;
+          }
+
+          // 🚀 UUID 매핑을 통해 미리보기 씬에서 해당 객체 찾기
+          let previewObject = null;
+          
+          // 1. UUID 매핑에서 찾기
+          if (this.uuidMapping && this.uuidMapping.has(objectUuid)) {
+            previewObject = this.uuidMapping.get(objectUuid);
+            console.log(`✅ UUID 매핑에서 객체 발견: ${objectUuid} -> ${previewObject.name || previewObject.type}`);
+          } else {
+            // 2. 매핑에서 찾을 수 없으면 직접 검색 (fallback)
+            this.previewScene.traverse((object) => {
+              if (object.uuid === objectUuid) {
+                previewObject = object;
+              }
+            });
+            
+            if (previewObject) {
+              console.log(`⚠️ UUID 매핑에서 찾을 수 없어 직접 검색으로 발견: ${objectUuid}`);
+            }
+          }
+
+          if (!previewObject) {
+            console.warn(`⚠️ UUID ${objectUuid}의 객체를 미리보기 씬에서 찾을 수 없음`);
+            console.log(`🔍 UUID 매핑 크기: ${this.uuidMapping ? this.uuidMapping.size : 'undefined'}`);
+            console.log(`🔍 매핑된 UUID들:`, this.uuidMapping ? Array.from(this.uuidMapping.keys()) : 'undefined');
+            return;
+          }
+
+          console.log(`✅ 객체 발견: ${originalObject.name} (${originalObject.type})`);
+
+          // 🚀 핵심: 이 객체의 모든 트랙에서 클립 시간 범위 계산
+          let clipStartTime = Infinity;
+          let clipEndTime = 0;
+          let hasActiveClip = false;
+
+          objectTracks.forEach((trackData, property) => {
+            console.log(`🔍 트랙 ${property} 분석:`, trackData);
+
+            if (trackData && trackData.times && trackData.times.length > 0) {
+              // 🚀 유효한 키프레임 시간들만 필터링
+              const validTimes = Array.from(trackData.times).filter(t => t > 0 || t === 0);
+              
+              if (validTimes.length > 0) {
+                const minTime = Math.min(...validTimes);
+                const maxTime = Math.max(...validTimes);
+                
+                // 🚀 클립의 전체 시간 범위 업데이트
+                clipStartTime = Math.min(clipStartTime, minTime);
+                clipEndTime = Math.max(clipEndTime, maxTime);
+                
+                console.log(`🔍 트랙 ${property} 시간 범위: ${minTime}~${maxTime}초 (현재: ${time}초)`);
+                
+                // 🚀 현재 시간이 이 트랙의 클립 범위 안에 있는지 확인
+                if (time >= minTime && time <= maxTime) {
+                  hasActiveClip = true;
+                  console.log(`✅ 트랙 ${property}에서 활성 클립 발견: ${minTime}~${maxTime}초!`);
+                }
+              }
+            }
+          });
+
+          // 🚀 클립 전체 시간 범위 로그
+          if (clipStartTime !== Infinity && clipEndTime !== 0) {
+            console.log(`🎯 객체 ${originalObject.name} 클립 전체 시간 범위: ${clipStartTime}~${clipEndTime}초 (현재: ${time}초)`);
+            
+            // 🚀 현재 시간이 클립 범위 안에 있는지 확인
+            if (time >= clipStartTime && time <= clipEndTime) {
+              console.log(`🎬 객체 ${originalObject.name}이 현재 시간에 활성 상태입니다!`);
+              
+              // 🚀 각 트랙에서 현재 시간에 맞는 값 가져와서 적용
+              objectTracks.forEach((trackData, property) => {
+                if (trackData && trackData.times && trackData.times.length > 0) {
+                  try {
+                    // 🚀 현재 시간에 맞는 값 계산
+                    const value = trackData.getValueAtTime(time);
+                    
+                    if (value !== null && value !== undefined) {
+                      console.log(`🎯 애니메이션 값 적용: ${originalObject.name}.${property} =`, value);
+                      
+                      // 🚀 미리보기 객체에 값 적용
+                      this.applyValueToPreviewObject(previewObject, property, value);
+                      
+                      // 🚀 원본 객체에도 값 적용 (동기화)
+                      this.applyValueToOriginalObject(originalObject, property, value);
+                    } else {
+                      console.log(`⚠️ ${property} 트랙에서 현재 시간(${time}s)에 대한 값이 없습니다.`);
+                    }
+                  } catch (error) {
+                    console.warn(`❌ ${property} 트랙 값 계산 중 오류:`, error);
+                  }
+                }
+              });
+            } else {
+              console.log(`⏸️ 객체 ${originalObject.name}이 현재 시간에 비활성 상태입니다.`);
+            }
+          } else {
+            console.log(`⚠️ 객체 ${originalObject.name}에 유효한 키프레임이 없습니다.`);
+          }
+        });
+
+        console.log('✅ editor.timeline.timelines.motion.timelineData 데이터 적용 완료');
+      } else {
+        console.log('⚠️ editor.timeline.timelines.motion.timelineData tracks가 비어있음');
+      }
+    } catch (error) {
+      console.error('❌ MotionTimeline 데이터 적용 중 오류:', error);
+    }
+  }
+
+  // 🚀 원본 객체에 애니메이션 값 적용 (동기화용)
+  applyValueToOriginalObject(object, property, value) {
+    try {
+      switch (property) {
+        case 'position':
+          if (Array.isArray(value) && value.length >= 3) {
+            object.position.set(value[0], value[1], value[2]);
+            console.log(`✅ 원본 객체 ${object.name} position 업데이트:`, value);
+          }
+          break;
+        case 'rotation':
+          if (Array.isArray(value) && value.length >= 3) {
+            object.rotation.set(value[0], value[1], value[2]);
+            console.log(`✅ 원본 객체 ${object.name} rotation 업데이트:`, value);
+          }
+          break;
+        case 'scale':
+          if (Array.isArray(value) && value.length >= 3) {
+            object.scale.set(value[0], value[1], value[2]);
+            console.log(`✅ 원본 객체 ${object.name} scale 업데이트:`, value);
+          }
+          break;
+        default:
+          console.log(`⚠️ 알 수 없는 속성: ${property}`);
+      }
+    } catch (error) {
+      console.warn(`❌ 원본 객체 ${object.name} ${property} 값 적용 중 오류:`, error);
+    }
+  }
+
+  // 🚀 객체를 기본 상태로 복원
+  restoreObjectDefaultState(object) {
+    try {
+      // material과 자식 객체들 기본 상태로 복원
+      if (object.material) {
+        if (Array.isArray(object.material)) {
+          object.material.forEach(mat => {
+            if (mat) {
+              mat.transparent = false;
+              mat.opacity = 1;
+              mat.visible = true;
+              mat.depthTest = true;
+              mat.depthWrite = true;
+            }
+          });
+        } else {
+          object.material.transparent = false;
+          object.material.opacity = 1;
+          object.material.visible = true;
+          object.material.depthTest = true;
+          object.material.depthWrite = true;
+        }
+      }
+      
+      // 자식 객체들도 모두 기본 상태로 복원
+      object.traverse((child) => {
+        if (child !== object) {
+          child.visible = true;
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => {
+                if (mat) {
+                  mat.transparent = false;
+                  mat.opacity = 1;
+                  mat.visible = true;
+                  mat.depthTest = true;
+                  mat.depthWrite = true;
+                }
+              });
+            } else {
+              child.material.transparent = false;
+              child.material.opacity = 1;
+              child.material.visible = true;
+              child.material.depthTest = true;
+              child.material.depthWrite = true;
+            }
+          }
+        }
+      });
+      
+      console.log(`✅ 객체 ${object.name} 기본 상태 복원 완료`);
+    } catch (error) {
+      console.error('❌ 객체 기본 상태 복원 중 오류:', error);
+    }
+  }
+
+  // 🚀 객체를 완전히 숨기기
+  hideObjectCompletely(object) {
+    try {
+      // opacity와 material도 조작해서 확실하게 숨기기
+      if (object.material) {
+        if (Array.isArray(object.material)) {
+          object.material.forEach(mat => {
+            if (mat) {
+              mat.transparent = true;
+              mat.opacity = 0;
+              mat.visible = false;
+            }
+          });
+        } else {
+          object.material.transparent = true;
+          object.material.opacity = 0;
+          object.material.visible = false;
+        }
+      }
+      
+      // 자식 객체들도 모두 숨기기
+      object.traverse((child) => {
+        if (child !== object) {
+          child.visible = false;
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => {
+                if (mat) {
+                  mat.transparent = true;
+                  mat.opacity = 0;
+                  mat.visible = false;
+                }
+              });
+            } else {
+              child.material.transparent = true;
+              child.material.opacity = 0;
+              child.material.visible = false;
+            }
+          }
+        }
+      });
+      
+      console.log(`✅ 객체 ${object.name} 완전히 숨김 처리 완료`);
+    } catch (error) {
+      console.error('❌ 객체 숨김 처리 중 오류:', error);
+    }
+  }
+
+  // 🚀 애니메이션 값을 미리보기 객체에 적용
+  applyValueToPreviewObject(object, property, value) {
+    try {
+      switch (property) {
+        case 'position':
+          if (value && typeof value.x === 'number') {
+            object.position.set(value.x, value.y || 0, value.z || 0);
+            console.log(`✅ 위치 애니메이션 적용: ${value.x}, ${value.y || 0}, ${value.z || 0}`);
+          }
+          break;
+          
+        case 'rotation':
+          if (value && typeof value.x === 'number') {
+            object.rotation.set(value.x, value.y || 0, value.z || 0);
+            console.log(`✅ 회전 애니메이션 적용: ${value.x}, ${value.y || 0}, ${value.z || 0}`);
+          }
+          break;
+          
+        case 'scale':
+          if (value && typeof value.x === 'number') {
+            object.scale.set(value.x, value.y || 1, value.z || 1);
+            console.log(`✅ 크기 애니메이션 적용: ${value.x}, ${value.y || 1}, ${value.z || 1}`);
+          }
+          break;
+          
+        case 'intensity':
+          if (object.isLight && typeof value === 'number') {
+            object.intensity = value;
+            console.log(`✅ 조명 강도 애니메이션 적용: ${value}`);
+          }
+          break;
+          
+        case 'color':
+          if (object.isLight && value && typeof value.r === 'number') {
+            object.color.setRGB(value.r, value.g || 1, value.b || 1);
+            console.log(`✅ 조명 색상 애니메이션 적용: ${value.r}, ${value.g || 1}, ${value.b || 1}`);
+          }
+          break;
+          
+        default:
+          console.log(`⚠️ 알 수 없는 속성: ${property}`);
+          break;
+      }
+    } catch (error) {
+      console.error(`❌ 속성 ${property} 적용 중 오류:`, error);
+    }
+  }
+
+  // 원본 씬 상태를 미리보기 씬에 복사
+  copyOriginalSceneState() {
+    console.log('�� 원본 씬 상태를 미리보기 씬에 복사 중...');
+
+    this.previewScene.traverse((previewObject) => {
+      if (previewObject.name) {
+        const originalObject = this.editor.scene.getObjectByProperty('name', previewObject.name);
+        if (originalObject) {
+          // 위치, 회전, 크기 복사
+          previewObject.position.copy(originalObject.position);
+          previewObject.rotation.copy(originalObject.rotation);
+          previewObject.scale.copy(originalObject.scale);
+
+          // 조명 속성 복사
+          if (originalObject.isLight && previewObject.isLight) {
+            if (originalObject.intensity !== undefined) {
+              previewObject.intensity = originalObject.intensity;
+            }
+            if (originalObject.color) {
+              previewObject.color.copy(originalObject.color);
+            }
+          }
+        }
+      }
+    });
+
+    console.log('✅ 원본 씬 상태 복사 완료');
+  }
+  // 트랙을 미리보기 객체에 적용
+  applyTrackToPreviewObject(trackKey, trackData, time) {
+    try {
+      const [objectUuid, property] = trackKey.split('_');
+
+      console.log(`�� 트랙 처리: ${trackKey}`, {
+        objectUuid,
+        property,
+        trackData: trackData
+      });
+
+      // 미리보기 씬에서 해당 객체 찾기 (UUID로)
+      let previewObject = null;
+      this.previewScene.traverse((object) => {
+        if (object.uuid === objectUuid) {
+          previewObject = object;
+        }
+      });
+
+      // UUID로 찾지 못한 경우 이름으로 찾기
+      if (!previewObject) {
+        const originalObject = this.editor.scene.getObjectByProperty('uuid', objectUuid);
+        if (originalObject && originalObject.name) {
+          this.previewScene.traverse((object) => {
+            if (object.name === originalObject.name) {
+              previewObject = object;
+            }
+          });
+        }
+      }
+
+      if (!previewObject) {
+        console.log(`⚠️ 미리보기 씬에서 객체를 찾을 수 없습니다: ${objectUuid}`);
+        return;
+      }
+
+      // TrackData에서 현재 시간에 맞는 값 가져오기
+      let value = null;
+
+      if (typeof trackData.getValueAtTime === 'function') {
+        value = trackData.getValueAtTime(time);
+      } else if (trackData.keyframes && Array.isArray(trackData.keyframes)) {
+        value = this.getValueFromKeyframes(trackData.keyframes, time);
+      }
+
+      if (value !== null && value !== undefined) {
+        console.log(`✅ 애니메이션 적용: ${objectUuid} ${property} =`, value);
+        this.applyValueToPreviewObject(previewObject, property, value);
+      }
+    } catch (error) {
+      console.error(`❌ 트랙 ${trackKey} 적용 중 오류:`, error);
+    }
+  }
+  // 키프레임에서 시간에 맞는 값 가져오기
+  getValueFromKeyframes(keyframes, time) {
+    if (!keyframes || keyframes.length === 0) return null;
+
+    // 시간을 숫자로 변환하고 시간순으로 정렬
+    const sortedKeyframes = keyframes
+      .map(kf => ({ ...kf, time: parseFloat(kf.time) || 0 }))
+      .sort((a, b) => a.time - b.time);
+
+    // 현재 시간보다 작거나 같은 가장 가까운 키프레임 찾기
+    let currentKeyframe = sortedKeyframes[0];
+    let nextKeyframe = null;
+
+    for (let i = 0; i < sortedKeyframes.length; i++) {
+      if (sortedKeyframes[i].time <= time) {
+        currentKeyframe = sortedKeyframes[i];
+        if (i + 1 < sortedKeyframes.length) {
+          nextKeyframe = sortedKeyframes[i + 1];
+        }
+      } else {
+        break;
+      }
+    }
+
+    // 보간 적용
+    if (nextKeyframe && nextKeyframe.time > currentKeyframe.time) {
+      const t = (time - currentKeyframe.time) / (nextKeyframe.time - currentKeyframe.time);
+      return this.interpolateValue(currentKeyframe.value, nextKeyframe.value, t);
+    } else {
+      return currentKeyframe.value;
+    }
+  }// 값 보간
+  interpolateValue(value1, value2, t) {
+    if (typeof value1 === 'number' && typeof value2 === 'number') {
+      return value1 + (value2 - value1) * t;
+    } else if (value1 && value2 && typeof value1.x === 'number') {
+      // Vector3 타입
+      return {
+        x: value1.x + (value2.x - value1.x) * t,
+        y: value1.y + (value2.y - value1.y) * t,
+        z: value1.z + (value2.z - value1.z) * t
+      };
+    }
+    return value1;
+  }
+  // LightTimeline 데이터를 실제 객체에 적용
+  applyLightTimelineData(time) {
+    const timelineData = this.editor.lightTimeline.timelineData;
+    if (!timelineData) return;
+
+    console.log('LightTimeline 트랙 수:', timelineData.tracks.size);
+
+    // 모든 트랙에 대해 애니메이션 적용
+    const allTracks = timelineData.getAllTracksByUuid();
+    console.log('🔍 LightTimeline getAllTracksByUuid 결과:', allTracks);
+    
+    allTracks.forEach((trackInfo, trackKey) => {
+      console.log(`🔍 LightTimeline 트랙 처리: ${trackKey}`, trackInfo);
+      const [objectUuid, property] = trackKey.split('_');
+
+      // 원본 씬에서 해당 조명 객체 찾기
+      const originalObject = this.editor.scene.getObjectByProperty('uuid', objectUuid);
+      if (!originalObject || !originalObject.isLight) {
+        return;
+      }
+
+      // 미리보기 씬에서 해당 조명 객체 찾기
+      let previewObject = null;
+      this.previewScene.traverse((object) => {
+        if (object.uuid === objectUuid && object.isLight) {
+          previewObject = object;
+        }
+      });
+
+      if (!previewObject) {
+        return;
+      }
+
+      // TrackData에서 현재 시간에 맞는 값 가져오기
+      const trackData = timelineData.getObjectTracks(objectUuid);
+      if (trackData && trackData.has(property)) {
+        const propertyTrack = trackData.get(property);
+        const value = propertyTrack.getValueAtTime(time);
+
+        if (value !== null && value !== undefined) {
+          console.log(`조명 애니메이션 적용: ${objectUuid} ${property} =`, value);
+          this.applyLightValueToPreviewObject(previewObject, property, value);
+        }
+      }
+    });
+  }
+
 }

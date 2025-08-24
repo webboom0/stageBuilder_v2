@@ -1,6 +1,7 @@
 import { BaseTimeline } from "./BaseTimeline.js";
 import { UIPanel, UIRow, UINumber, UIText, UIElement } from "../libs/ui.js";
 import * as THREE from "three";
+import { getApiUrl, AUDIO_UPLOAD_CONFIG } from "../config/audio-upload-config.js";
 
 // editor/timeline/AudioTimeline.js
 // 사용 가능한 음악 파일 목록 (동적으로 로드됨)
@@ -11,14 +12,30 @@ async function loadAudioFilesFromFolder() {
   try {
     console.log("음악 폴더 스캔 시작...");
 
-    // 기본 파일 목록 (Service Worker 캐시 문제를 피하기 위해 단순화)
-    const defaultFiles = [
-      { path: "../files/music/SUJESHUN.mp3", name: "SUJESHUN", displayName: "수제순" },
-      { path: "../files/music/DRAMA.mp3", name: "DRAMA", displayName: "드라마" }
-    ];
-
-    console.log("기본 음악 파일 목록 사용:", defaultFiles);
-    return defaultFiles;
+    // 서버에서 음악 파일 목록 가져오기
+    const response = await fetch(getApiUrl(AUDIO_UPLOAD_CONFIG.ENDPOINTS.GET_FILES));
+    
+    if (response.ok) {
+      const audioFiles = await response.json();
+      console.log("서버에서 로드된 음악 파일:", audioFiles);
+      
+      // 서버에서 받은 데이터를 그대로 사용 (이미 올바른 형식)
+      const processedFiles = audioFiles.map(file => {
+        console.log("처리 중인 파일:", file);
+        return {
+          path: `..${file.path}`, // 상대 경로로 변환
+          name: file.name,
+          displayName: file.displayName,
+          filename: file.filename // 실제 파일명 (확장자 포함)
+        };
+      });
+      
+      console.log("처리된 파일 목록:", processedFiles);
+      return processedFiles;
+    } else {
+      console.warn("서버에서 음악 파일 목록을 가져올 수 없습니다. 기본 목록 사용");
+      throw new Error(`HTTP ${response.status}`);
+    }
 
   } catch (error) {
     console.error("음악 폴더 스캔 실패:", error);
@@ -62,6 +79,19 @@ class UIAudioAssetSelector extends UIElement {
     `;
     this.dom.appendChild(header);
 
+    // 불러오기 버튼 추가
+    const loadButton = document.createElement("button");
+    loadButton.textContent = "불러오기";
+    loadButton.className = "load-music-btn";
+    loadButton.addEventListener("click", () => {
+      this.handleLoadMusic();
+    });
+    
+    const loadRow = document.createElement("div");
+    loadRow.className = "load-button-row";
+    loadRow.appendChild(loadButton);
+    this.dom.appendChild(loadRow);
+
     // 음악 목록 컨테이너
     const listContainer = document.createElement("div");
     listContainer.className = "audio-list-container";
@@ -97,7 +127,7 @@ class UIAudioAssetSelector extends UIElement {
       audioItem.innerHTML = `
         <div class="audio-info">
           <span class="audio-name">${audioFile.displayName}</span>
-          <span class="audio-filename">${audioFile.name}.mp3</span>
+          <span class="audio-filename">${audioFile.filename || audioFile.name}</span>
         </div>
         <button class="add-audio-btn">추가</button>
       `;
@@ -122,6 +152,343 @@ class UIAudioAssetSelector extends UIElement {
     this.addStyles();
   }
 
+  setupFileUpload() {
+    const uploadBtn = this.dom.querySelector("#uploadBtn");
+    const fileInput = this.dom.querySelector("#audioFileInput");
+
+    // this 컨텍스트를 올바르게 바인딩
+    uploadBtn.addEventListener("click", async (event) => {
+      // 기본 동작 방지
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // 서버 연결 상태 확인
+      const isServerAvailable = await this.checkServerConnection();
+      if (!isServerAvailable) {
+        this.showUploadError("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
+        return;
+      }
+      
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", async (event) => {
+      // 기본 동작 방지
+      event.preventDefault();
+      event.stopPropagation();
+      
+      const file = event.target.files[0];
+      if (file) {
+        await this.handleFileUpload(file);
+      }
+    });
+  }
+
+  async checkServerConnection() {
+    try {
+      const healthUrl = getApiUrl('/api/health');
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("서버 연결 상태:", data.status);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.warn("서버 연결 확인 실패:", error);
+      return false;
+    }
+  }
+
+  async handleFileUpload(file) {
+    try {
+      // 파일 유효성 검사
+      if (!this.validateAudioFile(file)) {
+        return;
+      }
+
+      // 업로드 진행 상태 표시
+      this.showUploadProgress(file.name);
+
+      // 파일을 /files/music 폴더에 업로드
+      const success = await this.uploadFileToServer(file);
+
+      if (success) {
+        // 성공 메시지 표시
+        this.showUploadSuccess(file.name);
+        
+        // 파일 입력 초기화
+        const fileInput = this.dom.querySelector("#audioFileInput");
+        fileInput.value = "";
+        
+        // 사용자에게 새로고침 안내
+        this.showRefreshMessage();
+      } else {
+        this.showUploadError("파일 업로드에 실패했습니다.");
+      }
+
+    } catch (error) {
+      console.error("파일 업로드 오류:", error);
+      this.showUploadError(`업로드 오류: ${error.message}`);
+    }
+  }
+
+  validateAudioFile(file) {
+    // 설정에서 파일 크기 제한 가져오기
+    const maxSize = AUDIO_UPLOAD_CONFIG.UPLOAD.MAX_FILE_SIZE;
+    if (file.size > maxSize) {
+      this.showUploadError(`파일 크기가 ${(maxSize / (1024 * 1024)).toFixed(0)}MB를 초과합니다.`);
+      return false;
+    }
+
+    // 설정에서 허용된 파일 형식 가져오기
+    const allowedTypes = AUDIO_UPLOAD_CONFIG.UPLOAD.ALLOWED_TYPES;
+    const allowedExtensions = AUDIO_UPLOAD_CONFIG.UPLOAD.ALLOWED_EXTENSIONS;
+    
+    if (!allowedTypes.includes(file.type) && !file.name.match(new RegExp(`\\.(${allowedExtensions.join('|')})$`, 'i'))) {
+      this.showUploadError("지원하지 않는 오디오 파일 형식입니다.");
+      return false;
+    }
+
+    return true;
+  }
+
+  showUploadProgress(fileName) {
+    const uploadSection = this.dom.querySelector(".upload-section");
+    const progressDiv = document.createElement("div");
+    progressDiv.className = "upload-progress";
+    
+    // CSS 변수로 진행률 애니메이션 시간 설정
+    const progressDuration = (AUDIO_UPLOAD_CONFIG.UI.PROGRESS_ANIMATION_DURATION / 1000) + 's';
+    progressDiv.style.setProperty('--progress-duration', progressDuration);
+    
+    progressDiv.innerHTML = `
+      <div class="progress-text">${fileName} 업로드 중...</div>
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+    `;
+    
+    // 기존 진행 상태 제거
+    const existingProgress = uploadSection.querySelector(".upload-progress");
+    if (existingProgress) {
+      existingProgress.remove();
+    }
+    
+    uploadSection.appendChild(progressDiv);
+  }
+
+  showUploadSuccess(fileName) {
+    const uploadSection = this.dom.querySelector(".upload-section");
+    const successDiv = document.createElement("div");
+    successDiv.className = "upload-success";
+    successDiv.innerHTML = `
+      <div class="success-text">✅ ${fileName} 업로드 완료!</div>
+    `;
+    
+    // 기존 진행 상태 제거
+    const existingProgress = uploadSection.querySelector(".upload-progress");
+    if (existingProgress) {
+      existingProgress.remove();
+    }
+    
+    uploadSection.appendChild(successDiv);
+    
+    // 설정된 시간 후 성공 메시지 제거
+    setTimeout(() => {
+      if (successDiv.parentNode) {
+        successDiv.remove();
+      }
+    }, AUDIO_UPLOAD_CONFIG.UI.SUCCESS_MESSAGE_DURATION);
+  }
+
+  showUploadError(message) {
+    const uploadSection = this.dom.querySelector(".upload-section");
+    const errorDiv = document.createElement("div");
+    errorDiv.className = "upload-error";
+    errorDiv.innerHTML = `
+      <div class="error-text">❌ ${message}</div>
+    `;
+    
+    // 기존 진행 상태 제거
+    const existingProgress = uploadSection.querySelector(".upload-progress");
+    if (existingProgress) {
+      existingProgress.remove();
+    }
+    
+    uploadSection.appendChild(errorDiv);
+    
+    // 설정된 시간 후 오류 메시지 제거
+    setTimeout(() => {
+      if (errorDiv.parentNode) {
+        errorDiv.remove();
+      }
+    }, AUDIO_UPLOAD_CONFIG.UI.ERROR_MESSAGE_DURATION);
+  }
+
+  async uploadFileToServer(file) {
+    try {
+      // FormData를 사용하여 파일 업로드
+      const formData = new FormData();
+      formData.append("audioFile", file);
+      formData.append("uploadPath", "/files/music");
+
+      // 설정된 서버 URL 사용
+      const uploadUrl = getApiUrl(AUDIO_UPLOAD_CONFIG.ENDPOINTS.UPLOAD);
+      
+      console.log("업로드 URL:", uploadUrl);
+      console.log("업로드할 파일:", file.name, file.size, file.type);
+
+      // 서버에 업로드 요청
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        body: formData,
+        // CORS 관련 설정 추가
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      console.log("응답 상태:", response.status, response.statusText);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("파일 업로드 성공:", result);
+        return true;
+      } else {
+        // 에러 응답 내용 확인
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+            if (errorData.details) {
+              errorMessage += ` - ${errorData.details}`;
+            }
+          }
+        } catch (e) {
+          console.warn("에러 응답 파싱 실패:", e);
+        }
+        
+        console.error("파일 업로드 실패:", errorMessage);
+        this.showUploadError(errorMessage);
+        return false;
+      }
+
+    } catch (error) {
+      console.error("업로드 요청 오류:", error);
+      
+      // 네트워크 오류인지 확인
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        this.showUploadError("서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
+      } else {
+        this.showUploadError(`업로드 오류: ${error.message}`);
+      }
+      
+      return false;
+    }
+  }
+
+  async refreshAudioFiles() {
+    try {
+      console.log("🔄 음악 파일 목록 새로고침 시작...");
+      
+      // 설정된 서버 URL 사용
+      const filesUrl = getApiUrl(AUDIO_UPLOAD_CONFIG.ENDPOINTS.GET_FILES);
+      console.log("📡 요청 URL:", filesUrl);
+      
+      // 서버에서 최신 음악 파일 목록 가져오기
+      const response = await fetch(filesUrl, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      console.log("📥 응답 상태:", response.status, response.statusText);
+      
+      if (response.ok) {
+        const newAudioFiles = await response.json();
+        console.log("🎵 새로 가져온 음악 파일 목록:", newAudioFiles);
+        
+        // 전역 AUDIO_FILES 업데이트
+        if (typeof window !== "undefined" && window.AUDIO_FILES) {
+          console.log("🌐 기존 전역 AUDIO_FILES:", window.AUDIO_FILES);
+          window.AUDIO_FILES = newAudioFiles;
+          console.log("✅ 전역 AUDIO_FILES 업데이트 완료");
+        } else {
+          console.warn("⚠️ window.AUDIO_FILES가 정의되지 않음");
+        }
+        
+        // UI 새로고침
+        this.refreshAudioList(newAudioFiles);
+      } else {
+        console.error("❌ 음악 파일 목록 조회 실패:", response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error("❌ 음악 파일 목록 새로고침 실패:", error);
+    }
+  }
+
+  refreshAudioList(newAudioFiles) {
+    console.log("🎨 UI 음악 목록 새로고침 시작...");
+    
+    const listContainer = this.dom.querySelector(".audio-list-container");
+    if (!listContainer) {
+      console.error("❌ .audio-list-container를 찾을 수 없음");
+      return;
+    }
+
+    console.log("📋 기존 목록 제거 중...");
+    // 기존 목록 제거
+    listContainer.innerHTML = "";
+
+    // 새 목록 생성
+    if (newAudioFiles && newAudioFiles.length > 0) {
+      console.log(`✅ ${newAudioFiles.length}개의 음악 파일을 목록에 추가 중...`);
+      
+      newAudioFiles.forEach((audioFile, index) => {
+        console.log(`🎵 음악 ${index + 1}:`, audioFile);
+        
+        const audioItem = document.createElement("div");
+        audioItem.className = "audio-item";
+        audioItem.innerHTML = `
+          <div class="audio-info">
+            <span class="audio-name">${audioFile.displayName}</span>
+            <span class="audio-filename">${audioFile.name}.mp3</span>
+          </div>
+          <button class="add-audio-btn">추가</button>
+        `;
+
+        // 추가 버튼 클릭 이벤트
+        const addBtn = audioItem.querySelector(".add-audio-btn");
+        addBtn.addEventListener("click", () => {
+          console.log("🎯 음악 선택됨:", audioFile);
+          this.onSelect(audioFile);
+          this.hide();
+        });
+
+        listContainer.appendChild(audioItem);
+        console.log(`✅ 음악 항목 ${index + 1} 추가 완료`);
+      });
+      
+      console.log("🎉 모든 음악 항목 추가 완료!");
+    } else {
+      console.log("⚠️ 표시할 음악 파일이 없음");
+      const noFilesMessage = document.createElement("div");
+      noFilesMessage.className = "no-files-message";
+      noFilesMessage.innerHTML = `
+        <p>사용 가능한 음악 파일이 없습니다.</p>
+        <p>위의 '불러오기' 버튼을 사용하여 음악 파일을 추가해주세요.</p>
+      `;
+      listContainer.appendChild(noFilesMessage);
+    }
+  }
+
   addStyles() {
     const style = document.createElement("style");
     style.textContent = `
@@ -139,6 +506,146 @@ class UIAudioAssetSelector extends UIElement {
         overflow-y: auto;
         z-index: 10000;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .upload-section {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #1a1a1a;
+        border-radius: 6px;
+        border: 1px solid #333;
+      }
+
+      .upload-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .upload-header h4 {
+        margin: 0;
+        color: #fff;
+        font-size: 14px;
+      }
+
+      .upload-btn {
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.3s;
+      }
+
+      .upload-btn:hover {
+        background: #45a049;
+      }
+
+      .upload-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .upload-info small {
+        color: #888;
+        font-size: 11px;
+      }
+
+      .upload-progress {
+        margin-top: 10px;
+        padding: 10px;
+        background: #2a2a2a;
+        border-radius: 4px;
+        border: 1px solid #444;
+      }
+
+      .progress-text {
+        color: #fff;
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 4px;
+        background: #444;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: #4CAF50;
+        width: 0%;
+        animation: progress-animation var(--progress-duration, 2s) ease-in-out infinite;
+      }
+
+      @keyframes progress-animation {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+      }
+
+      .upload-success {
+        margin-top: 10px;
+        padding: 10px;
+        background: #1b5e20;
+        border-radius: 4px;
+        border: 1px solid #4caf50;
+      }
+
+      .success-text {
+        color: #4caf50;
+        font-size: 12px;
+        font-weight: bold;
+      }
+
+      .refresh-message {
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 10px;
+        text-align: center;
+      }
+
+      .refresh-text {
+        color: #1976d2;
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .refresh-btn {
+        background: #2196f3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 12px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .refresh-btn:hover {
+        background: #1976d2;
+      }
+
+      .upload-error {
+        margin-top: 10px;
+        padding: 10px;
+        background: #3e2723;
+        border-radius: 4px;
+        border: 1px solid #d32f2f;
+      }
+
+      .error-text {
+        color: #f44336;
+        font-size: 12px;
+        font-weight: bold;
       }
 
       .asset-selector-header {
@@ -243,6 +750,56 @@ class UIAudioAssetSelector extends UIElement {
         margin: 5px 0;
         font-size: 14px;
       }
+
+      .load-button-row {
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .load-music-btn {
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .load-music-btn:hover {
+        background: #45a049;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      .upload-message {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 4px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 14px;
+      }
+
+      .upload-message.progress {
+        background-color: #e3f2fd;
+        color: #1976d2;
+        border: 1px solid #bbdefb;
+      }
+
+      .upload-message.success {
+        background-color: #e8f5e8;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+      }
+
+      .upload-message.error {
+        background-color: #ffebee;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -253,6 +810,236 @@ class UIAudioAssetSelector extends UIElement {
 
   hide() {
     this.dom.style.display = "none";
+  }
+
+  // 로컬 음악 파일 불러오기
+  handleLoadMusic() {
+    // 숨겨진 파일 input 생성
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "audio/*";
+    fileInput.multiple = false;
+    fileInput.style.display = "none";
+    
+    fileInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        this.uploadMusicFile(file);
+      }
+    });
+    
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    
+    // 파일 선택 후 input 제거
+    setTimeout(() => {
+      if (fileInput.parentNode) {
+        fileInput.parentNode.removeChild(fileInput);
+      }
+    }, 1000);
+  }
+
+  // 음악 파일 업로드
+  async uploadMusicFile(file) {
+    try {
+      // 파일 유효성 검사
+      if (!this.validateAudioFile(file)) {
+        return;
+      }
+
+      // 업로드 진행 표시
+      this.showUploadProgress("업로드 중...");
+
+      // FormData 생성
+      const formData = new FormData();
+      formData.append("audioFile", file);
+
+      // 서버로 업로드
+      const response = await fetch(getApiUrl(AUDIO_UPLOAD_CONFIG.ENDPOINTS.UPLOAD), {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("음악 파일 업로드 성공:", result);
+
+      // 성공 메시지 표시
+      this.showUploadSuccess("업로드 완료!");
+
+      // 음악 목록 새로고침
+      setTimeout(() => {
+        this.refreshMusicList();
+      }, 1000);
+
+    } catch (error) {
+      console.error("음악 파일 업로드 실패:", error);
+      this.showUploadError(`업로드 실패: ${error.message}`);
+    }
+  }
+
+  // 오디오 파일 유효성 검사
+  validateAudioFile(file) {
+    // 파일 크기 검사
+    if (file.size > AUDIO_UPLOAD_CONFIG.UPLOAD.MAX_FILE_SIZE) {
+      this.showUploadError(`파일이 너무 큽니다. 최대 ${AUDIO_UPLOAD_CONFIG.UPLOAD.MAX_FILE_SIZE / (1024 * 1024)}MB까지 가능합니다.`);
+      return false;
+    }
+
+    // 파일 타입 검사
+    if (!AUDIO_UPLOAD_CONFIG.UPLOAD.ALLOWED_TYPES.includes(file.type)) {
+      this.showUploadError("지원하지 않는 오디오 파일 형식입니다.");
+      return false;
+    }
+
+    // 파일 확장자 검사
+    const fileName = file.name.toLowerCase();
+    if (!AUDIO_UPLOAD_CONFIG.UPLOAD.ALLOWED_EXTENSIONS.some(ext => fileName.endsWith(ext))) {
+      this.showUploadError("지원하지 않는 파일 확장자입니다.");
+      return false;
+    }
+
+    return true;
+  }
+
+  // 업로드 진행 표시
+  showUploadProgress(message) {
+    this.showMessage(message, "progress");
+  }
+
+  // 업로드 성공 표시
+  showUploadSuccess(message) {
+    this.showMessage(message, "success");
+  }
+
+  // 업로드 에러 표시
+  showUploadError(message) {
+    this.showMessage(message, "error");
+  }
+
+  // 메시지 표시
+  showMessage(message, type) {
+    // 기존 메시지 제거
+    const existingMessage = this.dom.querySelector(".upload-message");
+    if (existingMessage) {
+      existingMessage.remove();
+    }
+
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `upload-message ${type}`;
+    messageDiv.textContent = message;
+    
+    // 스타일 적용
+    messageDiv.style.padding = "10px";
+    messageDiv.style.margin = "10px 0";
+    messageDiv.style.borderRadius = "4px";
+    messageDiv.style.textAlign = "center";
+    messageDiv.style.fontWeight = "bold";
+    
+    if (type === "progress") {
+      messageDiv.style.backgroundColor = "#e3f2fd";
+      messageDiv.style.color = "#1976d2";
+      messageDiv.style.border = "1px solid #bbdefb";
+    } else if (type === "success") {
+      messageDiv.style.backgroundColor = "#e8f5e8";
+      messageDiv.style.color = "#2e7d32";
+      messageDiv.style.border = "1px solid #c8e6c9";
+    } else if (type === "error") {
+      messageDiv.style.backgroundColor = "#ffebee";
+      messageDiv.style.color = "#c62828";
+      messageDiv.style.border = "1px solid #ffcdd2";
+    }
+
+    this.dom.appendChild(messageDiv);
+  }
+
+  // 음악 목록 새로고침
+  async refreshMusicList() {
+    try {
+      // 서버에서 최신 음악 파일 목록 가져오기
+      const response = await fetch(getApiUrl(AUDIO_UPLOAD_CONFIG.ENDPOINTS.GET_FILES));
+      if (response.ok) {
+        const audioFiles = await response.json();
+        
+        // 전역 AUDIO_FILES 업데이트
+        if (window.AUDIO_FILES) {
+          window.AUDIO_FILES = audioFiles;
+        }
+        
+        // 현재 인스턴스의 audioFiles도 업데이트
+        this.audioFiles = audioFiles;
+        
+        // UI 새로고침
+        this.refreshUI();
+      }
+    } catch (error) {
+      console.error("음악 목록 새로고침 실패:", error);
+    }
+  }
+
+  // UI 새로고침
+  refreshUI() {
+    // 기존 음악 목록 제거
+    const listContainer = this.dom.querySelector(".audio-list-container");
+    if (listContainer) {
+      listContainer.innerHTML = "";
+    }
+    
+    // 새로운 음악 목록 생성
+    this.createMusicList();
+  }
+
+  // 음악 목록 생성 (기존 createUI에서 분리)
+  createMusicList() {
+    const listContainer = this.dom.querySelector(".audio-list-container");
+    if (!listContainer) return;
+
+    if (!this.audioFiles || !Array.isArray(this.audioFiles)) {
+      console.warn("음악 파일 목록이 유효하지 않습니다:", this.audioFiles);
+      const noFilesMessage = document.createElement("div");
+      noFilesMessage.innerHTML = `
+        <p>사용 가능한 음악 파일이 없습니다.</p>
+        <p>files/music 폴더에 음악 파일을 추가해주세요.</p>
+      `;
+      noFilesMessage.className = "no-files-message";
+      listContainer.appendChild(noFilesMessage);
+      return;
+    }
+
+    if (this.audioFiles.length === 0) {
+      const noFilesMessage = document.createElement("div");
+      noFilesMessage.innerHTML = `
+        <p>사용 가능한 음악 파일이 없습니다.</p>
+        <p>files/music 폴더에 음악 파일을 추가해주세요.</p>
+      `;
+      noFilesMessage.className = "no-files-message";
+      listContainer.appendChild(noFilesMessage);
+      return;
+    }
+
+    this.audioFiles.forEach((audioFile) => {
+      const audioItem = document.createElement("div");
+      audioItem.className = "audio-item";
+      audioItem.innerHTML = `
+        <div class="audio-info">
+          <span class="audio-name">${audioFile.displayName}</span>
+          <span class="audio-filename">${audioFile.filename || audioFile.name}</span>
+        </div>
+        <button class="add-audio-btn">추가</button>
+      `;
+
+      // 추가 버튼 클릭 이벤트
+      const addBtn = audioItem.querySelector(".add-audio-btn");
+      addBtn.addEventListener("click", () => {
+        this.onSelect(audioFile);
+        this.hide();
+      });
+
+      listContainer.appendChild(audioItem);
+    });
   }
 }
 
@@ -4798,5 +5585,33 @@ export class AudioTimeline extends BaseTimeline {
     } catch (error) {
       console.error("강제 트랙 복원 중 오류:", error);
     }
+  }
+
+
+
+  // 새로고침 안내 메시지
+  showRefreshMessage() {
+    const uploadSection = this.dom.querySelector(".upload-section");
+    const refreshDiv = document.createElement("div");
+    refreshDiv.className = "refresh-message";
+    refreshDiv.innerHTML = `
+      <div class="refresh-text">🔄 음악 목록을 보려면 페이지를 새로고침하세요</div>
+      <button class="refresh-btn" onclick="location.reload()">새로고침</button>
+    `;
+    
+    // 기존 성공 메시지 제거
+    const existingSuccess = uploadSection.querySelector(".upload-success");
+    if (existingSuccess) {
+      existingSuccess.remove();
+    }
+    
+    uploadSection.appendChild(refreshDiv);
+    
+    // 10초 후 새로고침 안내 제거
+    setTimeout(() => {
+      if (refreshDiv.parentNode) {
+        refreshDiv.remove();
+      }
+    }, 10000);
   }
 }
