@@ -572,7 +572,7 @@ select:hover {
   align-items: center;
   /* border-bottom: solid 1px rgba(255, 255, 255, 0.1); */
   /* box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); */
-  padding-left: 10px;
+  /* padding-left: 10px; */
   box-sizing: border-box;
 }
 
@@ -1713,7 +1713,7 @@ select:hover {
   gap: 2px;
 }
 #toolbar{
- padding: 4px 12px;
+ padding: 4px 4px;
 }
 .topWrapper .toolMenuBar button,
 #toolbar button,
