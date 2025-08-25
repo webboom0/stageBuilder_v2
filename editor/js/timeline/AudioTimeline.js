@@ -2121,6 +2121,7 @@ export class AudioTimeline extends BaseTimeline {
     const addMusicButton = document.createElement("button");
     addMusicButton.textContent = "음악 선택";
     addMusicButton.className = "add-music-btn";
+    addMusicButton.style.display = "none";
     addMusicButton.addEventListener("click", () => {
       console.log("음악 추가 버튼 클릭됨");
       if (this.assetSelector) {

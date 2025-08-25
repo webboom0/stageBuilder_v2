@@ -48,8 +48,8 @@ export class LightTimeline extends BaseTimeline {
     this.selectedObject = null;
     this.selectedProperty = null;
     this.selectedLightType = null;
-    this.propertyPanel = this.createPropertyPanel();
-    this.container.appendChild(this.propertyPanel.dom);
+    // this.propertyPanel = this.createPropertyPanel();
+    // this.container.appendChild(this.propertyPanel.dom);
     this.currentTime = 0;
 
     // tracks 맵 완전 재설정 (문제 해결을 위해)

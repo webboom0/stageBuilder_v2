@@ -1074,6 +1074,7 @@ border-left: 3px solid #666;
   background: linear-gradient(90deg, #4CAF50, #45a049);
   box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
   border: 2px solid #4CAF50;
+  
 }
 
 .animation-sprite[data-is-active="false"] {
@@ -1275,6 +1276,7 @@ border-left: 3px solid #666;
   background: linear-gradient(90deg, #4CAF50, #45a049);
   border: 2px solid #4CAF50;
   box-shadow: 0 0 15px rgba(76, 175, 80, 0.7);
+  box-shadow: 0 0 0 3px #ff9800 !important;
 }
 
 .animation-sprite.selected[data-is-active="false"] {
