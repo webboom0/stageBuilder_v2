@@ -11,6 +11,8 @@ export class VideoBackground {
     this.isPlaying = false;
     this.currentVideoPath = null;
   }
+  
+  
 
   // 비디오 배경 생성
   createVideoBackground(stageGroup) {
