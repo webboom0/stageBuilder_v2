@@ -43,11 +43,19 @@ app.get('/api/health', (req, res) => {
 // 루트 경로
 app.get('/', (req, res) => {
   res.json({
-    message: '🎵 음악 업로드 서버가 실행 중입니다.',
+    message: '�� 음악 & 🎬 FBX 업로드 서버가 실행 중입니다.',
     endpoints: {
       health: '/api/health',
-      upload: '/api/upload-audio',
-      files: '/api/audio-files'
+      // �� 오디오 관련
+      audio: {
+        upload: '/api/upload-audio',
+        files: '/api/audio-files'
+      },
+      // 🎬 FBX 관련
+      fbx: {
+        upload: '/api/upload-fbx',
+        files: '/api/fbx-files'
+      }
     },
     timestamp: new Date().toISOString()
   });
@@ -189,6 +197,152 @@ app.delete('/api/audio-files/:filename', (req, res) => {
     res.status(500).json({ error: '파일 삭제 중 오류가 발생했습니다.' });
   }
 });
+
+
+
+
+// �� FBX 파일 업로드를 위한 multer 설정 추가
+const fbxStorage = multer.diskStorage({
+  destination: function(req, file, cb)  {
+    const fbxDir = path.join(__dirname, '../files/fbx');
+    if (!fs.existsSync(fbxDir)) {
+      fs.mkdirSync(fbxDir, { recursive: true });
+      console.log('📁 FBX 폴더 생성됨:', fbxDir);
+    }
+    cb(null, fbxDir);
+  },
+  filename: function(req, file, cb) {
+    cb(null, file.originalname);
+  }
+});
+
+// �� FBX 파일 업로드용 multer
+const fbxUpload = multer({ 
+  storage: fbxStorage,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB
+  },
+  fileFilter: (req, file, cb) => {
+    // FBX 파일은 mimetype이 application/octet-stream이므로 확장자로 검사
+    const allowedExtensions = ['.fbx'];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedExtensions.includes(fileExtension)) {
+      cb(null, true);
+    } else {
+      cb(new Error('FBX 파일만 업로드 가능합니다.'));
+    }
+  }
+});
+
+// FBX 파일 업로드 엔드포인트 추가
+app.post('/api/upload-fbx', fbxUpload.single('fbxFile'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+    }
+
+    const uploadedFile = req.file;
+    console.log('🎬 FBX 파일 업로드:', uploadedFile.originalname);
+
+    // 파일이 이미 fbxStorage에 의해 올바른 위치에 저장됨
+    console.log('✅ FBX 파일 저장됨:', uploadedFile.path);
+
+    res.json({
+      message: '🎬 FBX 파일 업로드 성공',
+      filename: uploadedFile.originalname,
+      path: `/files/fbx/${uploadedFile.originalname}`,
+      size: uploadedFile.size,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ FBX 업로드 오류:', error);
+    res.status(500).json({ error: 'FBX 파일 업로드 중 오류가 발생했습니다.' });
+  }
+});
+
+// �� FBX 파일 목록 조회 엔드포인트
+app.get('/api/fbx-files', (req, res) => {
+  try {
+    const fbxDir = path.join(__dirname, '../files/fbx');
+    
+    if (!fs.existsSync(fbxDir)) {
+      console.log('�� FBX 폴더가 존재하지 않음, 빈 배열 반환');
+      return res.json([]);
+    }
+
+    const files = fs.readdirSync(fbxDir)
+      .filter(file => file.toLowerCase().endsWith('.fbx'))
+      .map(file => {
+        const filePath = path.join(fbxDir, file);
+        const stats = fs.statSync(filePath);
+        
+        return {
+          name: path.parse(file).name,
+          filename: file,
+          path: `/files/fbx/${file}`,
+          size: stats.size,
+          displayName: path.parse(file).name.replace(/_/g, ' '),
+          uploadDate: stats.mtime,
+          type: 'fbx'
+        };
+      });
+
+    console.log(`🎬 FBX 파일 ${files.length}개 발견`);
+    res.json(files);
+
+  } catch (error) {
+    console.error('❌ FBX 파일 목록 조회 오류:', error);
+    res.status(500).json({ error: 'FBX 파일 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 🎬 FBX 파일 삭제 엔드포인트
+app.delete('/api/fbx-files/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const fbxPath = path.join(__dirname, '../files/fbx', filename);
+
+    if (!fs.existsSync(fbxPath)) {
+      console.log(`❌ FBX 파일을 찾을 수 없음: ${filename}`);
+      return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+    }
+
+    fs.unlinkSync(fbxPath);
+    console.log('✅ FBX 파일 삭제됨:', filename);
+
+    res.json({ 
+      message: '�� FBX 파일이 삭제되었습니다.', 
+      filename,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ FBX 파일 삭제 오류:', error);
+    res.status(500).json({ error: 'FBX 파일 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+// �� FBX 파일 다운로드 엔드포인트
+app.get('/files/fbx/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const fbxPath = path.join(__dirname, '../files', 'fbx', filename);
+
+    if (!fs.existsSync(fbxPath)) {
+      return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+    }
+
+    res.download(fbxPath, filename);
+
+  } catch (error) {
+    console.error('❌ FBX 파일 다운로드 오류:', error);
+    res.status(500).json({ error: 'FBX 파일 다운로드 중 오류가 발생했습니다.' });
+  }
+});
+
+
 
 // 서버 시작
 app.listen(PORT, () => {
