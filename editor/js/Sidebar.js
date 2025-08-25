@@ -6,6 +6,7 @@ import { SidebarProject } from "./Sidebar.Project.js";
 import { SidebarPanelScene } from "./Sidebar.PanelScene.js";
 import { SidebarSettings } from "./Sidebar.Settings.js";
 import { SidebarLight } from "./Sidebar.Light.js";
+import { SidebarAssets } from "./SidebarAssets.js";
 
 import { createPanel } from './ui/floatPanel.js';
 
@@ -23,6 +24,7 @@ function Sidebar(editor) {
   const project = new SidebarProject(editor);
   const settings = new SidebarSettings(editor);
   const sidebarLight = new SidebarLight(editor);
+  const sidebarAssets = new SidebarAssets(editor);
 
   container.addTab("scene", "Scene", scene);
   container.addTab("light", "Light", sidebarLight);
@@ -47,10 +49,18 @@ function Sidebar(editor) {
   const scenePanel = createPanel('Scene', new SidebarPanelScene(editor).dom);
   const propertiesPanel = createPanel('Properties', new SidebarProperties(editor).dom);
 
-  const sidebarContainer = document.querySelector('.side');
+  const sidebarContainer = document.querySelector('#sidebar');
   sidebarContainer.appendChild(scenePanel);
   // sidebarContainer.appendChild(lightPanel);
   sidebarContainer.appendChild(propertiesPanel);
+  
+  // SidebarAssets를 sidebar-assets 컨테이너에 추가
+  const sidebarAssetsContainer = document.querySelector('#sidebar-assets');
+  if (sidebarAssetsContainer) {
+    sidebarAssetsContainer.appendChild(sidebarAssets.dom);
+  } else {
+    console.warn("⚠️ #sidebar-assets 컨테이너를 찾을 수 없습니다.");
+  }
 
   return container;
 }

@@ -34,6 +34,7 @@
         
         <div class="viewerWrapper">
           <div class="side" id="sidebar"></div>
+          
           <!-- <div id="propertyPanel"></div> -->
           <div class="viewer">
             <div class="topWrapper">
@@ -65,6 +66,8 @@
             </div>
             <div class="toolBar"></div>
           </div>
+
+          <div class="side right" id="sidebar-assets"></div>
         </div>
         <!-- <div class="musicEditWrapper">
           <div class="music"></div>
@@ -218,6 +221,7 @@
     import { Resizer } from "./js/Resizer.js";
     import { VideoEdit } from "./js/VideoEdit.js";
     import { SidebarProperties } from "./js/Sidebar.Properties.js";
+    import { SidebarAssets } from "./js/SidebarAssets.js";
     // import { Music } from './js/Music.js';
     const { createFFmpeg, fetchFile } = FFmpeg;
 
@@ -343,6 +347,8 @@
 
       const sidebar = new Sidebar(editor);
       // editorTab.querySelector(".side").appendChild(sidebar.dom);
+
+      // const sidebarAssets = new SidebarAssets(editor);
 
       // const sidebarProperties = new SidebarProperties(editor);
       // editorTab.querySelector("#propertyPanel").appendChild(sidebarProperties.dom);

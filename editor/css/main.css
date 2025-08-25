@@ -397,7 +397,7 @@ select:hover {
 }
 
 .viewerWrapper .side {
-  width: 280px;
+  width: 230px;
   overflow-y: auto;
   overflow-x: hidden;
   background: #1a1a1a;

@@ -685,7 +685,7 @@ class UIAudioAssetSelector extends UIElement {
       .audio-list-container {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 2px;
         background: #000;
         padding: 10px;
         min-height: 300px;
@@ -701,6 +701,7 @@ class UIAudioAssetSelector extends UIElement {
         /* border-radius: 6px; */
         /* border: 1px solid #555; */
         border-bottom: solid 1px #3f3f3f;
+        
       }
 
       .audio-item:hover {
@@ -717,23 +718,33 @@ class UIAudioAssetSelector extends UIElement {
       .audio-name {
         color: #fff;
         font-weight: bold;
-        font-size: 14px;
-        display: none;
+        font-size: 12px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
       }
 
       .audio-filename {
         color: #aaa;
-        font-size: 12px;
+        font-size: 11px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
       }
 
       .add-audio-btn {
         background:rgb(58, 58, 58);
         color: white;
         border: none;
-        padding: 3px 10px;
-        border-radius: 4px;
+        padding: 3px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 10px;
       }
 
       .add-audio-btn:hover {
@@ -5613,5 +5624,69 @@ export class AudioTimeline extends BaseTimeline {
         refreshDiv.remove();
       }
     }, 10000);
+  }
+
+  // SidebarAssets에서 음악 추가 시 호출되는 메서드
+  addAudioTrack(audioFile) {
+    try {
+      console.log("SidebarAssets에서 음악 추가 요청:", audioFile);
+      
+      // 기본 오디오 트랙 데이터 생성
+      const audioData = {
+        audioFile: audioFile,
+        startTime: 0, // 시작 시간 0초
+        duration: 100, // 기본 길이 100초
+        volume: 1.0, // 기본 볼륨 100%
+        mute: false, // 기본값 음소거 해제
+        playbackRate: 1.0, // 기본 재생 속도
+        audioStartTime: 0, // 오디오 시작 시간
+        audioEndTime: 100 // 오디오 끝 시간
+      };
+      
+      // 고유 ID 생성
+      const objectId = `audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // 빈 트랙 생성
+      const emptyTrack = {
+        id: objectId,
+        objectId: objectId,
+        type: 'audio',
+        startTime: audioData.startTime,
+        duration: audioData.duration,
+        volume: audioData.volume,
+        mute: audioData.mute,
+        playbackRate: audioData.playbackRate,
+        audioStartTime: audioData.audioStartTime,
+        audioEndTime: audioData.audioEndTime,
+        audioFile: audioData.audioFile
+      };
+      
+      // this.tracks에 추가
+      this.tracks.set(objectId, emptyTrack);
+      console.log(`✅ SidebarAssets에서 오디오 트랙 추가 완료: ${objectId}`, {
+        tracksSize: this.tracks.size,
+        tracksKeys: Array.from(this.tracks.keys())
+      });
+      
+      // loadAudioFile 호출하여 트랙 생성
+      this.loadAudioFile(audioFile).then((track) => {
+        console.log(`✅ SidebarAssets에서 오디오 트랙 생성 성공: ${objectId}`, track);
+        
+        // UI 업데이트
+        this.updateUI();
+        
+        // timelineData.tracks 동기화
+        this.syncTimelineDataTracks();
+        
+      }).catch((error) => {
+        console.error(`❌ SidebarAssets에서 오디오 트랙 생성 실패: ${objectId}`, error);
+      });
+      
+      return objectId;
+      
+    } catch (error) {
+      console.error("SidebarAssets에서 오디오 트랙 추가 중 오류:", error);
+      throw error;
+    }
   }
 }

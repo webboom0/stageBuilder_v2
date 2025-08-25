@@ -111,6 +111,23 @@ class Timeline {
 
       // LightTimeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
       editor.lightTimeline = this.timelines.light;
+      
+      // AudioTimeline 인스턴스를 editor에 저장하여 전역적으로 접근 가능하도록 함
+      editor.audioTimeline = this.timelines.audio;
+      
+      // window.timeline에 할당하여 전역적으로 접근 가능하도록 함
+      if (!window.timeline) {
+        window.timeline = {};
+      }
+      window.timeline.timelines = this.timelines;
+      
+      console.log("✅ Timeline 초기화 완료:", {
+        motion: !!this.timelines.motion,
+        light: !!this.timelines.light,
+        audio: !!this.timelines.audio,
+        windowTimeline: !!window.timeline,
+        windowTimelineTimelines: !!window.timeline.timelines
+      });
     }
 
     // RenderTimeline 인스턴스 생성

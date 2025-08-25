@@ -343,7 +343,7 @@ export class RenderTimeline {
       <div style="margin-top: 15px; text-align: center;">
         <button class="render-btn secondary" id="previewFrame">현재 프레임 미리보기</button>
         <button class="render-btn secondary" id="previewTimeline">타임라인 미리보기</button>
-        <button class="render-btn secondary" id="debugAnimation" style="background: #FF9800; display:none">🐛 애니메이션 디버그</button>
+        <button class="render-btn secondary" id="debugAnimation" style="background: #FF9800;">🐛 애니메이션 디버그</button>
       </div>
     `;
     container.appendChild(preview);
@@ -431,18 +431,23 @@ export class RenderTimeline {
       // UUID 매핑 테이블 생성
       this.uuidMapping = new Map();
       this.previewScene = this.deepCloneScene(this.editor.scene);
-      
+
       // 🎬 도우미 객체 제거
       this.removeHelperObjects();
-      
+
       // 🎬 FBX 애니메이션 활성화
       this.activateFBXAnimations();
-      
+
       // 🚀 애니메이션 믹서들을 미리보기 씬에 복사
       console.log('🎬 === 애니메이션 믹서 복사 시작 ===');
       this.copyAnimationMixersToPreview();
       console.log('🎬 === 애니메이션 믹서 복사 완료 ===');
-      
+
+      // �� 조명 애니메이션 믹서들을 미리보기 씬에 복사
+      console.log('�� === 조명 애니메이션 믹서 복사 시작 ===');
+      this.copyLightAnimationMixersToPreview();
+      console.log('�� === 조명 애니메이션 믹서 복사 완료 ===');
+
       console.log('씬 복사 완료:', {
         children: this.previewScene.children.length,
         name: this.previewScene.name,
@@ -503,23 +508,406 @@ export class RenderTimeline {
     }
   }
 
+  // 🚀 조명 애니메이션 믹서를 미리보기 씬에 복사
+  copyLightAnimationMixersToPreview() {
+    const originalLightMixers = [];
+    console.log('�� === 원본 씬에서 조명 애니메이션 믹서 검색 시작 ===');
+
+    // �� 원본 씬의 모든 조명 객체를 순회하면서 애니메이션 검색
+    this.editor.scene.traverse((object) => {
+      // �� 조명 객체이면서 애니메이션이 있는 객체 찾기
+      if (object.isLight && object.animations && object.animations.length > 0) {
+        console.log(`�� 원본 씬에서 조명 애니메이션 객체 발견: ${object.name} (${object.animations.length}개 클립) - UUID: ${object.uuid}`);
+        console.log(`  - 조명 타입: ${object.type}`);
+        console.log(`  - 애니메이션 클립들:`, object.animations.map(clip => ({
+          name: clip.name,
+          duration: clip.duration,
+          tracks: clip.tracks.length
+        })));
+
+        originalLightMixers.push({
+          object: object,
+          animations: object.animations,
+          mixer: object.animationMixer || object.userData.animationMixer
+        });
+      }
+
+      // 🚀 조명 관련 특별 검색
+      if (object.isLight) {
+        console.log(`�� 조명 객체 발견: ${object.name} (${object.type}) - UUID: ${object.uuid}`);
+        console.log(`  - animations: ${object.animations ? object.animations.length : 0}개`);
+        console.log(`  - animationMixer: ${object.animationMixer ? '있음' : '없음'}`);
+        console.log(`  - userData.animationMixer: ${object.userData && object.userData.animationMixer ? '있음' : '없음'}`);
+
+        // 🚀 userData 상세 분석
+        if (object.userData) {
+          console.log(`  - userData 키들:`, Object.keys(object.userData));
+          if (object.userData.animationMixer) {
+            console.log(`  - userData.animationMixer 상세:`, {
+              _actions: object.userData.animationMixer._actions ? object.userData.animationMixer._actions.length : 0,
+              _clips: object.userData.animationMixer._clips ? object.userData.animationMixer._clips.length : 0
+            });
+          }
+        }
+      }
+    });
+
+    console.log(`�� === 원본 씬에서 조명 애니메이션 믹서 검색 완료: ${originalLightMixers.length}개 발견 ===`);
+
+    if (originalLightMixers.length === 0) {
+      console.log('⚠️ 원본 씬에서 조명 애니메이션 객체를 찾을 수 없습니다!');
+      return;
+    }
+
+    // �� 미리보기 씬에 조명 애니메이션 믹서 복사
+    let copiedLightMixers = 0;
+    originalLightMixers.forEach((mixerData, index) => {
+      const originalObject = mixerData.object;
+      console.log(`\n�� === 조명 애니메이션 믹서 ${index + 1}/${originalLightMixers.length} 복사 시작 ===`);
+      console.log(`  - 원본 조명 객체: ${originalObject.name} (${originalObject.type})`);
+      console.log(`  - UUID: ${originalObject.uuid}`);
+      console.log(`  - 애니메이션 클립 수: ${mixerData.animations.length}`);
+
+      // 미리보기 씬에서 동일한 조명 객체 찾기
+      let previewObject = null;
+      console.log(`    🔍 미리보기 씬에서 UUID ${originalObject.uuid}로 조명 객체 검색 중...`);
+      this.previewScene.traverse((obj) => {
+        if (obj.uuid === originalObject.uuid && obj.isLight) {
+          previewObject = obj;
+          console.log(`      ✅ UUID 매칭 성공: ${obj.name || 'unnamed'} (${obj.type})`);
+        }
+      });
+
+      if (!previewObject) {
+        console.log(`      ❌ UUID ${originalObject.uuid}로 조명 객체를 찾을 수 없습니다.`);
+        return; // 이 객체는 건너뛰기
+      }
+
+      try {
+        // �� 조명 애니메이션 클립들을 미리보기 객체에 복사
+        console.log(`    📋 조명 애니메이션 클립 복사 중...`);
+        const clonedClips = [];
+        mixerData.animations.forEach((clip, clipIndex) => {
+          try {
+            const clonedClip = clip.clone();
+            clonedClips.push(clonedClip);
+            console.log(`      ✅ 조명 클립 ${clipIndex + 1} 복사 완료: ${clip.name} (${clip.duration}초)`);
+          } catch (clipError) {
+            console.warn(`      ❌ 조명 클립 ${clipIndex + 1} 복사 실패:`, clipError);
+          }
+        });
+
+        if (clonedClips.length === 0) {
+          console.log(`    ⚠️ 복사된 조명 클립이 없습니다.`);
+          return;
+        }
+
+        // �� 미리보기 조명 객체에 새로운 애니메이션 믹서 생성
+        console.log(`    💡 미리보기 조명 객체에 애니메이션 믹서 생성 중...`);
+        const previewMixer = new THREE.AnimationMixer(previewObject);
+        previewObject.animationMixer = previewMixer;
+
+        // 🚀 클립들을 믹서에 추가하고 액션 생성
+        console.log(`    🎬 조명 믹서에 액션 추가 중...`);
+        clonedClips.forEach((clip, clipIndex) => {
+          try {
+            const action = previewMixer.clipAction(clip);
+            action.setLoop(THREE.LoopRepeat);
+            action.clampWhenFinished = true;
+            action.play();
+            console.log(`      ✅ 조명 액션 ${clipIndex + 1} 생성 완료: ${clip.name} (${action.isRunning() ? '재생 중' : '정지됨'})`);
+          } catch (actionError) {
+            console.warn(`      ❌ 조명 액션 ${clipIndex + 1} 생성 실패:`, actionError);
+          }
+        });
+
+        copiedLightMixers++;
+        console.log(`    ✅ 조명 애니메이션 믹서 복사 완료: ${previewObject.name}`);
+
+      } catch (error) {
+        console.error(`    ❌ 조명 애니메이션 믹서 복사 중 오류:`, error);
+      }
+
+      console.log(`�� === 조명 애니메이션 믹서 ${index + 1}/${originalLightMixers.length} 복사 완료 ===\n`);
+    });
+
+    console.log(`�� === 조명 애니메이션 믹서 복사 결과 ===`);
+    console.log(`  - 원본 조명 믹서: ${originalLightMixers.length}개`);
+    console.log(`  - 복사된 조명 믹서: ${copiedLightMixers}개`);
+
+    // 🚀 미리보기 조명 애니메이션 클록 생성
+    if (copiedLightMixers > 0) {
+      console.log(`⏱️ 미리보기 조명 애니메이션 클록 생성 중...`);
+      this.previewLightAnimationClock = new THREE.Clock();
+      console.log(`✅ 미리보기 조명 애니메이션 클록 생성 완료`);
+    } else {
+      console.log(`⚠️ 복사된 조명 믹서가 없어 조명 애니메이션 클록을 생성하지 않습니다.`);
+    }
+  }
+
+  // �� 조명 애니메이션 믹서 업데이트
+  updatePreviewLightAnimationMixers(time) {
+    if (!this.previewScene) {
+      console.log('⚠️ previewScene이 없어 조명 애니메이션 믹서 업데이트를 건너뜁니다');
+      return;
+    }
+
+    if (!this.previewLightAnimationClock) {
+      console.log('⚠️ previewLightAnimationClock이 없어 조명 애니메이션 믹서 업데이트를 건너뜁니다');
+      return;
+    }
+
+    try {
+      console.log(`🔄 조명 애니메이션 믹서 업데이트 시작 (시간: ${time.toFixed(2)}초)`);
+      
+      // 조명 애니메이션 클록 업데이트
+      const deltaTime = this.previewLightAnimationClock.getDelta();
+      console.log(`⏱️ 조명 애니메이션 클록 deltaTime: ${deltaTime.toFixed(4)}초`);
+      
+      // 미리보기 씬의 모든 조명 애니메이션 믹서 업데이트
+      let updatedLightMixers = 0;
+      let totalLightActions = 0;
+      let activeLightActions = 0;
+      
+      this.previewScene.traverse((object) => {
+        if (object.isLight && object.animationMixer) {
+          const mixer = object.animationMixer;
+          console.log(`💡 조명 객체 ${object.name}의 애니메이션 믹서 처리 중...`);
+          
+          // �� 핵심: 특정 시간으로 조명 애니메이션 설정
+          if (mixer._actions && mixer._actions.length > 0) {
+            console.log(`  - 조명 믹서에 ${mixer._actions.length}개의 액션 발견`);
+            
+            mixer._actions.forEach((action, index) => {
+              totalLightActions++;
+              
+              if (action._clip) {
+                const clip = action._clip;
+                console.log(`    - 조명 액션 ${index + 1}: ${clip.name} (지속시간: ${clip.duration}초)`);
+                
+                // 🚀 현재 시간을 클립의 시간 범위로 변환
+                const clipTime = time % clip.duration;
+                const previousTime = action.time || 0;
+                
+                console.log(`      - 이전 시간: ${previousTime.toFixed(3)}초`);
+                console.log(`      - 새 시간: ${clipTime.toFixed(3)}초`);
+                console.log(`      - 시간 변화: ${(clipTime - previousTime).toFixed(3)}초`);
+                
+                // 🚀 액션 시간 설정
+                action.time = clipTime;
+                
+                // 🚀 액션이 활성 상태인지 확인하고 필요시 재시작
+                if (!action.isRunning()) {
+                  console.log(`      - 조명 액션이 비활성 상태입니다. 재시작합니다.`);
+                  action.play();
+                  activeLightActions++;
+                } else {
+                  console.log(`      - 조명 액션이 활성 상태입니다.`);
+                  activeLightActions++;
+                }
+                
+                // 🚀 조명 액션 상태 상세 정보
+                console.log(`      - 조명 액션 상태:`, {
+                  isRunning: action.isRunning(),
+                  timeScale: action.timeScale,
+                  weight: action.weight,
+                  enabled: action.enabled,
+                  time: action.time,
+                  duration: action._clip.duration
+                });
+              } else {
+                console.log(`    - 조명 액션 ${index + 1}: 클립이 없습니다.`);
+              }
+            });
+          } else {
+            console.log(`  - 조명 믹서에 액션이 없습니다.`);
+          }
+          
+          // 🚀 조명 믹서 업데이트
+          try {
+            mixer.update(deltaTime);
+            updatedLightMixers++;
+            console.log(`  - 조명 믹서 업데이트 완료`);
+          } catch (mixerUpdateError) {
+            console.warn(`  - 조명 믹서 업데이트 실패:`, mixerUpdateError);
+          }
+        } else if (object.isLight && object.animations && object.animations.length > 0) {
+          console.log(`⚠️ 조명 객체 ${object.name}에 애니메이션이 있지만 믹서가 없습니다.`);
+        }
+      });
+
+      console.log(`📊 조명 애니메이션 믹서 업데이트 결과:`);
+      console.log(`  - 업데이트된 조명 믹서: ${updatedLightMixers}개`);
+      console.log(`  - 총 조명 액션: ${totalLightActions}개`);
+      console.log(`  - 활성 조명 액션: ${activeLightActions}개`);
+      
+      if (updatedLightMixers > 0) {
+        console.log(`✅ ${updatedLightMixers}개 조명 애니메이션 믹서 업데이트 완료`);
+      } else {
+        console.log(`⚠️ 업데이트된 조명 애니메이션 믹서가 없습니다.`);
+      }
+    } catch (error) {
+      console.error('❌ 조명 애니메이션 믹서 업데이트 중 오류:', error);
+    }
+  }
+
+  // �� 조명 애니메이션 디버깅 정보 표시
+  showLightAnimationDebugInfo() {
+    if (!this.previewScene) {
+      console.log('미리보기 씬이 아직 생성되지 않았습니다.');
+      return;
+    }
+
+    console.log('💡 === 조명 애니메이션 디버깅 정보 시작 ===');
+    
+    const scene = this.previewScene;
+    let lightAnimationObjects = 0;
+    let totalLights = 0;
+    let lightMixers = 0;
+    let activeLightActions = 0;
+    let totalLightActions = 0;
+
+    scene.traverse((object) => {
+      if (object.isLight) {
+        totalLights++;
+
+        // 🚀 조명 애니메이션 믹서 확인 (userData.animationMixer)
+        if (object.userData && object.userData.animationMixer) {
+          lightMixers++;
+          const mixer = object.userData.animationMixer;
+          const actions = mixer._actions ? mixer._actions.length : 0;
+          totalLightActions += actions;
+          
+          console.log(`💡 조명 애니메이션 믹서 발견 (userData):`, {
+            name: object.name || 'unnamed',
+            type: object.type,
+            mixer: mixer,
+            actions: actions,
+            animations: object.animations ? object.animations.length : 0
+          });
+          
+          // 조명 액션 상태 상세 정보
+          if (mixer._actions) {
+            mixer._actions.forEach((action, index) => {
+              if (action.isRunning()) activeLightActions++;
+              console.log(`  - 조명 액션 ${index + 1}:`, {
+                name: action._clip ? action._clip.name : 'unknown',
+                isRunning: action.isRunning(),
+                time: action.time,
+                weight: action.weight,
+                enabled: action.enabled
+              });
+            });
+          }
+        }
+
+        // �� 조명 애니메이션 믹서 확인 (직접 속성)
+        if (object.animationMixer) {
+          lightMixers++;
+          const mixer = object.animationMixer;
+          const actions = mixer._actions ? mixer._actions.length : 0;
+          totalLightActions += actions;
+          
+          console.log(`�� 조명 애니메이션 믹서 발견 (직접):`, {
+            name: object.name || 'unnamed',
+            type: object.type,
+            mixer: mixer,
+            actions: actions,
+            animations: object.animations ? object.animations.length : 0
+          });
+          
+          // 조명 액션 상태 상세 정보
+          if (mixer._actions) {
+            mixer._actions.forEach((action, index) => {
+              if (action.isRunning()) activeLightActions++;
+              console.log(`  - 조명 액션 ${index + 1}:`, {
+                name: action._clip ? action._clip.name : 'unknown',
+                isRunning: action.isRunning(),
+                time: action.time,
+                weight: action.weight,
+                enabled: action.enabled
+              });
+            });
+          }
+        }
+
+        // 🚀 조명 애니메이션 클립 확인
+        if (object.animations && object.animations.length > 0) {
+          lightAnimationObjects++;
+          console.log(`💡 조명 애니메이션 클립 발견:`, {
+            name: object.name || 'unnamed',
+            type: object.type,
+            clips: object.animations.length,
+            clipDetails: object.animations.map((clip, index) => ({
+              index: index,
+              name: clip.name,
+              duration: clip.duration,
+              tracks: clip.tracks.length
+            }))
+          });
+        }
+
+        // 🚀 조명 사용자 정의 애니메이션 데이터 확인
+        if (object.userData && (
+          object.userData.animations ||
+          object.userData.keyframes ||
+          object.userData.intensityAnimation ||
+          object.userData.colorAnimation ||
+          object.userData.positionAnimation ||
+          object.userData.rotationAnimation
+        )) {
+          lightAnimationObjects++;
+          console.log(`💡 조명 사용자 정의 애니메이션 데이터 발견:`, {
+            name: object.name || 'unnamed',
+            type: object.type,
+            userData: object.userData,
+            animations: object.animations ? object.animations.length : 0
+          });
+        }
+      }
+    });
+
+    console.log(`📊 === 조명 애니메이션 디버깅 정보 요약 ===`);
+    console.log(`  - 총 조명 수: ${totalLights}개`);
+    console.log(`  - 애니메이션 포함 조명: ${lightAnimationObjects}개`);
+    console.log(`  - 조명 애니메이션 믹서: ${lightMixers}개`);
+    console.log(`  - 총 조명 액션 수: ${totalLightActions}개`);
+    console.log(`  - 활성 조명 액션 수: ${activeLightActions}개`);
+
+    // 🚀 미리보기 조명 애니메이션 클록 정보
+    if (this.previewLightAnimationClock) {
+      console.log('⏱️ 미리보기 조명 애니메이션 클록 상태:', {
+        autoStart: this.previewLightAnimationClock.autoStart,
+        startTime: this.previewLightAnimationClock.startTime,
+        oldTime: this.previewLightAnimationClock.oldTime,
+        elapsedTime: this.previewLightAnimationClock.elapsedTime,
+        running: this.previewLightAnimationClock.running
+      });
+    } else {
+      console.log('⚠️ 미리보기 조명 애니메이션 클록이 없습니다.');
+    }
+
+    console.log('💡 === 조명 애니메이션 디버깅 정보 완료 ===');
+  }
+
+  
   // 🚀 깊은 복사를 위한 씬 클론 메서드
   deepCloneScene(originalScene) {
     try {
       console.log('🚀 깊은 복사 시작...');
-      
+
       // 새 씬 생성
       const clonedScene = new THREE.Scene();
       clonedScene.name = originalScene.name;
       clonedScene.background = originalScene.background;
       clonedScene.environment = originalScene.environment;
       clonedScene.fog = originalScene.fog;
-      
+
       // userData 복사
       if (originalScene.userData) {
         clonedScene.userData = JSON.parse(JSON.stringify(originalScene.userData));
       }
-      
+
       // 모든 자식 객체를 재귀적으로 복사
       originalScene.children.forEach(child => {
         const clonedChild = this.deepCloneObject(child);
@@ -527,10 +915,10 @@ export class RenderTimeline {
           clonedScene.add(clonedChild);
         }
       });
-      
+
       console.log('✅ 깊은 복사 완료');
       return clonedScene;
-      
+
     } catch (error) {
       console.error('❌ 깊은 복사 중 오류:', error);
       // 오류 발생 시 기본 clone 사용
@@ -542,13 +930,13 @@ export class RenderTimeline {
   deepCloneObject(originalObject) {
     try {
       if (!originalObject) return null;
-      
+
       let clonedObject = null;
-      
+
       // 객체 타입에 따른 복사
       if (originalObject.isMesh) {
         clonedObject = originalObject.clone();
-        
+
         // Material 복사
         if (originalObject.material) {
           if (Array.isArray(originalObject.material)) {
@@ -557,23 +945,23 @@ export class RenderTimeline {
             clonedObject.material = originalObject.material.clone();
           }
         }
-        
+
       } else if (originalObject.isGroup) {
         clonedObject = new THREE.Group();
         clonedObject.name = originalObject.name;
-        
+
         // Transform 복사
         clonedObject.position.copy(originalObject.position);
         clonedObject.rotation.copy(originalObject.rotation);
         clonedObject.scale.copy(originalObject.scale);
         clonedObject.matrix.copy(originalObject.matrix);
         clonedObject.matrixWorld.copy(originalObject.matrixWorld);
-        
+
         // userData 복사
         if (originalObject.userData) {
           clonedObject.userData = JSON.parse(JSON.stringify(originalObject.userData));
         }
-        
+
         // 자식 객체들 복사
         originalObject.children.forEach(child => {
           const clonedChild = this.deepCloneObject(child);
@@ -581,65 +969,65 @@ export class RenderTimeline {
             clonedObject.add(clonedChild);
           }
         });
-        
+
       } else if (originalObject.isLight) {
         clonedObject = originalObject.clone();
-        
+
         // Light 속성 복사
         if (originalObject.target) {
           clonedObject.target = this.deepCloneObject(originalObject.target);
         }
-        
+
       } else if (originalObject.isCamera) {
         clonedObject = originalObject.clone();
-        
+
         // Camera 속성 복사
         if (originalObject.target) {
           clonedObject.target = this.deepCloneObject(originalObject.target);
         }
-        
+
       } else if (originalObject.isBone) {
         // Bone 객체는 기본 clone 사용 (애니메이션과 연결됨)
         clonedObject = originalObject.clone();
-        
+
       } else if (originalObject.isSkinnedMesh) {
         // SkinnedMesh는 기본 clone 사용 (애니메이션과 연결됨)
         clonedObject = originalObject.clone();
-        
+
       } else if (originalObject.isLine || originalObject.isLineSegments) {
         // Line 객체들
         clonedObject = originalObject.clone();
-        
+
       } else if (originalObject.isPoints) {
         // Points 객체
         clonedObject = originalObject.clone();
-        
+
       } else {
         // 기타 객체는 기본 clone 사용
         clonedObject = originalObject.clone();
       }
-      
+
       // 공통 속성 복사
       if (clonedObject) {
         clonedObject.name = originalObject.name;
         clonedObject.visible = originalObject.visible;
         clonedObject.castShadow = originalObject.castShadow;
         clonedObject.receiveShadow = originalObject.receiveShadow;
-        
+
         // userData가 아직 복사되지 않은 경우
         if (!clonedObject.userData && originalObject.userData) {
           clonedObject.userData = JSON.parse(JSON.stringify(originalObject.userData));
         }
       }
-      
+
       // UUID 매핑 저장 (원본 UUID -> 클론된 객체)
       if (clonedObject && originalObject.uuid) {
         this.uuidMapping.set(originalObject.uuid, clonedObject);
         console.log(`🔗 UUID 매핑: ${originalObject.uuid} -> ${clonedObject.name || clonedObject.type}`);
       }
-      
+
       return clonedObject;
-      
+
     } catch (error) {
       console.warn(`⚠️ 객체 복사 실패 (${originalObject.name || originalObject.type}):`, error);
       return null;
@@ -650,14 +1038,14 @@ export class RenderTimeline {
   removeHelperObjects() {
     try {
       console.log("🎬 도우미 객체 제거 시작...");
-      
+
       if (!this.previewScene) {
         console.warn("⚠️ previewScene이 없어 도우미 제거를 건너뜁니다");
         return;
       }
-      
+
       const helpersToRemove = [];
-      
+
       // 도우미 객체 찾기
       this.previewScene.traverse((object) => {
         if (this.isHelperObject(object)) {
@@ -665,9 +1053,9 @@ export class RenderTimeline {
           console.log(`🎬 도우미 객체 발견: ${object.name} (${object.type})`);
         }
       });
-      
+
       console.log(`🎬 제거할 도우미 객체 ${helpersToRemove.length}개`);
-      
+
       // 도우미 객체 제거 (부모에서부터 제거)
       helpersToRemove.forEach(helper => {
         try {
@@ -679,7 +1067,7 @@ export class RenderTimeline {
           console.warn(`⚠️ 도우미 객체 제거 실패 (${helper.name}):`, error);
         }
       });
-      
+
       // 🚀 추가 검증: 도우미 객체가 실제로 제거되었는지 확인
       let remainingHelpers = 0;
       this.previewScene.traverse((object) => {
@@ -688,13 +1076,13 @@ export class RenderTimeline {
           console.log(`⚠️ 여전히 남아있는 도우미: ${object.name} (${object.type})`);
         }
       });
-      
+
       if (remainingHelpers > 0) {
         console.warn(`⚠️ ${remainingHelpers}개의 도우미 객체가 여전히 남아있습니다`);
       } else {
         console.log("✅ 모든 도우미 객체 제거 완료");
       }
-      
+
     } catch (error) {
       console.error("❌ 도우미 객체 제거 중 오류:", error);
     }
@@ -705,7 +1093,7 @@ export class RenderTimeline {
     // 도우미 객체 타입들
     const helperTypes = [
       'GridHelper',
-      'AxesHelper', 
+      'AxesHelper',
       'SkeletonHelper',
       'BoneHelper',
       'DirectionalLightHelper',
@@ -734,12 +1122,12 @@ export class RenderTimeline {
       'Line',
       'Points'
     ];
-    
+
     // 1. 타입으로 도우미 식별
     if (helperTypes.includes(object.type)) {
       return true;
     }
-    
+
     // 2. 이름으로 도우미 식별 (더 정확한 패턴 매칭)
     if (object.name) {
       const lowerName = object.name.toLowerCase();
@@ -750,39 +1138,39 @@ export class RenderTimeline {
         'debug', 'temp', 'temp_', 'temp-', 'temp.', 'temp_', 'temp-',
         'selection', 'highlight', 'focus', 'target', 'marker', 'indicator'
       ];
-      
+
       if (helperKeywords.some(keyword => lowerName.includes(keyword))) {
         return true;
       }
-      
+
       // 특정 패턴 매칭
       if (lowerName.match(/^(grid|axis|helper|gizmo|control|guide|temp|selection)/)) {
         return true;
       }
     }
-    
+
     // 3. userData로 도우미 식별
     if (object.userData) {
       const helperFlags = [
         'isHelper', 'isGizmo', 'isControl', 'isGuide', 'isTemporary',
         'isSelection', 'isHighlight', 'isDebug', 'isVisual', 'isAssist'
       ];
-      
+
       if (helperFlags.some(flag => object.userData[flag])) {
         return true;
       }
-      
+
       // userData에 helper 관련 정보가 있는지 확인
       if (object.userData.helperType || object.userData.gizmoType || object.userData.controlType) {
         return true;
       }
     }
-    
+
     // 4. 특별한 경우들
     if (object.isHelper || object.isGizmo || object.isControl || object.isGuide) {
       return true;
     }
-    
+
     // 5. TransformControls 관련 객체들
     if (object.type === 'Object3D' && object.name && (
       object.name.includes('TransformControls') ||
@@ -791,7 +1179,7 @@ export class RenderTimeline {
     )) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -799,15 +1187,15 @@ export class RenderTimeline {
   activateFBXAnimations() {
     try {
       console.log("🎬 FBX 애니메이션 활성화 시작...");
-      
+
       if (!this.previewScene) {
         console.warn("⚠️ previewScene이 없어 애니메이션 활성화를 건너뜁니다");
         return;
       }
-      
+
       let animationMixers = [];
       let totalAnimations = 0;
-      
+
       console.log("🎬 scene traverse 시작...");
       this.previewScene.traverse((object) => {
         // FBX 애니메이션 객체 찾기
@@ -820,7 +1208,7 @@ export class RenderTimeline {
             duration: clip.duration,
             tracks: clip.tracks.length
           })));
-          
+
           try {
             // 기존 AnimationMixer가 있다면 제거
             if (object.animationMixer) {
@@ -833,7 +1221,7 @@ export class RenderTimeline {
               }
               object.animationMixer = null;
             }
-            
+
             // 새로운 AnimationMixer 생성
             if (THREE.AnimationMixer) {
               console.log(`  - 새로운 AnimationMixer 생성 중...`);
@@ -844,16 +1232,16 @@ export class RenderTimeline {
               console.warn("⚠️ THREE.AnimationMixer를 찾을 수 없습니다");
               return;
             }
-            
+
             // 모든 애니메이션 클립 활성화
             object.animations.forEach((clip, index) => {
               try {
                 console.log(`  - 클립 ${index + 1}: ${clip.name} (${clip.duration}초, ${clip.tracks.length}개 트랙)`);
-                
+
                 if (object.animationMixer && object.animationMixer.clipAction) {
                   const action = object.animationMixer.clipAction(clip);
                   console.log(`    - clipAction 생성됨:`, action);
-                  
+
                   // 액션 설정
                   if (action.setLoop && THREE.LoopRepeat) {
                     action.setLoop(THREE.LoopRepeat);
@@ -863,13 +1251,13 @@ export class RenderTimeline {
                     action.clampWhenFinished = false;
                     console.log(`    - clampWhenFinished 설정: false`);
                   }
-                  
+
                   // 액션 재생
                   if (action.play) {
                     action.play();
                     console.log(`    - 애니메이션 재생 시작`);
                   }
-                  
+
                   // 액션 상태 확인
                   console.log(`    - 액션 상태:`, {
                     isRunning: action.isRunning(),
@@ -889,9 +1277,9 @@ export class RenderTimeline {
           }
         }
       });
-      
+
       console.log(`🎬 총 ${totalAnimations}개 애니메이션 클립 발견됨`);
-      
+
       // 애니메이션 업데이트를 위한 클록 생성
       if (animationMixers.length > 0) {
         try {
@@ -909,7 +1297,7 @@ export class RenderTimeline {
       } else {
         console.log("⚠️ 활성화할 FBX 애니메이션이 없습니다");
       }
-      
+
     } catch (error) {
       console.error("❌ FBX 애니메이션 활성화 중 오류:", error);
     }
@@ -919,7 +1307,7 @@ export class RenderTimeline {
   copyAnimationMixersToPreview() {
     const originalMixers = [];
     console.log('🔍 === 원본 씬에서 애니메이션 믹서 검색 시작 ===');
-    
+
     // 🚀 원본 씬의 모든 객체를 순회하면서 애니메이션 검색
     this.editor.scene.traverse((object) => {
       // 🚀 애니메이션이 있는 객체 찾기
@@ -931,21 +1319,21 @@ export class RenderTimeline {
           duration: clip.duration,
           tracks: clip.tracks.length
         })));
-        
+
         originalMixers.push({
           object: object,
           animations: object.animations,
           mixer: object.animationMixer || object.userData.animationMixer
         });
       }
-      
+
       // 🚀 "Belly Dance" 객체 특별 검색
       if (object.name && object.name.includes('Belly')) {
         console.log(`🔍 "Belly" 포함 객체 발견: ${object.name} (${object.type}) - UUID: ${object.uuid}`);
         console.log(`  - animations: ${object.animations ? object.animations.length : 0}개`);
         console.log(`  - animationMixer: ${object.animationMixer ? '있음' : '없음'}`);
         console.log(`  - userData.animationMixer: ${object.userData && object.userData.animationMixer ? '있음' : '없음'}`);
-        
+
         // 🚀 userData 상세 분석
         if (object.userData) {
           console.log(`  - userData 키들:`, Object.keys(object.userData));
@@ -957,7 +1345,7 @@ export class RenderTimeline {
           }
         }
       }
-      
+
       // 🚀 SkinnedMesh 객체 특별 검색 (FBX 캐릭터 애니메이션)
       if (object.type === 'SkinnedMesh') {
         console.log(`🔍 SkinnedMesh 객체 발견: ${object.name} - UUID: ${object.uuid}`);
@@ -966,9 +1354,9 @@ export class RenderTimeline {
         console.log(`  - userData.animationMixer: ${object.userData && object.userData.animationMixer ? '있음' : '없음'}`);
       }
     });
-    
+
     console.log(`🔍 === 원본 씬에서 애니메이션 믹서 검색 완료: ${originalMixers.length}개 발견 ===`);
-    
+
     if (originalMixers.length === 0) {
       console.log('⚠️ 원본 씬에서 애니메이션 객체를 찾을 수 없습니다!');
       console.log('🔍 원본 씬 구조 분석:');
@@ -983,7 +1371,7 @@ export class RenderTimeline {
       console.log('  - 씬 객체 통계:', sceneInfo);
       return;
     }
-    
+
     // 🚀 미리보기 씬에 애니메이션 믹서 복사
     let copiedMixers = 0;
     originalMixers.forEach((mixerData, index) => {
@@ -992,7 +1380,7 @@ export class RenderTimeline {
       console.log(`  - 원본 객체: ${originalObject.name} (${originalObject.type})`);
       console.log(`  - UUID: ${originalObject.uuid}`);
       console.log(`  - 애니메이션 클립 수: ${mixerData.animations.length}`);
-      
+
       // 미리보기 씬에서 동일한 객체 찾기
       let previewObject = null;
       console.log(`    🔍 미리보기 씬에서 UUID ${originalObject.uuid}로 객체 검색 중...`);
@@ -1002,7 +1390,7 @@ export class RenderTimeline {
           console.log(`      ✅ UUID 매칭 성공: ${obj.name || 'unnamed'} (${obj.type})`);
         }
       });
-      
+
       if (!previewObject) {
         console.log(`      ❌ UUID ${originalObject.uuid}로 객체를 찾을 수 없습니다.`);
         console.log(`      🔍 미리보기 씬의 모든 객체 UUID 목록:`);
@@ -1019,7 +1407,7 @@ export class RenderTimeline {
         console.log(`        ... 총 ${objectCount}개 객체`);
         return; // 이 객체는 건너뛰기
       }
-      
+
       try {
         // 🚀 애니메이션 클립들을 미리보기 객체에 복사
         console.log(`    📋 애니메이션 클립 복사 중...`);
@@ -1033,17 +1421,17 @@ export class RenderTimeline {
             console.warn(`      ❌ 클립 ${clipIndex + 1} 복사 실패:`, clipError);
           }
         });
-        
+
         if (clonedClips.length === 0) {
           console.log(`    ⚠️ 복사된 클립이 없습니다.`);
           return;
         }
-        
+
         // 🚀 미리보기 객체에 새로운 애니메이션 믹서 생성
         console.log(`    �� 미리보기 객체에 애니메이션 믹서 생성 중...`);
         const previewMixer = new THREE.AnimationMixer(previewObject);
         previewObject.animationMixer = previewMixer;
-        
+
         // 🚀 클립들을 믹서에 추가하고 액션 생성
         console.log(`    🎬 믹서에 액션 추가 중...`);
         clonedClips.forEach((clip, clipIndex) => {
@@ -1057,21 +1445,21 @@ export class RenderTimeline {
             console.warn(`      ❌ 액션 ${clipIndex + 1} 생성 실패:`, actionError);
           }
         });
-        
+
         copiedMixers++;
         console.log(`    ✅ 애니메이션 믹서 복사 완료: ${previewObject.name}`);
-        
+
       } catch (error) {
         console.error(`    ❌ 애니메이션 믹서 복사 중 오류:`, error);
       }
-      
+
       console.log(`🎬 === 애니메이션 믹서 ${index + 1}/${originalMixers.length} 복사 완료 ===\n`);
     });
-    
+
     console.log(`📊 === 애니메이션 믹서 복사 결과 ===`);
     console.log(`  - 원본 믹서: ${originalMixers.length}개`);
     console.log(`  - 복사된 믹서: ${copiedMixers}개`);
-    
+
     // 🚀 미리보기 애니메이션 클록 생성
     if (copiedMixers > 0) {
       console.log(`⏱️ 미리보기 애니메이션 클록 생성 중...`);
@@ -1371,12 +1759,16 @@ export class RenderTimeline {
     console.log(`=== 미리보기 씬 상태 업데이트 시작: ${time.toFixed(2)}초 ===`);
 
     try {
-      // 🚀 핵심: FBX 애니메이션 믹서 업데이트 (최우선)
+      // �� 핵심: FBX 애니메이션 믹서 업데이트 (최우선)
       console.log('🔄 FBX 애니메이션 믹서 업데이트 시작...');
       this.updatePreviewAnimationMixers(time);
 
+      // 🚀 간단한 조명 애니메이션 적용
+      console.log('💡 조명 애니메이션 적용 시작...');
+      this.applyLightAnimationFromTimeline(time);
+
       // 그 다음 기본 애니메이션 업데이트 (Three.js 애니메이션, 키프레임 등)
-      console.log('🔄 미리보기 씬 객체 애니메이션 업데이트 시작...');
+      console.log('�� 미리보기 씬 객체 애니메이션 업데이트 시작...');
       this.updatePreviewSceneObjects(time);
 
       // 마지막으로 타임라인 데이터를 직접 객체에 적용 (최우선 적용)
@@ -1388,13 +1780,239 @@ export class RenderTimeline {
       this.previewScene.traverse((object) => {
         console.log(`  - ${object.name || 'unnamed'} (${object.type}): {위치: ${object.position}, 회전: ${object.rotation}, 크기: ${object.scale}, 가시성: ${object.visible}}`);
       });
-
       // 🚀 애니메이션 디버깅 정보 표시
       this.showAnimationDebugInfo();
 
       console.log(`=== 미리보기 씬 상태 업데이트 완료: ${time.toFixed(2)}초 ===`);
     } catch (error) {
       console.error('❌ 미리보기 씬 상태 업데이트 중 오류 발생:', error);
+    }
+  }
+
+   // 🚀 간단한 조명 애니메이션 적용
+  applyLightAnimationFromTimeline(time) {
+    if (!this.editor.timeline || !this.editor.timeline.timelines || !this.editor.timeline.timelines.light) {
+      console.log('⚠️ LightTimeline을 찾을 수 없음');
+      return;
+    }
+
+    const lightTimeline = this.editor.timeline.timelines.light;
+    console.log('💡 LightTimeline 데이터 확인:', {
+      hasTimelineData: !!lightTimeline.timelineData,
+      hasPrecomputedData: !!(lightTimeline.timelineData && lightTimeline.timelineData.precomputedData),
+      hasTracks: !!(lightTimeline.timelineData && lightTimeline.timelineData.tracks),
+      tracksSize: lightTimeline.timelineData ? lightTimeline.timelineData.tracks.size : 'undefined'
+    });
+
+    // �� precomputedData가 있으면 사용, 없으면 tracks 사용
+    if (lightTimeline.timelineData && lightTimeline.timelineData.precomputedData && lightTimeline.timelineData.precomputedData.size > 0) {
+      console.log('�� precomputedData 사용하여 조명 애니메이션 적용');
+      this.applyLightAnimationFromPrecomputedData(time, lightTimeline.timelineData.precomputedData);
+    } else if (lightTimeline.timelineData && lightTimeline.timelineData.tracks && lightTimeline.timelineData.tracks.size > 0) {
+      console.log('�� tracks 사용하여 조명 애니메이션 적용');
+      this.applyLightAnimationFromTracks(time, lightTimeline.timelineData.tracks);
+    } else {
+      console.log('⚠️ LightTimeline에 사용할 수 있는 데이터가 없음');
+    }
+  }
+
+  // 🚀 precomputedData에서 조명 애니메이션 적용
+  applyLightAnimationFromPrecomputedData(time, precomputedData) {
+    console.log('💡 precomputedData에서 조명 애니메이션 적용:', time);
+
+    precomputedData.forEach((lightData, lightUuid) => {
+      // 미리보기 씬에서 해당 조명 찾기
+      let previewLight = null;
+      this.previewScene.traverse((object) => {
+        if (object.uuid === lightUuid && object.isLight) {
+          previewLight = object;
+        }
+      });
+
+      if (!previewLight) return;
+
+      // 각 속성의 애니메이션 값 적용
+      lightData.forEach((propertyData, propertyName) => {
+        if (propertyData && propertyData.data && Array.isArray(propertyData.data)) {
+          const frameIndex = Math.floor(time * 30); // 30fps 기준
+          const value = propertyData.data[frameIndex];
+
+          if (value !== undefined && value !== null) {
+            this.applyLightPropertyValue(previewLight, propertyName, value);
+          }
+        }
+      });
+    });
+  }
+
+  // 🚀 tracks에서 조명 애니메이션 적용
+  applyLightAnimationFromTracks(time, tracks) {
+    console.log('💡 tracks에서 조명 애니메이션 적용:', time);
+
+    tracks.forEach((objectTracks, objectUuid) => {
+      // 미리보기 씬에서 해당 조명 찾기
+      let previewLight = null;
+      this.previewScene.traverse((object) => {
+        if (object.uuid === objectUuid && object.isLight) {
+          previewLight = object;
+        }
+      });
+
+      if (!previewLight) {
+        console.log(`⚠️ UUID ${objectUuid}의 조명을 미리보기 씬에서 찾을 수 없음`);
+        return;
+      }
+
+      console.log(`✅ 조명 발견: ${previewLight.name} (${previewLight.type})`);
+
+      // �� 각 트랙의 모든 속성을 개별적으로 처리
+      objectTracks.forEach((trackData, property) => {
+        if (trackData && trackData.times && trackData.times.length > 0) {
+          try {
+            const value = trackData.getValueAtTime(time);
+            
+            if (value !== null && value !== undefined) {
+              console.log(`💡 조명 속성 적용: ${previewLight.name}.${property} =`, value);
+              
+              // �� 속성 타입에 따라 적절한 함수 호출
+              if (property === 'Target' || property.includes('target')) {
+                // 타겟 관련 속성
+                this.applySpotLightTargetValue(previewLight, property, value);
+              } else {
+                // 일반 조명 속성
+                this.applyLightPropertyValue(previewLight, property, value);
+              }
+            } else {
+              console.log(`⚠️ ${property} 트랙에서 시간 ${time}에 대한 값이 없음`);
+            }
+          } catch (error) {
+            console.warn(`❌ ${property} 트랙 값 계산 중 오류:`, error);
+          }
+        } else {
+          console.log(`⚠️ ${property} 트랙에 유효한 데이터가 없음`);
+        }
+      });
+    });
+  }
+
+  // �� SpotLight 타겟 속성 적용
+  applySpotLightTargetValue(light, propertyName, value) {
+    try {
+      if (light.type !== 'SpotLight') {
+        console.warn(`⚠️ ${light.name}은 SpotLight가 아닙니다. 타겟 속성을 적용할 수 없습니다.`);
+        return;
+      }
+
+      switch (propertyName) {
+        case 'Target':
+        case 'target':
+          if (Array.isArray(value) && value.length >= 3) {
+            // 타겟 위치 설정
+            if (!light.target) {
+              light.target = new THREE.Object3D();
+            }
+            light.target.position.set(value[0], value[1], value[2]);
+            console.log(`✅ SpotLight ${light.name} 타겟 위치 설정: [${value[0]}, ${value[1]}, ${value[2]}]`);
+          } else if (value && value.x !== undefined && value.y !== undefined && value.z !== undefined) {
+            if (!light.target) {
+              light.target = new THREE.Object3D();
+            }
+            light.target.position.set(value.x, value.y, value.z);
+            console.log(`✅ SpotLight ${light.name} 타겟 위치 설정: {x: ${value.x}, y: ${value.y}, z: ${value.z}}`);
+          }
+          break;
+
+        default:
+          console.log(`⚠️ 알 수 없는 SpotLight 타겟 속성: ${propertyName}`, value);
+          break;
+      }
+    } catch (error) {
+      console.error(`❌ SpotLight ${light.name} 타겟 속성 ${propertyName} 적용 중 오류:`, error);
+    }
+  }
+
+
+  // 🚀 조명 속성에 값 적용
+  applyLightPropertyValue(light, propertyName, value) {
+    try {
+      switch (propertyName) {
+        case 'intensity':
+          if (typeof value === 'number') {
+            light.intensity = value;
+            console.log(`✅ 조명 ${light.name} intensity 설정: ${value}`);
+          }
+          break;
+
+        case 'color':
+          if (Array.isArray(value) && value.length >= 3) {
+            light.color.setRGB(value[0], value[1], value[2]);
+            console.log(`✅ 조명 ${light.name} color 설정: [${value[0]}, ${value[1]}, ${value[2]}]`);
+          } else if (value && typeof value === 'object' && value.r !== undefined) {
+            light.color.setRGB(value.r, value.g || 1, value.b || 1);
+            console.log(`✅ 조명 ${light.name} color 설정: {r: ${value.r}, g: ${value.g || 1}, b: ${value.b || 1}}`);
+          }
+          break;
+
+        case 'position':
+          if (Array.isArray(value) && value.length >= 3) {
+            light.position.set(value[0], value[1], value[2]);
+            console.log(`✅ 조명 ${light.name} position 설정: [${value[0]}, ${value[1]}, ${value[2]}]`);
+          } else if (value && value.x !== undefined && value.y !== undefined && value.z !== undefined) {
+            light.position.set(value.x, value.y, value.z);
+            console.log(`✅ 조명 ${light.name} position 설정: {x: ${value.x}, y: ${value.y}, z: ${value.z}}`);
+          } else if (value && typeof value === 'object' && value.isVector3) {
+            // Vector3 객체인 경우
+            light.position.copy(value);
+            console.log(`✅ 조명 ${light.name} position 설정: Vector3 복사됨`);
+          } else {
+            console.warn(`⚠️ 조명 ${light.name} position 값 형식 오류:`, value);
+          }
+          break;
+
+        case 'rotation':
+          if (Array.isArray(value) && value.length >= 3) {
+            light.rotation.set(value[0], value[1], value[2]);
+            console.log(`✅ 조명 ${light.name} rotation 설정: [${value[0]}, ${value[1]}, ${value[2]}]`);
+          } else if (value && value.x !== undefined && value.y !== undefined && value.z !== undefined) {
+            light.rotation.set(value.x, value.y, value.z);
+            console.log(`✅ 조명 ${light.name} rotation 설정: {x: ${value.x}, y: ${value.y}, z: ${value.z}}`);
+          }
+          break;
+
+        case 'distance':
+          if (typeof value === 'number' && light.distance !== undefined) {
+            light.distance = value;
+            console.log(`✅ 조명 ${light.name} distance 설정: ${value}`);
+          }
+          break;
+
+        case 'angle':
+          if (typeof value === 'number' && light.angle !== undefined) {
+            light.angle = value;
+            console.log(`✅ 조명 ${light.name} angle 설정: ${value}`);
+          }
+          break;
+
+        case 'penumbra':
+          if (typeof value === 'number' && light.penumbra !== undefined) {
+            light.penumbra = value;
+            console.log(`✅ 조명 ${light.name} penumbra 설정: ${value}`);
+          }
+          break;
+
+        case 'decay':
+          if (typeof value === 'number' && light.decay !== undefined) {
+            light.decay = value;
+            console.log(`✅ 조명 ${light.name} decay 설정: ${value}`);
+          }
+          break;
+
+        default:
+          console.log(`⚠️ 알 수 없는 조명 속성: ${propertyName}`, value);
+          break;
+      }
+    } catch (error) {
+      console.error(`❌ 조명 ${light.name} 속성 ${propertyName} 적용 중 오류:`, error);
     }
   }
 
@@ -1412,43 +2030,43 @@ export class RenderTimeline {
 
     try {
       console.log(`🔄 FBX 애니메이션 믹서 업데이트 시작 (시간: ${time.toFixed(2)}초)`);
-      
+
       // 애니메이션 클록 업데이트
       const deltaTime = this.previewAnimationClock.getDelta();
       console.log(`⏱️ 애니메이션 클록 deltaTime: ${deltaTime.toFixed(4)}초`);
-      
+
       // 미리보기 씬의 모든 애니메이션 믹서 업데이트
       let updatedMixers = 0;
       let totalActions = 0;
       let activeActions = 0;
-      
+
       this.previewScene.traverse((object) => {
         if (object.animationMixer) {
           const mixer = object.animationMixer;
           console.log(`🎬 객체 ${object.name}의 애니메이션 믹서 처리 중...`);
-          
+
           // 🚀 핵심: 특정 시간으로 애니메이션 설정
           if (mixer._actions && mixer._actions.length > 0) {
             console.log(`  - 믹서에 ${mixer._actions.length}개의 액션 발견`);
-            
+
             mixer._actions.forEach((action, index) => {
               totalActions++;
-              
+
               if (action._clip) {
                 const clip = action._clip;
                 console.log(`    - 액션 ${index + 1}: ${clip.name} (지속시간: ${clip.duration}초)`);
-                
+
                 // 🚀 현재 시간을 클립의 시간 범위로 변환
                 const clipTime = time % clip.duration;
                 const previousTime = action.time || 0;
-                
+
                 console.log(`      - 이전 시간: ${previousTime.toFixed(3)}초`);
                 console.log(`      - 새 시간: ${clipTime.toFixed(3)}초`);
                 console.log(`      - 시간 변화: ${(clipTime - previousTime).toFixed(3)}초`);
-                
+
                 // 🚀 액션 시간 설정
                 action.time = clipTime;
-                
+
                 // 🚀 액션이 활성 상태인지 확인하고 필요시 재시작
                 if (!action.isRunning()) {
                   console.log(`      - 액션이 비활성 상태입니다. 재시작합니다.`);
@@ -1458,7 +2076,7 @@ export class RenderTimeline {
                   console.log(`      - 액션이 활성 상태입니다.`);
                   activeActions++;
                 }
-                
+
                 // 🚀 액션 상태 상세 정보
                 console.log(`      - 액션 상태:`, {
                   isRunning: action.isRunning(),
@@ -1475,7 +2093,7 @@ export class RenderTimeline {
           } else {
             console.log(`  - 믹서에 액션이 없습니다.`);
           }
-          
+
           // 🚀 믹서 업데이트
           try {
             mixer.update(deltaTime);
@@ -1493,7 +2111,7 @@ export class RenderTimeline {
       console.log(`  - 업데이트된 믹서: ${updatedMixers}개`);
       console.log(`  - 총 액션: ${totalActions}개`);
       console.log(`  - 활성 액션: ${activeActions}개`);
-      
+
       if (updatedMixers > 0) {
         console.log(`✅ ${updatedMixers}개 애니메이션 믹서 업데이트 완료`);
       } else {
@@ -1745,10 +2363,10 @@ export class RenderTimeline {
 
       // 미리보기 씬 렌더링
       this.previewRenderer.render(this.previewScene, this.previewCamera);
-      
+
       // 렌더링 결과를 미리보기 캔버스에 표시
       this.updatePreviewCanvas();
-      
+
       console.log('미리보기 씬 렌더링 완료:', {
         frame: this.currentFrame,
         time: (this.currentFrame / this.fps).toFixed(2),
@@ -1756,7 +2374,7 @@ export class RenderTimeline {
         height: this.renderSettings.height,
         camera: this.previewCamera.type
       });
-      
+
     } catch (error) {
       console.error('미리보기 씬 렌더링 중 오류:', error);
     }
@@ -2378,7 +2996,7 @@ export class RenderTimeline {
 
         // 🚀 핵심: 각 프레임마다 애니메이션 믹서 업데이트
         this.updatePreviewAnimationMixers(time);
-        
+
         await this.updateSceneAtTime(time);
         await this.renderSceneToCanvas(); // renderSceneToCanvasForPreview 대신 renderSceneToCanvas 사용
 
@@ -2675,7 +3293,7 @@ export class RenderTimeline {
     }
 
     console.log('🔍 === 애니메이션 디버깅 정보 시작 ===');
-    
+
     const scene = this.previewScene;
     let animationObjects = 0;
     let totalObjects = 0;
@@ -2692,7 +3310,7 @@ export class RenderTimeline {
         const mixer = object.userData.animationMixer;
         const actions = mixer._actions ? mixer._actions.length : 0;
         totalActions += actions;
-        
+
         console.log(`🎬 FBX 애니메이션 믹서 발견 (userData):`, {
           name: object.name || 'unnamed',
           type: object.type,
@@ -2700,7 +3318,7 @@ export class RenderTimeline {
           actions: actions,
           animations: object.animations ? object.animations.length : 0
         });
-        
+
         // 액션 상태 상세 정보
         if (mixer._actions) {
           mixer._actions.forEach((action, index) => {
@@ -2722,7 +3340,7 @@ export class RenderTimeline {
         const mixer = object.animationMixer;
         const actions = mixer._actions ? mixer._actions.length : 0;
         totalActions += actions;
-        
+
         console.log(`🎬 FBX 애니메이션 믹서 발견 (직접):`, {
           name: object.name || 'unnamed',
           type: object.type,
@@ -2730,7 +3348,7 @@ export class RenderTimeline {
           actions: actions,
           animations: object.animations ? object.animations.length : 0
         });
-        
+
         // 액션 상태 상세 정보
         if (mixer._actions) {
           mixer._actions.forEach((action, index) => {
@@ -3387,7 +4005,7 @@ export class RenderTimeline {
         // 🚀 핵심: 각 객체별로 클립 시간 범위 확인 및 가시성 처리
         timelineData.tracks.forEach((objectTracks, objectUuid) => {
           console.log(`🔍 객체 UUID ${objectUuid} 처리 시작...`);
-          
+
           // scene에서 해당 객체 찾기
           const originalObject = this.editor.scene.getObjectByProperty('uuid', objectUuid);
           if (!originalObject) {
@@ -3397,7 +4015,7 @@ export class RenderTimeline {
 
           // 🚀 UUID 매핑을 통해 미리보기 씬에서 해당 객체 찾기
           let previewObject = null;
-          
+
           // 1. UUID 매핑에서 찾기
           if (this.uuidMapping && this.uuidMapping.has(objectUuid)) {
             previewObject = this.uuidMapping.get(objectUuid);
@@ -3409,7 +4027,7 @@ export class RenderTimeline {
                 previewObject = object;
               }
             });
-            
+
             if (previewObject) {
               console.log(`⚠️ UUID 매핑에서 찾을 수 없어 직접 검색으로 발견: ${objectUuid}`);
             }
@@ -3435,17 +4053,17 @@ export class RenderTimeline {
             if (trackData && trackData.times && trackData.times.length > 0) {
               // 🚀 유효한 키프레임 시간들만 필터링
               const validTimes = Array.from(trackData.times).filter(t => t > 0 || t === 0);
-              
+
               if (validTimes.length > 0) {
                 const minTime = Math.min(...validTimes);
                 const maxTime = Math.max(...validTimes);
-                
+
                 // 🚀 클립의 전체 시간 범위 업데이트
                 clipStartTime = Math.min(clipStartTime, minTime);
                 clipEndTime = Math.max(clipEndTime, maxTime);
-                
+
                 console.log(`🔍 트랙 ${property} 시간 범위: ${minTime}~${maxTime}초 (현재: ${time}초)`);
-                
+
                 // 🚀 현재 시간이 이 트랙의 클립 범위 안에 있는지 확인
                 if (time >= minTime && time <= maxTime) {
                   hasActiveClip = true;
@@ -3458,24 +4076,24 @@ export class RenderTimeline {
           // 🚀 클립 전체 시간 범위 로그
           if (clipStartTime !== Infinity && clipEndTime !== 0) {
             console.log(`🎯 객체 ${originalObject.name} 클립 전체 시간 범위: ${clipStartTime}~${clipEndTime}초 (현재: ${time}초)`);
-            
+
             // 🚀 현재 시간이 클립 범위 안에 있는지 확인
             if (time >= clipStartTime && time <= clipEndTime) {
               console.log(`🎬 객체 ${originalObject.name}이 현재 시간에 활성 상태입니다!`);
-              
+
               // 🚀 각 트랙에서 현재 시간에 맞는 값 가져와서 적용
               objectTracks.forEach((trackData, property) => {
                 if (trackData && trackData.times && trackData.times.length > 0) {
                   try {
                     // 🚀 현재 시간에 맞는 값 계산
                     const value = trackData.getValueAtTime(time);
-                    
+
                     if (value !== null && value !== undefined) {
                       console.log(`🎯 애니메이션 값 적용: ${originalObject.name}.${property} =`, value);
-                      
+
                       // 🚀 미리보기 객체에 값 적용
                       this.applyValueToPreviewObject(previewObject, property, value);
-                      
+
                       // 🚀 원본 객체에도 값 적용 (동기화)
                       this.applyValueToOriginalObject(originalObject, property, value);
                     } else {
@@ -3556,7 +4174,7 @@ export class RenderTimeline {
           object.material.depthWrite = true;
         }
       }
-      
+
       // 자식 객체들도 모두 기본 상태로 복원
       object.traverse((child) => {
         if (child !== object) {
@@ -3582,7 +4200,7 @@ export class RenderTimeline {
           }
         }
       });
-      
+
       console.log(`✅ 객체 ${object.name} 기본 상태 복원 완료`);
     } catch (error) {
       console.error('❌ 객체 기본 상태 복원 중 오류:', error);
@@ -3608,7 +4226,7 @@ export class RenderTimeline {
           object.material.visible = false;
         }
       }
-      
+
       // 자식 객체들도 모두 숨기기
       object.traverse((child) => {
         if (child !== object) {
@@ -3630,7 +4248,7 @@ export class RenderTimeline {
           }
         }
       });
-      
+
       console.log(`✅ 객체 ${object.name} 완전히 숨김 처리 완료`);
     } catch (error) {
       console.error('❌ 객체 숨김 처리 중 오류:', error);
@@ -3647,35 +4265,35 @@ export class RenderTimeline {
             console.log(`✅ 위치 애니메이션 적용: ${value.x}, ${value.y || 0}, ${value.z || 0}`);
           }
           break;
-          
+
         case 'rotation':
           if (value && typeof value.x === 'number') {
             object.rotation.set(value.x, value.y || 0, value.z || 0);
             console.log(`✅ 회전 애니메이션 적용: ${value.x}, ${value.y || 0}, ${value.z || 0}`);
           }
           break;
-          
+
         case 'scale':
           if (value && typeof value.x === 'number') {
             object.scale.set(value.x, value.y || 1, value.z || 1);
             console.log(`✅ 크기 애니메이션 적용: ${value.x}, ${value.y || 1}, ${value.z || 1}`);
           }
           break;
-          
+
         case 'intensity':
           if (object.isLight && typeof value === 'number') {
             object.intensity = value;
             console.log(`✅ 조명 강도 애니메이션 적용: ${value}`);
           }
           break;
-          
+
         case 'color':
           if (object.isLight && value && typeof value.r === 'number') {
             object.color.setRGB(value.r, value.g || 1, value.b || 1);
             console.log(`✅ 조명 색상 애니메이션 적용: ${value.r}, ${value.g || 1}, ${value.b || 1}`);
           }
           break;
-          
+
         default:
           console.log(`⚠️ 알 수 없는 속성: ${property}`);
           break;
@@ -3821,7 +4439,7 @@ export class RenderTimeline {
     // 모든 트랙에 대해 애니메이션 적용
     const allTracks = timelineData.getAllTracksByUuid();
     console.log('🔍 LightTimeline getAllTracksByUuid 결과:', allTracks);
-    
+
     allTracks.forEach((trackInfo, trackKey) => {
       console.log(`🔍 LightTimeline 트랙 처리: ${trackKey}`, trackInfo);
       const [objectUuid, property] = trackKey.split('_');
