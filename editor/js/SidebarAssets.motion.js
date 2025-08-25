@@ -55,12 +55,12 @@ export function createMotionPanel(editor) {
         {
           path: "../files/fbx/Belly Dance.fbx",
           name: "Belly Dance",
-          displayName: "벨리 댄스"
+          displayName: "Belly Dance"
         },
         {
           path: "../files/fbx/Jazz Dancing.fbx",
           name: "Jazz Dancing",
-          displayName: "재즈 댄싱"
+          displayName: "Jazz Dancing"
         }
       ];
     }
