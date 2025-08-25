@@ -1,5 +1,6 @@
 import { UIPanel, UIRow, UIHorizontalRule } from "./libs/ui.js";
 import { ProgressiveLoader } from './utils/ProgressiveLoader.js';
+import { Timeline } from './timeline/Timeline.js';
 
 function MenubarFile(editor) {
   const strings = editor.strings;
@@ -593,7 +594,48 @@ function MenubarFile(editor) {
   });
   fileExportSubmenu.add(option);
 
-  //
+  // 렌더링/비디오추출 메뉴 추가
+  option = new UIRow();
+  option.setClass("option");
+  option.setTextContent("렌더링/비디오추출");
+  // 렌더링 시작 메뉴
+  // 렌더링 시작 메뉴
+  option.onClick(() => {
+    // 에디터 객체 찾기
+    let editor = null;
+
+    if (this && this.editor) {
+      editor = this.editor;
+    } else if (window.editor) {
+      editor = window.editor;
+    } else if (typeof THREE !== 'undefined' && THREE.EDITOR) {
+      editor = THREE.EDITOR;
+    }
+
+    if (!editor) {
+      alert("에디터를 찾을 수 없습니다. 페이지를 새로고침해주세요.");
+      return;
+    }
+
+    // Timeline.js의 rendering-btn 기능 연결
+    if (editor.timeline && typeof editor.timeline.startTimelineRendering === 'function') {
+      try {
+        editor.timeline.startTimelineRendering();
+      } catch (error) {
+        alert("렌더링 시작 중 오류가 발생했습니다: " + error.message);
+      }
+    } else if (editor.renderTimeline && typeof editor.renderTimeline.openRenderWindow === 'function') {
+      try {
+        editor.renderTimeline.openRenderWindow();
+      } catch (error) {
+        alert("렌더링 창 열기 중 오류가 발생했습니다: " + error.message);
+      }
+    } else {
+      alert("타임라인 렌더링 기능을 사용할 수 없습니다. 타임라인을 먼저 생성해주세요.");
+    }
+  });
+
+  options.add(option);
 
   function getAnimations(scene) {
     const animations = [];
