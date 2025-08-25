@@ -1468,6 +1468,14 @@ export class MotionTimeline extends BaseTimeline {
         // 저장된 클립 정보가 있는지 확인
         const savedClipData = this.editor.scene.userData.motionTimeline?.clips?.[objectUuid];
 
+        // 이전 선택된 스프라이트 제거
+        const previousSelected = this.container.querySelector(
+            ".animation-sprite.selected"
+        );
+        if (previousSelected) {
+            previousSelected.classList.remove("selected");
+        }
+        
         if (savedClipData) {
             // console.log(`[addTrack] 저장된 클립 정보로 스프라이트 생성: ${objectUuid}`, savedClipData);
 

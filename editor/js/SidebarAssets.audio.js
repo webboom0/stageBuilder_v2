@@ -55,12 +55,14 @@ export function createAudioPanel(editor) {
         {
           path: "../files/music/SUJESHUN.mp3",
           name: "SUJESHUN",
-          displayName: "수제순"
+          displayName: "수제순",
+          filename: "SUJESHUN.mp3"
         },
         {
           path: "../files/music/DRAMA.mp3",
           name: "DRAMA",
-          displayName: "드라마"
+          displayName: "드라마",
+          filename: "DRAMA.mp3"
         }
       ];
     }

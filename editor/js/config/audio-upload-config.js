@@ -42,6 +42,7 @@ export const getServerUrl = () => {
 // API URL 생성 헬퍼 함수
 export const getApiUrl = (endpoint) => {
   const serverUrl = getServerUrl();
+  console.log("######serverUrl", serverUrl);
   return `${serverUrl}${endpoint}`;
 };
 

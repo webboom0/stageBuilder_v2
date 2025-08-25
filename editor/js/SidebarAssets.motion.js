@@ -36,7 +36,7 @@ export function createMotionPanel(editor) {
             path: `..${file.path}`, // 상대 경로로 변환
             name: file.name,
             displayName: file.displayName,
-            filename: file.filename // 실제 파일명 (확장자 포함)
+            filename: file.filename// 실제 파일명 (확장자 포함)
           };
         });
 
@@ -55,12 +55,20 @@ export function createMotionPanel(editor) {
         {
           path: "../files/fbx/Belly Dance.fbx",
           name: "Belly Dance",
-          displayName: "Belly Dance"
+          displayName: "Belly Dance",
+          filename: "Belly Dance.fbx"
         },
         {
-          path: "../files/fbx/Jazz Dancing.fbx",
-          name: "Jazz Dancing",
-          displayName: "Jazz Dancing"
+          path: "../files/fbx/Samba Dancing.fbx",
+          name: "Samba Dancing",
+          displayName: "Samba Dancing",
+          filename: "Samba Dancing.fbx"
+        },
+        {
+          path: "../files/fbx/Overhead Squat.fbx",
+          name: "Overhead Squat",
+          displayName: "Overhead Squat",
+          filename: "Overhead Squat.fbx"
         }
       ];
     }
