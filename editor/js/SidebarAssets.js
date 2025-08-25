@@ -2,6 +2,7 @@ import { UITabbedPanel, UISpan, UIDiv, UIButton, UIInteger, UIBreak, UIText, UIS
 import { createPanel } from './ui/floatPanel.js';
 import { createAudioPanel } from './SidebarAssets.audio.js';
 import { createMotionPanel } from './SidebarAssets.motion.js';
+import { createVideoPanel } from './SidebarAssets.video.js';
 
 function SidebarAssets(editor) {
   const container = new UIDiv();
@@ -19,11 +20,12 @@ function SidebarAssets(editor) {
 
   // 🎵 오디오 패널 생성
   const audioPanel = createAudioPanel(editor);
-  
+
   // 🎬 모션 패널 생성
   const motionPanel = createMotionPanel(editor);
 
-  
+  // Video 패널 추가
+  const videoPanel = createVideoPanel(editor);
 
   // CSS 스타일 추가 (두 패널 모두에 적용)
   const style = document.createElement('style');
@@ -231,17 +233,21 @@ function SidebarAssets(editor) {
   `;
   document.head.appendChild(style);
 
-  // �� 오디오 패널을 floatPanel로 생성
+  // 오디오 패널을 floatPanel로 생성
   const audioFloatPanel = createPanel('Sound', audioPanel);
-  
-  // �� 모션 패널을 floatPanel로 생성
+
+  // 모션 패널을 floatPanel로 생성
   const motionFloatPanel = createPanel('Motion', motionPanel);
+
+  // Video 패너을 floatPanel로 생성
+  const videoFloatPanel = createPanel('Video', videoPanel);
 
   // sidebar-assets 컨테이너에 두 패널 추가
   const sidebarAssetsContainer = document.querySelector('#sidebar-assets');
   if (sidebarAssetsContainer) {
     sidebarAssetsContainer.appendChild(audioFloatPanel);
     sidebarAssetsContainer.appendChild(motionFloatPanel);
+    sidebarAssetsContainer.appendChild(videoFloatPanel);
   }
 
   return container;

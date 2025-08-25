@@ -132,7 +132,7 @@ export function createMotionPanel(editor) {
         deleteBtn.dom.textContent = "🗑️ 삭제";
       }
     } else {
-      console.log("�� 휴지통 버튼을 찾을 수 없습니다. 아직 생성되지 않았을 수 있습니다.");
+      console.log("휴지통 버튼을 찾을 수 없습니다. 아직 생성되지 않았을 수 있습니다.");
     }
   }
 
@@ -202,7 +202,7 @@ export function createMotionPanel(editor) {
       console.log("📥 로드된 FBX 파일 수:", fbxFiles ? fbxFiles.length : 0);
 
       if (!fbxFiles || fbxFiles.length === 0) {
-        console.log("�� FBX 파일이 없음 - 안내 메시지 표시");
+        console.log("FBX 파일이 없음 - 안내 메시지 표시");
         const noFilesMessage = document.createElement("div");
         noFilesMessage.className = "no-files-message";
         noFilesMessage.innerHTML = `
@@ -273,7 +273,7 @@ export function createMotionPanel(editor) {
               return;
             }
 
-            console.log("�� FBX 파일을 씬에 가져오기 시작:", fbxFile.displayName);
+            console.log("FBX 파일을 씬에 가져오기 시작:", fbxFile.displayName);
 
             // 버튼 상태 변경
             isAdding = true;
@@ -284,7 +284,7 @@ export function createMotionPanel(editor) {
             try {
               // 🚀 핵심: editor.loader.loadFiles 사용 (Menubar.File.js와 동일한 방식)
               if (editor && editor.loader && editor.loader.loadFiles) {
-                console.log("�� editor.loader.loadFiles 사용하여 FBX 파일 가져오기");
+                console.log("editor.loader.loadFiles 사용하여 FBX 파일 가져오기");
 
                 // File 객체 생성 (서버에서 가져온 파일 정보로)
                 const fileBlob = await fetch(fbxFile.path).then(r => r.blob());
@@ -322,7 +322,7 @@ export function createMotionPanel(editor) {
                   isAdding = false;
                 }, 3000);
 
-                console.log("�� FBX 파일이 씬에 성공적으로 가져와짐:", fbxFile.displayName);
+                console.log("FBX 파일이 씬에 성공적으로 가져와짐:", fbxFile.displayName);
 
               } else {
                 throw new Error("editor.loader.loadFiles를 찾을 수 없습니다.");
@@ -381,7 +381,7 @@ export function createMotionPanel(editor) {
     event.preventDefault();
     event.stopPropagation();
 
-    console.log("�� FBX 업로드 시작...");
+    console.log("FBX 업로드 시작...");
 
     // 🚀 수정: getFbxApiUrl 사용하여 올바른 서버 URL 생성
     try {
@@ -413,7 +413,7 @@ export function createMotionPanel(editor) {
     console.log("📁 선택된 파일:", file.name, file.size, file.type);
 
     try {
-      // �� 수정: 함수명 변경하여 중복 제거
+      // 수정: 함수명 변경하여 중복 제거
       if (!validateSelectedFBXFile(file)) {
         return;
       }
@@ -659,7 +659,7 @@ export function createMotionPanel(editor) {
   const refreshBtn = new UIButton("");
   refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
   refreshBtn.onClick(async () => {
-    console.log("�� 새로고침 버튼 클릭됨");
+    console.log("새로고침 버튼 클릭됨");
     try {
       await displayFBXList();
       console.log("✅ 새로고침 완료");

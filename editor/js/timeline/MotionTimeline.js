@@ -62,7 +62,7 @@ export class MotionTimeline extends BaseTimeline {
             this.editor.scene.add(stageGroup);
         }
 
-        this.createVideoBackground(stageGroup);
+        // this.createVideoBackground(stageGroup);
         this.initMixers();
     }
 
@@ -2712,123 +2712,123 @@ export class MotionTimeline extends BaseTimeline {
         // console.log("=== 클립 이동 후 키프레임 시간 업데이트 완료 ===");
     }
 
-    createVideoBackground(stageGroup) {
-        const existingBackground = stageGroup.children.find(
-            (child) => child.name === "_VideoBackground"
-        );
-        if (existingBackground) {
-            stageGroup.remove(existingBackground);
-        }
+    // createVideoBackground(stageGroup) {
+    //     const existingBackground = stageGroup.children.find(
+    //         (child) => child.name === "_VideoBackground"
+    //     );
+    //     if (existingBackground) {
+    //         stageGroup.remove(existingBackground);
+    //     }
 
-        const stageSize = new THREE.Vector3(400, 250);
-        const stageGeometry = new THREE.PlaneGeometry(stageSize.x, stageSize.y);
+    //     const stageSize = new THREE.Vector3(400, 250);
+    //     const stageGeometry = new THREE.PlaneGeometry(stageSize.x, stageSize.y);
 
-        const cloudName = "djqiaktcg";
-        const videoId = "omhwppxby9e7yw4tmydz";
-        const videoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${videoId}.mp4`;
-        const video = document.createElement("video");
-        video.crossOrigin = "anonymous";
-        video.loop = true;
-        video.muted = true;
-        video.autoplay = true;
-        video.playsInline = true;
-        video.setAttribute("playsinline", "");
-        video.setAttribute("webkit-playsinline", "");
-        video.setAttribute("x5-playsinline", "");
-        video.setAttribute("x5-video-player-type", "h5");
-        video.setAttribute("x5-video-player-fullscreen", "true");
+    //     // const cloudName = "djqiaktcg";
+    //     // const videoId = "omhwppxby9e7yw4tmydz";
+    //     // const videoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${videoId}.mp4`;
+    //     const video = document.createElement("video");
+    //     video.crossOrigin = "anonymous";
+    //     video.loop = true;
+    //     video.muted = true;
+    //     video.autoplay = true;
+    //     video.playsInline = true;
+    //     video.setAttribute("playsinline", "");
+    //     video.setAttribute("webkit-playsinline", "");
+    //     video.setAttribute("x5-playsinline", "");
+    //     video.setAttribute("x5-video-player-type", "h5");
+    //     video.setAttribute("x5-video-player-fullscreen", "true");
 
-        const source = document.createElement("source");
-        source.src = "../files/video3.mp4";
-        source.type = "video/mp4";
-        video.appendChild(source);
+    //     const source = document.createElement("source");
+    //     source.src = "../files/video3.mp4";
+    //     source.type = "video/mp4";
+    //     video.appendChild(source);
 
-        const videoTexture = new THREE.VideoTexture(video);
-        videoTexture.minFilter = THREE.LinearFilter;
-        videoTexture.magFilter = THREE.LinearFilter;
-        videoTexture.format = THREE.RGBFormat;
+    //     const videoTexture = new THREE.VideoTexture(video);
+    //     videoTexture.minFilter = THREE.LinearFilter;
+    //     videoTexture.magFilter = THREE.LinearFilter;
+    //     videoTexture.format = THREE.RGBFormat;
 
-        const stageMaterial = new THREE.MeshBasicMaterial({
-            map: videoTexture,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 1,
-        });
-        const stagePlane = new THREE.Mesh(stageGeometry, stageMaterial);
-        // stagePlane.position.set(0, 79.100, -74.039);
-        // stagePlane.scale.set(1, 0.639, 1);
-        stagePlane.position.set(8.243, 65.273, -74.039);
-        stagePlane.scale.set(0.937, 0.508, 1);
-        stagePlane.name = "_VideoBackground";
-        stageGroup.add(stagePlane);
-        // editor.scene.add(stagePlane);
-        const loadVideo = async () => {
-            try {
-                await video.load();
+    //     const stageMaterial = new THREE.MeshBasicMaterial({
+    //         map: videoTexture,
+    //         side: THREE.DoubleSide,
+    //         transparent: true,
+    //         opacity: 1,
+    //     });
+    //     const stagePlane = new THREE.Mesh(stageGeometry, stageMaterial);
+    //     // stagePlane.position.set(0, 79.100, -74.039);
+    //     // stagePlane.scale.set(1, 0.639, 1);
+    //     stagePlane.position.set(8.243, 65.273, -74.039);
+    //     stagePlane.scale.set(0.937, 0.508, 1);
+    //     stagePlane.name = "_VideoBackground";
+    //     stageGroup.add(stagePlane);
+    //     // editor.scene.add(stagePlane);
+    //     const loadVideo = async () => {
+    //         try {
+    //             await video.load();
 
-                await new Promise((resolve, reject) => {
-                    video.onloadedmetadata = () => {
-                        resolve();
-                    };
-                    video.onerror = (error) => {
-                        reject(error);
-                    };
-                });
+    //             await new Promise((resolve, reject) => {
+    //                 video.onloadedmetadata = () => {
+    //                     resolve();
+    //                 };
+    //                 video.onerror = (error) => {
+    //                     reject(error);
+    //                 };
+    //             });
 
-                try {
-                    await video.play();
+    //             try {
+    //                 await video.play();
 
-                    const updateTexture = () => {
-                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                            videoTexture.needsUpdate = true;
-                            stageMaterial.needsUpdate = true;
-                            stagePlane.material.needsUpdate = true;
-                        }
-                        requestAnimationFrame(updateTexture);
-                    };
-                    updateTexture();
-                } catch (error) {
-                    const message = document.createElement("div");
-                    message.style.position = "fixed";
-                    message.style.top = "50%";
-                    message.style.left = "50%";
-                    message.style.transform = "translate(-50%, -50%)";
-                    message.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-                    message.style.color = "white";
-                    message.style.padding = "20px";
-                    message.style.borderRadius = "5px";
-                    message.style.zIndex = "1000";
-                    message.textContent = "Canvas를 클릭하여 비디오를 재생하세요";
-                    document.body.appendChild(message);
+    //                 const updateTexture = () => {
+    //                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    //                         videoTexture.needsUpdate = true;
+    //                         stageMaterial.needsUpdate = true;
+    //                         stagePlane.material.needsUpdate = true;
+    //                     }
+    //                     requestAnimationFrame(updateTexture);
+    //                 };
+    //                 updateTexture();
+    //             } catch (error) {
+    //                 const message = document.createElement("div");
+    //                 message.style.position = "fixed";
+    //                 message.style.top = "50%";
+    //                 message.style.left = "50%";
+    //                 message.style.transform = "translate(-50%, -50%)";
+    //                 message.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    //                 message.style.color = "white";
+    //                 message.style.padding = "20px";
+    //                 message.style.borderRadius = "5px";
+    //                 message.style.zIndex = "1000";
+    //                 message.textContent = "Canvas를 클릭하여 비디오를 재생하세요";
+    //                 document.body.appendChild(message);
 
-                    const playVideo = async () => {
-                        try {
-                            await video.play();
-                            message.remove();
-                            document.removeEventListener("click", playVideo);
-                        } catch (error) { }
-                    };
-                    document.addEventListener("click", playVideo);
-                }
-            } catch (error) { }
-        };
+    //                 const playVideo = async () => {
+    //                     try {
+    //                         await video.play();
+    //                         message.remove();
+    //                         document.removeEventListener("click", playVideo);
+    //                     } catch (error) { }
+    //                 };
+    //                 document.addEventListener("click", playVideo);
+    //             }
+    //         } catch (error) { }
+    //     };
 
-        loadVideo();
+    //     loadVideo();
 
-        stageGroup.userData.video = {
-            type: "cloudinary",
-            videoId: videoId,
-            videoElement: video,
-            texture: videoTexture,
-            url: videoUrl,
-        };
+    //     // stageGroup.userData.video = {
+    //     //     type: "cloudinary",
+    //     //     videoId: videoId,
+    //     //     videoElement: video,
+    //     //     texture: videoTexture,
+    //     //     url: videoUrl,
+    //     // };
 
-        if (this.editor.signals?.sceneGraphChanged) {
-            this.editor.signals.sceneGraphChanged.dispatch();
-        }
+    //     if (this.editor.signals?.sceneGraphChanged) {
+    //         this.editor.signals.sceneGraphChanged.dispatch();
+    //     }
 
-        return stagePlane;
-    }
+    //     return stagePlane;
+    // }
 
     deleteSelectedKeyframe() {
         if (!this.selectedKeyframe) return;
@@ -3431,7 +3431,7 @@ export class MotionTimeline extends BaseTimeline {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    console.log("�� 키프레임 우클릭 컨텍스트 메뉴 표시");
+                    console.log("키프레임 우클릭 컨텍스트 메뉴 표시");
 
                     // 기존 컨텍스트 메뉴 제거
                     const existingMenu = document.querySelector(".keyframe-context-menu");

@@ -126,7 +126,7 @@ export function createAudioPanel(editor) {
         deleteBtn.dom.textContent = "🗑️ 삭제";
       }
     } else {
-      console.log("�� 휴지통 버튼을 찾을 수 없습니다. 아직 생성되지 않았을 수 있습니다.");
+      console.log("휴지통 버튼을 찾을 수 없습니다. 아직 생성되지 않았을 수 있습니다.");
     }
   }
   
@@ -196,7 +196,7 @@ export function createAudioPanel(editor) {
       console.log("📥 로드된 음악 파일 수:", audioFiles ? audioFiles.length : 0);
 
       if (!audioFiles || audioFiles.length === 0) {
-        console.log("�� 음악 파일이 없음 - 안내 메시지 표시");
+        console.log("음악 파일이 없음 - 안내 메시지 표시");
         const noFilesMessage = document.createElement("div");
         noFilesMessage.className = "no-files-message";
         noFilesMessage.innerHTML = `
@@ -209,7 +209,7 @@ export function createAudioPanel(editor) {
 
       console.log("🔧 음악 목록 UI 생성 중...");
       audioFiles.forEach((audioFile, index) => {
-        console.log(`�� 음악 ${index + 1}:`, audioFile.displayName);
+        console.log(`음악 ${index + 1}:`, audioFile.displayName);
 
         const audioItem = document.createElement("div");
         audioItem.className = "audio-item";
@@ -247,7 +247,7 @@ export function createAudioPanel(editor) {
             console.log("🔍 휴지통 버튼 상태 업데이트 실패:", error.message);
           }
           
-          console.log("�� 음악 항목 선택됨:", audioFile.displayName);
+          console.log("음악 항목 선택됨:", audioFile.displayName);
         });
 
         // 추가 버튼 클릭 이벤트
@@ -640,7 +640,7 @@ export function createAudioPanel(editor) {
   const refreshBtn = new UIButton("");
   refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
   refreshBtn.onClick(async () => {
-    console.log("�� 새로고침 버튼 클릭됨");
+    console.log("새로고침 버튼 클릭됨");
     try {
       await displayAudioList();
       console.log("✅ 새로고침 완료");
@@ -660,7 +660,7 @@ export function createAudioPanel(editor) {
   // 초기 음악 목록 로드 (휴지통 버튼 생성 후)
   setTimeout(async () => {
     try {
-      console.log("�� 초기 음악 목록 로드 시작");
+      console.log("초기 음악 목록 로드 시작");
       await displayAudioList();
       console.log("✅ 초기 음악 목록 로드 완료");
     } catch (error) {

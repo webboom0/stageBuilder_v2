@@ -1,0 +1,609 @@
+// editor/js/SidebarAssets.video.js
+import { UIPanel, UIRow, UIButton, UISelect, UIBreak, UIText, UISpan, UIDiv } from "./libs/ui.js";
+import { UIBoolean } from "./libs/ui.three.js";
+import { createPanel } from './ui/floatPanel.js';
+import { getVideoApiUrl, VIDEO_UPLOAD_CONFIG } from "./config/video-upload-config.js";
+import { VideoBackground } from './timeline/VIdeoBackground.js'; // VideoBackground import 추가
+
+export function createVideoPanel(editor) {
+  // VideoBackground import 확인
+  console.log("🎬 VideoBackground import 상태:", {
+    VideoBackground: typeof VideoBackground,
+    editor: !!editor,
+    scene: !!editor?.scene
+  });
+
+  const videoPanel = document.createElement("div");
+  videoPanel.className = "video-panel";
+
+  // Motion 패널 컨텐츠
+  const videoContent = document.createElement("div");
+  videoContent.className = "panel-content";
+  videoPanel.appendChild(videoContent);
+
+  // Motion 패널 푸터
+  const footer = document.createElement("div");
+  footer.className = "panel-footer";
+  videoPanel.appendChild(footer);
+
+  // 패널 헤더
+  // const header = new UIRow();
+  // header.setClass("panel-header");
+  // header.setTextContent("🎬 비디오");
+  // videoPanel.add(header);
+
+  // 비디오 목록 컨테이너
+  const videoListContainer = document.createElement("div");
+  videoListContainer.className = "video-list-container";
+  videoContent.appendChild(videoListContainer);
+
+  // 업로드 섹션
+  const uploadSection = document.createElement("div");
+  uploadSection.className = "upload-section";
+
+  // 파일 선택 버튼
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.id = "fbxFileInput";
+  fileInput.accept = "video/*";
+  fileInput.style.display = "none";
+  uploadSection.appendChild(fileInput);
+
+  const uploadBtn = new UIButton("");
+  uploadBtn.setInnerHTML("<i class='fas fa-upload'></i>");
+  uploadBtn.onClick(async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    console.log("비디오 업로드 시작...");
+
+    // 수정: getVideoApiUrl 사용하여 올바른 서버 URL 생성
+    try {
+      const healthResponse = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      if (!healthResponse.ok) {
+        alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
+        return;
+      }
+
+      // 파일 선택 다이얼로그 열기
+      fileInput.click();
+
+    } catch (error) {
+      console.error("❌ 서버 연결 확인 실패:", error);
+      alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
+    }
+  });
+
+
+  footer.appendChild(uploadBtn.dom);
+  videoContent.appendChild(uploadSection);
+
+  // 파일 업로드 처리
+  fileInput.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files);
+
+    for (const file of files) {
+      if (validateVideoFile(file)) {
+        await uploadFileToServer(file);
+      }
+    }
+
+    // 파일 목록 새로고침
+    await loadVideoFilesFromFolder();
+
+    // 파일 입력 초기화
+    fileInput.value = "";
+  });
+
+  // 비디오 목록 로드
+  loadVideoFilesFromFolder();
+
+  // 패널 푸터
+  // const videoFooter = new UIRow();
+  // videoFooter.setClass("panel-footer");
+
+
+  // 새로고침 버튼
+  const refreshBtn = new UIButton("");
+  refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
+  refreshBtn.onClick(async () => {
+    await loadVideoFilesFromFolder();
+  });
+
+  // 삭제 버튼 (초기에는 비활성화)
+  const deleteBtn = new UIButton("");
+  deleteBtn.setInnerHTML("<i class='fas fa-trash'></i>");
+  deleteBtn.dom.disabled = true;
+  deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
+
+  deleteBtn.onClick(async () => {
+    await deleteSelectedVideo();
+  });
+
+  footer.appendChild(refreshBtn.dom);
+  footer.appendChild(deleteBtn.dom);
+  videoPanel.appendChild(footer);
+
+  // 비디오 파일 목록 로드
+  async function loadVideoFilesFromFolder() {
+    try {
+      console.log("🎬 비디오 폴더 스캔 시작...");
+
+      const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.GET_VIDEOS));
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const videoFiles = await response.json();
+      console.log("✅ 비디오 파일 목록 로드 완료:", videoFiles);
+
+      displayVideoList(videoFiles);
+
+    } catch (error) {
+      console.error("❌ 비디오 폴더 스캔 실패:", error);
+
+      // 서버 연결 실패 시 기본 비디오 파일 표시
+      const defaultVideos = [
+        {
+          path: "../files/video/video3.mp4",
+          name: "video3",
+          displayName: "Video 3",
+          filename: "video3.mp4"
+        }
+      ];
+
+      displayVideoList(defaultVideos);
+    }
+  }
+  // 비디오 소스 변경 함수 추가
+  function changeVideoSource(filename) {
+    try {
+      console.log("🎬 비디오 소스 변경:", filename);
+
+      // 기존 VideoBackground 찾기
+      let videoBackground = null;
+
+      if (editor.videoBackground) {
+        videoBackground = editor.videoBackground;
+      } else if (window.timeline && window.timeline.timelines && window.timeline.timelines.motion) {
+        const motionTimeline = window.timeline.timelines.motion;
+        if (motionTimeline.editor && motionTimeline.editor.videoBackground) {
+          videoBackground = motionTimeline.editor.videoBackground;
+        }
+      }
+
+      if (videoBackground) {
+        // 현재 재생 상태 저장
+        const wasPlaying = videoBackground.isPlaying;
+
+        // 비디오 소스 변경
+        const videoPath = `../files/video/${filename}`;
+        const loadSuccess = videoBackground.loadVideo(videoPath);
+
+        if (loadSuccess) {
+          console.log("✅ 비디오 소스 변경 완료:", filename);
+
+          // 이전에 재생 중이었다면 새 비디오도 재생
+          if (wasPlaying) {
+            setTimeout(() => {
+              if (videoBackground.isVideoLoaded()) {
+                videoBackground.playVideo();
+                console.log("▶️ 새 비디오 재생 시작");
+              }
+            }, 1000);
+          }
+
+          // 성공 메시지 표시
+          showChangeSuccess(filename);
+
+        } else {
+          throw new Error("비디오 소스 변경에 실패했습니다");
+        }
+      } else {
+        // VideoBackground가 없으면 새로 생성
+        addVideoToScene(filename);
+      }
+
+    } catch (error) {
+      console.error("❌ 비디오 소스 변경 중 오류:", error);
+      showChangeError(error.message);
+    }
+  }
+
+  // 비디오 목록 표시
+  function displayVideoList(videoFiles) {
+    videoListContainer.innerHTML = "";
+
+    if (videoFiles.length === 0) {
+      const noVideos = new UIDiv();
+      noVideos.setClass("no-videos");
+      noVideos.setTextContent("비디오 파일이 없습니다");
+      videoListContainer.add(noVideos);
+      return;
+    }
+
+    videoFiles.forEach(videoFile => {
+      const videoItem = new UIDiv();
+      videoItem.setClass("video-item");
+      videoItem.dom.dataset.filename = videoFile.filename;
+
+      // 비디오 정보
+      const videoInfo = new UIDiv();
+      videoInfo.setClass("video-info");
+
+      const videoName = new UISpan();
+      videoName.setTextContent(videoFile.filename);
+      videoName.setClass("video-name");
+
+      const videoSize = new UISpan();
+      videoSize.setTextContent(formatFileSize(videoFile.size));
+      videoSize.setClass("video-size");
+
+      videoInfo.add(videoName);
+      videoInfo.add(videoSize);
+
+      // 추가 버튼 - setTitle 대신 dom.title 사용
+      const addBtn = new UIButton();
+      addBtn.setInnerHTML("<i class='fas fa-plus'></i>");
+      addBtn.setClass("add-btn");
+      addBtn.dom.title = "씬에 비디오 배경 추가"; // setTitle 대신 dom.title 사용
+      // 중복 추가 방지를 위한 상태 추적
+      let isAdding = false;
+      addBtn.onClick((event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (isAdding) {
+          console.log("이미 추가 중입니다...");
+          return;
+        }
+
+        // 버튼 상태 변경
+        isAdding = true;
+        addBtn.dom.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 비디오 변경 중...';
+        addBtn.dom.disabled = true;
+        addBtn.dom.classList.add('adding');
+        const loadSuccess = addVideoToScene(videoFile.filename);
+
+        if (loadSuccess) {
+          console.log("✅ 비디오 추가 완료:", videoFile.filename);
+          // 3초 후 원래 상태로 복원
+          setTimeout(() => {
+            console.log("🎬 비디오 추가 완료:", videoFile.filename);
+            addBtn.dom.innerHTML = '<i class="fas fa-plus"></i>';
+            addBtn.dom.classList.remove('success');
+            addBtn.dom.disabled = false;
+            isAdding = false;
+          }, 3000);
+        } else {
+          console.error("❌ 비디오 추가 실패:", videoFile.filename);
+          // 버튼 상태 복원
+          addBtn.dom.innerHTML = '<i class="fas fa-plus"></i>';
+          addBtn.dom.classList.remove('adding');
+          addBtn.dom.disabled = false;
+          isAdding = false;
+        }
+
+      });
+
+      videoItem.add(videoInfo);
+      videoItem.add(addBtn);
+
+      // 비디오 항목 클릭 이벤트
+      videoItem.dom.addEventListener("click", (e) => {
+        if (e.target !== addBtn.dom && !addBtn.dom.contains(e.target)) {
+          selectVideoItem(videoItem, videoFile.filename);
+        }
+      });
+
+      videoListContainer.appendChild(videoItem.dom);
+    });
+  }
+
+  // 비디오 항목 선택
+  function selectVideoItem(videoItem, filename) {
+    // 기존 선택 해제
+    videoListContainer.querySelectorAll(".video-item").forEach(item => {
+      item.classList.remove("selected");
+    });
+
+    // 현재 항목 선택
+    videoItem.dom.classList.add("selected");
+
+    // 삭제 버튼 활성화
+    deleteBtn.dom.disabled = false;
+    deleteBtn.dom.title = `선택된 비디오: ${filename}`;
+
+    console.log("🎬 비디오 항목 선택됨:", filename);
+  }
+
+  // 비디오 파일 검증
+  function validateVideoFile(file) {
+    const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/mov'];
+    const maxSize = 500 * 1024 * 1024; // 500MB
+
+    if (!validTypes.includes(file.type)) {
+      alert("지원되지 않는 비디오 형식입니다. MP4, WebM, OGG, AVI, MOV 파일만 지원됩니다.");
+      return false;
+    }
+
+    if (file.size > maxSize) {
+      alert("파일 크기가 너무 큽니다. 500MB 이하의 파일만 업로드 가능합니다.");
+      return false;
+    }
+
+    return true;
+  }
+
+  // 서버에 비디오 파일 업로드
+  async function uploadFileToServer(file) {
+    try {
+      console.log("📤 비디오 업로드 요청 시작:", file.name);
+
+      const formData = new FormData();
+      formData.append('video', file);
+
+      const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.UPLOAD), {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`업로드 실패: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("✅ 비디오 업로드 완료:", result);
+
+      // 성공 메시지 표시
+      showUploadSuccess(file.name);
+
+    } catch (error) {
+      console.error("❌ 업로드 중 오류:", error);
+      showUploadError(error.message);
+    }
+  }
+
+  // 선택된 비디오 삭제
+  async function deleteSelectedVideo() {
+    const selectedItem = videoListContainer.querySelector(".video-item.selected");
+    if (!selectedItem) {
+      alert("삭제할 비디오를 선택해주세요.");
+      return;
+    }
+
+    const filename = selectedItem.dataset.filename;
+    if (!confirm(`정말로 "${filename}"을(를) 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      console.log("🗑️ 비디오 파일 삭제 시작:", filename);
+
+      const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.DELETE_VIDEO, filename), {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(`삭제 실패: ${response.status} ${response.statusText}`);
+      }
+
+      console.log("✅ 비디오 파일 삭제 완료:", filename);
+
+      // 선택 해제
+      selectedItem.classList.remove("selected");
+      deleteBtn.dom.disabled = true;
+      deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
+
+      // 파일 목록 새로고침
+      await loadVideoFilesFromFolder();
+
+      // 성공 메시지 표시
+      showDeleteSuccess(filename);
+
+    } catch (error) {
+      console.error("❌ 비디오 파일 삭제 중 오류:", error);
+      showDeleteError(error.message);
+    }
+  }
+
+  // 서버 연결 테스트
+  async function testServerConnection() {
+    try {
+      const startTime = Date.now();
+      const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.HEALTH));
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      if (response.ok) {
+        const status = await response.json();
+        console.log("✅ 서버 연결 성공:", status);
+
+        // 연결 테스트 버튼 업데이트
+        testConnectionBtn.setTextContent(`🔍 연결됨 (${responseTime}ms)`);
+        testConnectionBtn.dom.style.background = "#4CAF50";
+
+        setTimeout(() => {
+          testConnectionBtn.setTextContent("🔍 연결 테스트");
+          testConnectionBtn.dom.style.background = "";
+        }, 3000);
+
+        return true;
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+    } catch (error) {
+      console.error("❌ 서버 연결 실패:", error);
+
+      // 연결 테스트 버튼 업데이트
+      testConnectionBtn.setTextContent("❌ 연결 실패");
+      testConnectionBtn.dom.style.background = "#f44336";
+
+      setTimeout(() => {
+        testConnectionBtn.setTextContent("🔍 연결 테스트");
+        testConnectionBtn.dom.style.background = "";
+      }, 3000);
+
+      return false;
+    }
+  }
+
+  // 씬에 비디오 배경 추가
+  async function addVideoToScene(filename) {
+    try {
+      console.log("🎬 비디오 배경 추가:", filename);
+
+      // 기존 VideoBackground 찾기
+      let videoBackground = editor.videoBackground;
+
+      // 없으면 새로 생성
+      if (!videoBackground) {
+        videoBackground = new VideoBackground(editor);
+        editor.videoBackground = videoBackground;
+        console.log("✅ 새로운 VideoBackground 생성");
+
+        // 씬에 비디오 배경 추가
+        videoBackground.createVideoBackground(editor.scene);
+      } else {
+        console.log("✅ 기존 VideoBackground 재사용");
+      }
+
+      // 비디오 소스 변경 전에 기존 비디오 정지
+      if (videoBackground.isPlaying) {
+        console.log("⏸️ 기존 비디오 정지");
+        videoBackground.pauseVideo();
+      }
+
+      // 비디오 소스 변경
+      const videoPath = `../files/video/${filename}`;
+      console.log(" 비디오 파일 로드:", videoPath);
+
+      // 기존 비디오 요소 정리
+      if (videoBackground.videoElement) {
+        videoBackground.videoElement.pause();
+        videoBackground.videoElement.currentTime = 0;
+        videoBackground.videoElement.src = '';
+        videoBackground.videoElement.load();
+      }
+
+      // 새 비디오 로드
+      const loadSuccess = videoBackground.loadVideo(videoPath);
+
+      if (loadSuccess) {
+        console.log("✅ 비디오 로드 성공");
+
+        // 비디오 로드 완료 후 재생 준비
+        setTimeout(() => {
+          if (videoBackground.isVideoLoaded()) {
+            console.log("✅ 비디오 로드 완료, 재생 준비");
+
+            // 비디오 재생 준비 (자동 재생은 하지 않음)
+            videoBackground.videoElement.currentTime = 0;
+            videoBackground.videoElement.volume = 0.5;
+            videoBackground.videoElement.muted = true;
+
+            console.log("🎬 비디오 재생 준비 완료:", filename);
+            requestSceneUpdate()
+
+          } else {
+            console.log("⚠️ 비디오 로드 실패 또는 대기 중");
+          }
+        }, 1000);
+
+      } else {
+        console.error("❌ 비디오 로드 실패");
+      }
+
+      console.log("✅ 비디오 추가 완료:", filename);
+
+    } catch (error) {
+      console.error("❌ 비디오 추가 실패:", error);
+    }
+  }
+
+  // 씬 업데이트 요청 함수
+  function requestSceneUpdate() {
+    try {
+
+      if (editor.signals && editor.signals.rendererUpdated) {
+        editor.signals.rendererUpdated.dispatch();
+        console.log("✅ rendererUpdated 시그널 디스패치");
+      }
+
+
+    } catch (error) {
+      console.error("❌ 씬 업데이트 요청 실패:", error);
+    }
+  }
+
+
+  // 파일 크기 포맷팅
+  function formatFileSize(bytes) {
+    if (typeof bytes === 'string') return bytes;
+
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  // 성공/오류 메시지 표시
+  function showUploadSuccess(filename) {
+    showMessage(`✅ "${filename}" 업로드 완료`, 'success');
+  }
+
+  function showUploadError(message) {
+    showMessage(`❌ 업로드 실패: ${message}`, 'error');
+  }
+
+  function showDeleteSuccess(filename) {
+    showMessage(`✅ "${filename}" 삭제 완료`, 'success');
+  }
+
+  function showDeleteError(message) {
+    showMessage(`❌ 삭제 실패: ${message}`, 'error');
+  }
+
+  function showAddSuccess(filename) {
+    showMessage(`✅ "${filename}" 씬에 추가 완료`, 'success');
+  }
+
+  function showAddError(filename, message) {
+    showMessage(`❌ "${filename}" 씬에 추가 실패: ${message}`, 'error');
+  }
+
+  function showMessage(text, type = 'info') {
+    const message = document.createElement('div');
+    message.className = `message ${type}`;
+    message.textContent = text;
+    message.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 4px;
+            color: white;
+            z-index: 10000;
+            font-size: 14px;
+            background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        `;
+
+    document.body.appendChild(message);
+
+    setTimeout(() => {
+      if (message.parentNode) {
+        document.body.removeChild(message);
+      }
+    }, 3000);
+  }
+
+  return videoPanel;
+}

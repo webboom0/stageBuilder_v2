@@ -443,10 +443,10 @@ export class RenderTimeline {
       this.copyAnimationMixersToPreview();
       console.log('🎬 === 애니메이션 믹서 복사 완료 ===');
 
-      // �� 조명 애니메이션 믹서들을 미리보기 씬에 복사
-      console.log('�� === 조명 애니메이션 믹서 복사 시작 ===');
+      // 조명 애니메이션 믹서들을 미리보기 씬에 복사
+      console.log('=== 조명 애니메이션 믹서 복사 시작 ===');
       this.copyLightAnimationMixersToPreview();
-      console.log('�� === 조명 애니메이션 믹서 복사 완료 ===');
+      console.log('=== 조명 애니메이션 믹서 복사 완료 ===');
 
       console.log('씬 복사 완료:', {
         children: this.previewScene.children.length,
@@ -511,13 +511,13 @@ export class RenderTimeline {
   // 🚀 조명 애니메이션 믹서를 미리보기 씬에 복사
   copyLightAnimationMixersToPreview() {
     const originalLightMixers = [];
-    console.log('�� === 원본 씬에서 조명 애니메이션 믹서 검색 시작 ===');
+    console.log('=== 원본 씬에서 조명 애니메이션 믹서 검색 시작 ===');
 
-    // �� 원본 씬의 모든 조명 객체를 순회하면서 애니메이션 검색
+    // 원본 씬의 모든 조명 객체를 순회하면서 애니메이션 검색
     this.editor.scene.traverse((object) => {
-      // �� 조명 객체이면서 애니메이션이 있는 객체 찾기
+      // 조명 객체이면서 애니메이션이 있는 객체 찾기
       if (object.isLight && object.animations && object.animations.length > 0) {
-        console.log(`�� 원본 씬에서 조명 애니메이션 객체 발견: ${object.name} (${object.animations.length}개 클립) - UUID: ${object.uuid}`);
+        console.log(`원본 씬에서 조명 애니메이션 객체 발견: ${object.name} (${object.animations.length}개 클립) - UUID: ${object.uuid}`);
         console.log(`  - 조명 타입: ${object.type}`);
         console.log(`  - 애니메이션 클립들:`, object.animations.map(clip => ({
           name: clip.name,
@@ -534,7 +534,7 @@ export class RenderTimeline {
 
       // 🚀 조명 관련 특별 검색
       if (object.isLight) {
-        console.log(`�� 조명 객체 발견: ${object.name} (${object.type}) - UUID: ${object.uuid}`);
+        console.log(`조명 객체 발견: ${object.name} (${object.type}) - UUID: ${object.uuid}`);
         console.log(`  - animations: ${object.animations ? object.animations.length : 0}개`);
         console.log(`  - animationMixer: ${object.animationMixer ? '있음' : '없음'}`);
         console.log(`  - userData.animationMixer: ${object.userData && object.userData.animationMixer ? '있음' : '없음'}`);
@@ -552,18 +552,18 @@ export class RenderTimeline {
       }
     });
 
-    console.log(`�� === 원본 씬에서 조명 애니메이션 믹서 검색 완료: ${originalLightMixers.length}개 발견 ===`);
+    console.log(`=== 원본 씬에서 조명 애니메이션 믹서 검색 완료: ${originalLightMixers.length}개 발견 ===`);
 
     if (originalLightMixers.length === 0) {
       console.log('⚠️ 원본 씬에서 조명 애니메이션 객체를 찾을 수 없습니다!');
       return;
     }
 
-    // �� 미리보기 씬에 조명 애니메이션 믹서 복사
+    // 미리보기 씬에 조명 애니메이션 믹서 복사
     let copiedLightMixers = 0;
     originalLightMixers.forEach((mixerData, index) => {
       const originalObject = mixerData.object;
-      console.log(`\n�� === 조명 애니메이션 믹서 ${index + 1}/${originalLightMixers.length} 복사 시작 ===`);
+      console.log(`\n=== 조명 애니메이션 믹서 ${index + 1}/${originalLightMixers.length} 복사 시작 ===`);
       console.log(`  - 원본 조명 객체: ${originalObject.name} (${originalObject.type})`);
       console.log(`  - UUID: ${originalObject.uuid}`);
       console.log(`  - 애니메이션 클립 수: ${mixerData.animations.length}`);
@@ -584,7 +584,7 @@ export class RenderTimeline {
       }
 
       try {
-        // �� 조명 애니메이션 클립들을 미리보기 객체에 복사
+        // 조명 애니메이션 클립들을 미리보기 객체에 복사
         console.log(`    📋 조명 애니메이션 클립 복사 중...`);
         const clonedClips = [];
         mixerData.animations.forEach((clip, clipIndex) => {
@@ -602,7 +602,7 @@ export class RenderTimeline {
           return;
         }
 
-        // �� 미리보기 조명 객체에 새로운 애니메이션 믹서 생성
+        // 미리보기 조명 객체에 새로운 애니메이션 믹서 생성
         console.log(`    💡 미리보기 조명 객체에 애니메이션 믹서 생성 중...`);
         const previewMixer = new THREE.AnimationMixer(previewObject);
         previewObject.animationMixer = previewMixer;
@@ -628,10 +628,10 @@ export class RenderTimeline {
         console.error(`    ❌ 조명 애니메이션 믹서 복사 중 오류:`, error);
       }
 
-      console.log(`�� === 조명 애니메이션 믹서 ${index + 1}/${originalLightMixers.length} 복사 완료 ===\n`);
+      console.log(`=== 조명 애니메이션 믹서 ${index + 1}/${originalLightMixers.length} 복사 완료 ===\n`);
     });
 
-    console.log(`�� === 조명 애니메이션 믹서 복사 결과 ===`);
+    console.log(`=== 조명 애니메이션 믹서 복사 결과 ===`);
     console.log(`  - 원본 조명 믹서: ${originalLightMixers.length}개`);
     console.log(`  - 복사된 조명 믹서: ${copiedLightMixers}개`);
 
@@ -645,7 +645,7 @@ export class RenderTimeline {
     }
   }
 
-  // �� 조명 애니메이션 믹서 업데이트
+  // 조명 애니메이션 믹서 업데이트
   updatePreviewLightAnimationMixers(time) {
     if (!this.previewScene) {
       console.log('⚠️ previewScene이 없어 조명 애니메이션 믹서 업데이트를 건너뜁니다');
@@ -674,7 +674,7 @@ export class RenderTimeline {
           const mixer = object.animationMixer;
           console.log(`💡 조명 객체 ${object.name}의 애니메이션 믹서 처리 중...`);
           
-          // �� 핵심: 특정 시간으로 조명 애니메이션 설정
+          // 핵심: 특정 시간으로 조명 애니메이션 설정
           if (mixer._actions && mixer._actions.length > 0) {
             console.log(`  - 조명 믹서에 ${mixer._actions.length}개의 액션 발견`);
             
@@ -751,7 +751,7 @@ export class RenderTimeline {
     }
   }
 
-  // �� 조명 애니메이션 디버깅 정보 표시
+  // 조명 애니메이션 디버깅 정보 표시
   showLightAnimationDebugInfo() {
     if (!this.previewScene) {
       console.log('미리보기 씬이 아직 생성되지 않았습니다.');
@@ -801,14 +801,14 @@ export class RenderTimeline {
           }
         }
 
-        // �� 조명 애니메이션 믹서 확인 (직접 속성)
+        // 조명 애니메이션 믹서 확인 (직접 속성)
         if (object.animationMixer) {
           lightMixers++;
           const mixer = object.animationMixer;
           const actions = mixer._actions ? mixer._actions.length : 0;
           totalLightActions += actions;
           
-          console.log(`�� 조명 애니메이션 믹서 발견 (직접):`, {
+          console.log(`조명 애니메이션 믹서 발견 (직접):`, {
             name: object.name || 'unnamed',
             type: object.type,
             mixer: mixer,
@@ -1428,7 +1428,7 @@ export class RenderTimeline {
         }
 
         // 🚀 미리보기 객체에 새로운 애니메이션 믹서 생성
-        console.log(`    �� 미리보기 객체에 애니메이션 믹서 생성 중...`);
+        console.log(`    미리보기 객체에 애니메이션 믹서 생성 중...`);
         const previewMixer = new THREE.AnimationMixer(previewObject);
         previewObject.animationMixer = previewMixer;
 
@@ -1759,7 +1759,7 @@ export class RenderTimeline {
     console.log(`=== 미리보기 씬 상태 업데이트 시작: ${time.toFixed(2)}초 ===`);
 
     try {
-      // �� 핵심: FBX 애니메이션 믹서 업데이트 (최우선)
+      // 핵심: FBX 애니메이션 믹서 업데이트 (최우선)
       console.log('🔄 FBX 애니메이션 믹서 업데이트 시작...');
       this.updatePreviewAnimationMixers(time);
 
@@ -1768,7 +1768,7 @@ export class RenderTimeline {
       this.applyLightAnimationFromTimeline(time);
 
       // 그 다음 기본 애니메이션 업데이트 (Three.js 애니메이션, 키프레임 등)
-      console.log('�� 미리보기 씬 객체 애니메이션 업데이트 시작...');
+      console.log('미리보기 씬 객체 애니메이션 업데이트 시작...');
       this.updatePreviewSceneObjects(time);
 
       // 마지막으로 타임라인 데이터를 직접 객체에 적용 (최우선 적용)
@@ -1804,12 +1804,12 @@ export class RenderTimeline {
       tracksSize: lightTimeline.timelineData ? lightTimeline.timelineData.tracks.size : 'undefined'
     });
 
-    // �� precomputedData가 있으면 사용, 없으면 tracks 사용
+    // precomputedData가 있으면 사용, 없으면 tracks 사용
     if (lightTimeline.timelineData && lightTimeline.timelineData.precomputedData && lightTimeline.timelineData.precomputedData.size > 0) {
-      console.log('�� precomputedData 사용하여 조명 애니메이션 적용');
+      console.log('precomputedData 사용하여 조명 애니메이션 적용');
       this.applyLightAnimationFromPrecomputedData(time, lightTimeline.timelineData.precomputedData);
     } else if (lightTimeline.timelineData && lightTimeline.timelineData.tracks && lightTimeline.timelineData.tracks.size > 0) {
-      console.log('�� tracks 사용하여 조명 애니메이션 적용');
+      console.log('tracks 사용하여 조명 애니메이션 적용');
       this.applyLightAnimationFromTracks(time, lightTimeline.timelineData.tracks);
     } else {
       console.log('⚠️ LightTimeline에 사용할 수 있는 데이터가 없음');
@@ -1865,7 +1865,7 @@ export class RenderTimeline {
 
       console.log(`✅ 조명 발견: ${previewLight.name} (${previewLight.type})`);
 
-      // �� 각 트랙의 모든 속성을 개별적으로 처리
+      // 각 트랙의 모든 속성을 개별적으로 처리
       objectTracks.forEach((trackData, property) => {
         if (trackData && trackData.times && trackData.times.length > 0) {
           try {
@@ -1874,7 +1874,7 @@ export class RenderTimeline {
             if (value !== null && value !== undefined) {
               console.log(`💡 조명 속성 적용: ${previewLight.name}.${property} =`, value);
               
-              // �� 속성 타입에 따라 적절한 함수 호출
+              // 속성 타입에 따라 적절한 함수 호출
               if (property === 'Target' || property.includes('target')) {
                 // 타겟 관련 속성
                 this.applySpotLightTargetValue(previewLight, property, value);
@@ -1895,7 +1895,7 @@ export class RenderTimeline {
     });
   }
 
-  // �� SpotLight 타겟 속성 적용
+  // SpotLight 타겟 속성 적용
   applySpotLightTargetValue(light, propertyName, value) {
     try {
       if (light.type !== 'SpotLight') {
@@ -4305,7 +4305,7 @@ export class RenderTimeline {
 
   // 원본 씬 상태를 미리보기 씬에 복사
   copyOriginalSceneState() {
-    console.log('�� 원본 씬 상태를 미리보기 씬에 복사 중...');
+    console.log('원본 씬 상태를 미리보기 씬에 복사 중...');
 
     this.previewScene.traverse((previewObject) => {
       if (previewObject.name) {
@@ -4336,7 +4336,7 @@ export class RenderTimeline {
     try {
       const [objectUuid, property] = trackKey.split('_');
 
-      console.log(`�� 트랙 처리: ${trackKey}`, {
+      console.log(`트랙 처리: ${trackKey}`, {
         objectUuid,
         property,
         trackData: trackData

@@ -43,10 +43,10 @@ app.get('/api/health', (req, res) => {
 // 루트 경로
 app.get('/', (req, res) => {
   res.json({
-    message: '�� 음악 & 🎬 FBX 업로드 서버가 실행 중입니다.',
+    message: '음악 & 🎬 FBX 업로드 서버가 실행 중입니다.',
     endpoints: {
       health: '/api/health',
-      // �� 오디오 관련
+      // 오디오 관련
       audio: {
         upload: '/api/upload-audio',
         files: '/api/audio-files'
@@ -55,6 +55,11 @@ app.get('/', (req, res) => {
       fbx: {
         upload: '/api/upload-fbx',
         files: '/api/fbx-files'
+      },
+      // 🎬 비디오 관련
+      video: {
+        upload: '/api/upload-video',
+        files: '/api/video-files'
       }
     },
     timestamp: new Date().toISOString()
@@ -65,12 +70,12 @@ app.get('/', (req, res) => {
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadPath = path.join(__dirname, '../files/music');
-    
+
     // 폴더가 없으면 생성
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
-    
+
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
@@ -79,7 +84,7 @@ const storage = multer.diskStorage({
     const extension = path.extname(file.originalname);
     const timestamp = Date.now();
     const filename = `${originalName}_${timestamp}${extension}`;
-    
+
     cb(null, filename);
   }
 });
@@ -95,9 +100,9 @@ const upload = multer({
       'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg',
       'audio/mp4', 'audio/aac', 'audio/flac'
     ];
-    
-    if (allowedTypes.includes(file.mimetype) || 
-        file.originalname.match(/\.(mp3|wav|ogg|m4a|aac|flac)$/i)) {
+
+    if (allowedTypes.includes(file.mimetype) ||
+      file.originalname.match(/\.(mp3|wav|ogg|m4a|aac|flac)$/i)) {
       cb(null, true);
     } else {
       cb(new Error('지원하지 않는 오디오 파일 형식입니다.'), false);
@@ -139,7 +144,7 @@ app.post('/api/upload-audio', upload.single('audioFile'), (req, res) => {
 app.get('/api/audio-files', (req, res) => {
   try {
     const musicPath = path.join(__dirname, '../files/music');
-    
+
     if (!fs.existsSync(musicPath)) {
       return res.json([]);
     }
@@ -154,7 +159,7 @@ app.get('/api/audio-files', (req, res) => {
         const name = path.parse(file).name;
         const ext = path.extname(file);
         const stats = fs.statSync(path.join(musicPath, file));
-        
+
         return {
           name: name,
           displayName: name.replace(/[_-]/g, ' '), // 언더스코어와 하이픈을 공백으로 변환
@@ -179,7 +184,7 @@ app.delete('/api/audio-files/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
     const filePath = path.join(__dirname, '../files/music', filename);
-    
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
     }
@@ -201,9 +206,9 @@ app.delete('/api/audio-files/:filename', (req, res) => {
 
 
 
-// �� FBX 파일 업로드를 위한 multer 설정 추가
+// FBX 파일 업로드를 위한 multer 설정 추가
 const fbxStorage = multer.diskStorage({
-  destination: function(req, file, cb)  {
+  destination: function (req, file, cb) {
     const fbxDir = path.join(__dirname, '../files/fbx');
     if (!fs.existsSync(fbxDir)) {
       fs.mkdirSync(fbxDir, { recursive: true });
@@ -211,13 +216,13 @@ const fbxStorage = multer.diskStorage({
     }
     cb(null, fbxDir);
   },
-  filename: function(req, file, cb) {
+  filename: function (req, file, cb) {
     cb(null, file.originalname);
   }
 });
 
-// �� FBX 파일 업로드용 multer
-const fbxUpload = multer({ 
+// FBX 파일 업로드용 multer
+const fbxUpload = multer({
   storage: fbxStorage,
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB
@@ -226,7 +231,7 @@ const fbxUpload = multer({
     // FBX 파일은 mimetype이 application/octet-stream이므로 확장자로 검사
     const allowedExtensions = ['.fbx'];
     const fileExtension = path.extname(file.originalname).toLowerCase();
-    
+
     if (allowedExtensions.includes(fileExtension)) {
       cb(null, true);
     } else {
@@ -262,13 +267,13 @@ app.post('/api/upload-fbx', fbxUpload.single('fbxFile'), (req, res) => {
   }
 });
 
-// �� FBX 파일 목록 조회 엔드포인트
+// FBX 파일 목록 조회 엔드포인트
 app.get('/api/fbx-files', (req, res) => {
   try {
     const fbxDir = path.join(__dirname, '../files/fbx');
-    
+
     if (!fs.existsSync(fbxDir)) {
-      console.log('�� FBX 폴더가 존재하지 않음, 빈 배열 반환');
+      console.log('FBX 폴더가 존재하지 않음, 빈 배열 반환');
       return res.json([]);
     }
 
@@ -277,7 +282,7 @@ app.get('/api/fbx-files', (req, res) => {
       .map(file => {
         const filePath = path.join(fbxDir, file);
         const stats = fs.statSync(filePath);
-        
+
         return {
           name: path.parse(file).name,
           filename: file,
@@ -312,8 +317,8 @@ app.delete('/api/fbx-files/:filename', (req, res) => {
     fs.unlinkSync(fbxPath);
     console.log('✅ FBX 파일 삭제됨:', filename);
 
-    res.json({ 
-      message: '�� FBX 파일이 삭제되었습니다.', 
+    res.json({
+      message: 'FBX 파일이 삭제되었습니다.',
       filename,
       timestamp: new Date().toISOString()
     });
@@ -324,7 +329,7 @@ app.delete('/api/fbx-files/:filename', (req, res) => {
   }
 });
 
-// �� FBX 파일 다운로드 엔드포인트
+// FBX 파일 다운로드 엔드포인트
 app.get('/files/fbx/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
@@ -342,6 +347,104 @@ app.get('/files/fbx/:filename', (req, res) => {
   }
 });
 
+// 비디오 파일 업로드를 위한 multer 설정
+const videoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const videoDir = path.join(__dirname, '../files/video');
+    if (!fs.existsSync(videoDir)) {
+      fs.mkdirSync(videoDir, { recursive: true });
+    }
+    cb(null, videoDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
+  }
+});
+
+const videoUpload = multer({
+  storage: videoStorage,
+  limits: {
+    fileSize: 500 * 1024 * 1024 // 500MB
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/mov'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('지원되지 않는 비디오 형식입니다.'));
+    }
+  }
+});
+
+// 비디오 파일 업로드
+app.post('/api/upload-video', videoUpload.single('video'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '비디오 파일이 없습니다.' });
+    }
+
+    console.log('비디오 파일 업로드 완료:', req.file.filename);
+    res.json({
+      message: '비디오 파일이 성공적으로 업로드되었습니다.',
+      filename: req.file.filename,
+      size: req.file.size
+    });
+
+  } catch (error) {
+    console.error('비디오 업로드 오류:', error);
+    res.status(500).json({ error: '비디오 업로드 중 오류가 발생했습니다.' });
+  }
+});
+
+// 비디오 파일 목록 가져오기
+app.get('/api/video-files', (req, res) => {
+  try {
+    const videoDir = path.join(__dirname, '../files/video');
+
+    if (!fs.existsSync(videoDir)) {
+      return res.json([]);
+    }
+
+    const files = fs.readdirSync(videoDir);
+    const videoFiles = files.map(filename => {
+      const filePath = path.join(videoDir, filename);
+      const stats = fs.statSync(filePath);
+      return {
+        filename: filename,
+        size: stats.size,
+        uploadDate: stats.mtime
+      };
+    });
+
+    res.json(videoFiles);
+
+  } catch (error) {
+    console.error('비디오 파일 목록 가져오기 오류:', error);
+    res.status(500).json({ error: '비디오 파일 목록을 가져오는 중 오류가 발생했습니다.' });
+  }
+});
+
+// 비디오 파일 삭제
+app.delete('/api/video-files/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, '../files/video', filename);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log('비디오 파일 삭제 완료:', filename);
+      res.json({ message: '비디오 파일이 성공적으로 삭제되었습니다.' });
+    } else {
+      res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+    }
+
+  } catch (error) {
+    console.error('비디오 파일 삭제 오류:', error);
+    res.status(500).json({ error: '비디오 파일 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+
 
 
 // 서버 시작
@@ -354,17 +457,17 @@ app.listen(PORT, () => {
 // 에러 핸들링
 app.use((error, req, res, next) => {
   console.error('서버 오류:', error);
-  
+
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: '파일 크기가 제한을 초과했습니다.',
         details: `최대 파일 크기: ${(50 * 1024 * 1024 / (1024 * 1024)).toFixed(0)}MB`
       });
     }
   }
-  
-  res.status(500).json({ 
+
+  res.status(500).json({
     error: '서버 내부 오류가 발생했습니다.',
     details: error.message,
     stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -373,7 +476,7 @@ app.use((error, req, res, next) => {
 
 // 404 핸들링
 app.use('*', (req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: '요청한 엔드포인트를 찾을 수 없습니다.',
     path: req.originalUrl,
     method: req.method

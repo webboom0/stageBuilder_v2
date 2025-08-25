@@ -55,7 +55,7 @@ export const getFbxServerUrl = () => {
   return FBX_UPLOAD_CONFIG.SERVER_URL;
 };
 
-// �� API URL 생성 헬퍼 함수 (오디오와 동일하게)
+// API URL 생성 헬퍼 함수 (오디오와 동일하게)
 export const getFbxApiUrl = (endpoint) => {
   const serverUrl = getFbxServerUrl();
   return `${serverUrl}${endpoint}`;
