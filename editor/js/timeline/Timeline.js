@@ -222,7 +222,8 @@ class Timeline {
       menu.style.zIndex = "1000";
 
       const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "트랙 삭제";
+      deleteBtn.className = "timeline-btn";
+      deleteBtn.innerHTML = `<i class="fa fa-trash" style="color: #ff6b6b;"></i>트랙 삭제`;
       deleteBtn.onclick = () => {
         const objectId = parseInt(track.dataset.objectId, 10);
         const objectUuid = track.dataset.uuid;

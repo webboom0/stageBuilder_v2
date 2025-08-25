@@ -141,7 +141,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px;
+  padding: 5px 15px 5px 5px !important;
   background: #3a3a3a;
   border-bottom: 1px solid #1a1a1a;
 }
@@ -1074,7 +1074,7 @@ border-left: 3px solid #666;
   background: linear-gradient(90deg, #4CAF50, #45a049);
   box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
   border: 2px solid #4CAF50;
-  
+
 }
 
 .animation-sprite[data-is-active="false"] {
@@ -1524,4 +1524,25 @@ border-left: 3px solid #666;
 
 .keyframe:hover::before {
   opacity: 1;
+}
+
+.timeline-btn {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a2a;
+  border: none;
+  color: rgb(255, 255, 255);
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: solid 1px rgba(255, 255, 255, .3);
+  border-radius: 3px;
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, .3);
+}
+
+.timeline-btn:hover {
+  background: #444;
 }
