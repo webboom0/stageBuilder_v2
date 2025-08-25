@@ -131,14 +131,28 @@ export function createVideoPanel(editor) {
 
       const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.GET_VIDEOS));
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (response.ok) {
+        const videoFiles = await response.json();
+        console.log("✅ 비디오 파일 목록 로드 완료:", videoFiles);
+
+        // 서버에서 받은 데이터를 그대로 사용
+        const processedFiles = videoFiles.map(file => {
+          console.log("처리 중인 파일:", file);
+          return {
+            path: `..${file.path}`, // 상대 경로로 변환
+            name: file.name,
+            displayName: file.displayName,
+            filename: file.filename// 실제 파일명 (확장자 포함)
+          };
+        });
+
+        console.log("처리된 파일 목록:", processedFiles);
+        displayVideoList(videoFiles);
+        return processedFiles;
+      } else {
+        console.warn("서버에서 비디오 파일 목록을 가져올 수 없습니다. 기본 목록 사용");
+        throw new Error(`HTTP ${response.status}`);
       }
-
-      const videoFiles = await response.json();
-      console.log("✅ 비디오 파일 목록 로드 완료:", videoFiles);
-
-      displayVideoList(videoFiles);
 
     } catch (error) {
       console.error("❌ 비디오 폴더 스캔 실패:", error);
