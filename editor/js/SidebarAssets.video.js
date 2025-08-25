@@ -27,12 +27,6 @@ export function createVideoPanel(editor) {
   footer.className = "panel-footer";
   videoPanel.appendChild(footer);
 
-  // 패널 헤더
-  // const header = new UIRow();
-  // header.setClass("panel-header");
-  // header.setTextContent("🎬 비디오");
-  // videoPanel.add(header);
-
   // 비디오 목록 컨테이너
   const videoListContainer = document.createElement("div");
   videoListContainer.className = "video-list-container";
@@ -188,14 +182,14 @@ export function createVideoPanel(editor) {
         const loadSuccess = videoBackground.loadVideo(videoPath);
 
         if (loadSuccess) {
-          console.log("✅ 비디오 소스 변경 완료:", filename);
+          console.log("비디오 소스 변경 완료:", filename);
 
           // 이전에 재생 중이었다면 새 비디오도 재생
           if (wasPlaying) {
             setTimeout(() => {
               if (videoBackground.isVideoLoaded()) {
                 videoBackground.playVideo();
-                console.log("▶️ 새 비디오 재생 시작");
+                console.log("새 비디오 재생 시작");
               }
             }, 1000);
           }
@@ -345,7 +339,7 @@ export function createVideoPanel(editor) {
   // 서버에 비디오 파일 업로드
   async function uploadFileToServer(file) {
     try {
-      console.log("📤 비디오 업로드 요청 시작:", file.name);
+      console.log(" 비디오 업로드 요청 시작:", file.name);
 
       const formData = new FormData();
       formData.append('video', file);
@@ -360,7 +354,7 @@ export function createVideoPanel(editor) {
       }
 
       const result = await response.json();
-      console.log("✅ 비디오 업로드 완료:", result);
+      console.log(" 비디오 업로드 완료:", result);
 
       // 성공 메시지 표시
       showUploadSuccess(file.name);
@@ -424,7 +418,7 @@ export function createVideoPanel(editor) {
 
       if (response.ok) {
         const status = await response.json();
-        console.log("✅ 서버 연결 성공:", status);
+        console.log("서버 연결 성공:", status);
 
         // 연결 테스트 버튼 업데이트
         testConnectionBtn.setTextContent(`🔍 연결됨 (${responseTime}ms)`);
