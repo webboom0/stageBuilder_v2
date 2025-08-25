@@ -2,8 +2,9 @@
 import { UIPanel, UIRow, UIButton, UISelect, UIBreak, UIText, UISpan, UIDiv } from "./libs/ui.js";
 import { UIBoolean } from "./libs/ui.three.js";
 import { createPanel } from './ui/floatPanel.js';
+import { VideoBackground } from './timeline/VideoBackground.js';
 import { getVideoApiUrl, VIDEO_UPLOAD_CONFIG } from "./config/video-upload-config.js";
-import { VideoBackground } from './timeline/VIdeoBackground.js'; // VideoBackground import 추가
+
 
 export function createVideoPanel(editor) {
   // VideoBackground import 확인

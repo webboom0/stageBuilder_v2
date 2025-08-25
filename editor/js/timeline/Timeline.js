@@ -7,7 +7,7 @@ import { AudioTimeline } from "./AudioTimeline.js";
 import { RenderTimeline } from "./RenderTimeline.js";
 import { KeyboardShortcuts } from "./KeyboardShortcuts.js";
 import { TimelineRenderer } from "./TimelineRenderer.js";
-import { VideoBackground } from './VIdeoBackground.js';
+import { VideoBackground } from './VideoBackground.js';
 import * as TWEEN from "../../../examples/jsm/libs/tween.module.js";
 
 // 타임라인 설정 상수
