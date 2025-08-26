@@ -56,7 +56,7 @@ class Timeline {
     this.editor = editor;
     // 비디오 배경 생성
     const videoBackground = new VideoBackground(this.editor);
-    videoBackground.createVideoBackground(this.editor.scene);
+    // videoBackground.createVideoBackground(this.editor.scene);
     // videoBackground.loadVideo("../files/video/video3.mp4");
 
     // 기본 타임라인 설정을 먼저 초기화
