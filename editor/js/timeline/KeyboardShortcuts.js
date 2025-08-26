@@ -41,6 +41,36 @@ export class KeyboardShortcuts {
                     metaKey: false
                 }
             },
+            // 'KeyZ': {
+            //     description: '되돌리기 (Undo)',
+            //     action: () => this.undo(),
+            //     preventDefault: true,
+            //     conditions: {
+            //         ctrlKey: true,
+            //         metaKey: false
+            //     }
+            // },
+            // 'KeyY': {
+            //     description: 'MotionTimeline 다시하기 (Redo)',
+            //     action: () => this.redo(),
+            //     preventDefault: true,
+            //     conditions: {
+            //         ctrlKey: true,
+            //         metaKey: false
+            //     }
+            // },
+            // 'KeyZ': {
+            //     description: 'MotionTimeline 히스토리 되돌리기 (Ctrl+Z) / 에디터 히스토리 되돌리기 (Ctrl+Shift+Z)',
+            //     action: () => {
+            //         // Ctrl+Shift+Z: 에디터 히스토리, Ctrl+Z: MotionTimeline 히스토리
+            //         this.handleKeyZAction();
+            //     },
+            //     preventDefault: true,
+            //     conditions: {
+            //         ctrlKey: true,
+            //         metaKey: false
+            //     }
+            // },
             'Escape': {
                 description: '정지',
                 action: () => this.stop(),
@@ -68,13 +98,35 @@ export class KeyboardShortcuts {
     handleKeyDown(e) {
         if (!this.isEnabled) return;
 
+        // Ctrl+Z 디버깅
+        // if (e.code === 'KeyZ' && e.ctrlKey) {
+        //     console.log("🎯 Ctrl+Z 감지됨:", {
+        //         code: e.code,
+        //         ctrlKey: e.ctrlKey,
+        //         shiftKey: e.shiftKey,
+        //         metaKey: e.metaKey
+        //     });
+        // }
+
         const shortcut = this.shortcuts[e.code];
-        if (!shortcut) return;
+        if (!shortcut) {
+            console.log("❌ 단축키를 찾을 수 없음:", e.code);
+            return;
+        }
+
+        console.log("🎯 단축키 찾음:", {
+            code: e.code,
+            description: shortcut.description,
+            conditions: shortcut.conditions
+        });
 
         // 조건 확인
         if (shortcut.conditions) {
             for (const [key, value] of Object.entries(shortcut.conditions)) {
-                if (e[key] !== value) return;
+                if (e[key] !== value) {
+                    console.log("❌ 조건 불일치:", { key, expected: value, actual: e[key] });
+                    return;
+                }
             }
         }
 
@@ -85,7 +137,12 @@ export class KeyboardShortcuts {
 
         // 액션 실행
         try {
-            shortcut.action();
+            if (shortcut.code === 'KeyZ' && shortcut.conditions?.ctrlKey) {
+                // KeyZ의 경우 shiftKey 상태를 전달
+                this.handleKeyZAction(e.shiftKey);
+            } else {
+                shortcut.action();
+            }
         } catch (error) {
             console.error('단축키 실행 중 오류:', error);
         }
@@ -205,6 +262,45 @@ export class KeyboardShortcuts {
         console.log("KeyboardShortcuts - 정지");
         this.motionTimeline.stop();
     }
+
+	// 히스토리 관련 메서드들은 Editor.js에서 전역으로 처리됨
+	// Ctrl+Z: 되돌리기, Ctrl+Shift+Z: 다시하기
+
+	// // KeyZ 액션 처리 (Ctrl+Z vs Ctrl+Shift+Z)
+	// handleKeyZAction(shiftKey) {
+	// 	console.log("🎯 handleKeyZAction 호출됨:", { shiftKey });
+	// 	if (shiftKey) {
+	// 		console.log("🎯 Ctrl+Shift+Z 감지 - 에디터 히스토리 되돌리기");
+	// 		this.editorUndo();
+	// 	} else {
+	// 		console.log("🎯 Ctrl+Z 감지 - 통합 히스토리 되돌리기");
+	// 		this.undo();
+	// 	}
+	// }
+
+	// 에디터 히스토리 되돌리기 (Editor Undo)
+	// editorUndo() {
+	// 	console.log("KeyboardShortcuts - 에디터 히스토리 되돌리기");
+		
+	// 	if (this.motionTimeline.editor && this.motionTimeline.editor.history) {
+	// 		try {
+	// 			const result = this.motionTimeline.editor.history.undo();
+	// 			if (result) {
+	// 				console.log("에디터 되돌리기 성공:", result.name);
+	// 			this.showSuccess(`✓ 에디터 되돌리기: ${result.name}`);
+	// 			} else {
+	// 				console.log("에디터 되돌리기할 명령이 없습니다.");
+	// 				this.showWarning("에디터 되돌리기할 명령이 없습니다.");
+	// 			}
+	// 		} catch (error) {
+	// 			console.error("에디터 되돌리기 중 오류:", error);
+	// 			this.showWarning("에디터 되돌리기 중 오류가 발생했습니다.");
+	// 		}
+	// 	} else {
+	// 		console.warn("에디터 히스토리 시스템을 찾을 수 없습니다.");
+	// 		this.showWarning("에디터 히스토리 시스템을 찾을 수 없습니다.");
+	// 	}
+	// }
 
     // Playhead 이동 다이얼로그 표시
     showPlayheadMoveDialog() {
@@ -436,7 +532,11 @@ export class KeyboardShortcuts {
                 💡 <strong>K 키 사용법:</strong><br>
                 1. 애니메이션할 객체를 선택<br>
                 2. 원하는 시간으로 playhead 이동<br>
-                3. K 키를 눌러 키프레임 추가
+                3. K 키를 눌러 키프레임 추가<br><br>
+                                 💡 <strong>히스토리 단축키:</strong><br>
+                 • Ctrl+Z: 모든 작업 되돌리기 (통합)<br>
+                 • Ctrl+Y: 되돌린 작업 다시하기 (통합)<br>
+                 • Ctrl+Shift+Z: 에디터 작업 되돌리기
             </div>
             <button onclick="this.parentElement.remove()" style="
                 position: absolute;
@@ -476,6 +576,8 @@ export class KeyboardShortcuts {
             'KeyK': 'K',
             'KeyD': 'D',
             'KeyM': 'M',
+            'KeyZ': 'Ctrl+Z',
+            'KeyY': 'Ctrl+Y',
             'Escape': 'ESC',
             'F1': 'F1'
         };

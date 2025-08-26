@@ -149,7 +149,7 @@ class UIAudioAssetSelector extends UIElement {
     });
 
     // 스타일 추가
-    this.addStyles();
+    // this.addStyles();
   }
 
   setupFileUpload() {

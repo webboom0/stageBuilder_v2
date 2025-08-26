@@ -95,6 +95,17 @@ function Editor() {
     // 점진적 로딩 (3단계)
     progressiveLoadingComplete: new Signal(),
     progressiveLoadingError: new Signal(),
+
+    // 타임라인
+    timelineChanged: new Signal(),
+    
+    // MotionTimeline Command 요청 시그널들
+    addKeyframeRequested: new Signal(),
+    removeKeyframeRequested: new Signal(),
+    moveKeyframeRequested: new Signal(),
+    addTrackRequested: new Signal(),
+    removeTrackRequested: new Signal(),
+    resizeClipRequested: new Signal(),
   };
 
   this.config = new Config();

@@ -21,3 +21,10 @@ export { SetScriptValueCommand } from './SetScriptValueCommand.js';
 export { SetShadowValueCommand } from './SetShadowValueCommand.js';
 export { SetUuidCommand } from './SetUuidCommand.js';
 export { SetValueCommand } from './SetValueCommand.js';
+
+// Motion Timeline Commands
+export { AddKeyframeCommand } from './AddKeyframeCommand.js';
+export { RemoveKeyframeCommand } from './RemoveKeyframeCommand.js';
+export { MoveKeyframeCommand } from './MoveKeyframeCommand.js';
+export { AddTrackCommand } from './AddTrackCommand.js';
+export { RemoveTrackCommand } from './RemoveTrackCommand.js';

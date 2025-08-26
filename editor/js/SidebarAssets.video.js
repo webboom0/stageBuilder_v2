@@ -80,20 +80,50 @@ export function createVideoPanel(editor) {
 
   // 파일 업로드 처리
   fileInput.addEventListener("change", async (event) => {
-    const files = Array.from(event.target.files);
+    const file = event.target.files[0];
+    if (!file) return;
 
-    for (const file of files) {
-      if (validateVideoFile(file)) {
-        await uploadFileToServer(file);
+    console.log("📁 선택된 파일:", file);
+
+    try {
+      // 수정: 함수명 변경하여 중복 제거
+      if (!validateVideoFile(file)) {
+        return;
       }
+
+      // 업로드 진행 상태 표시
+      showUploadProgress(file.name);
+
+      // 파일을 서버에 업로드
+      const success = await uploadFileToServer(file);
+
+      if (success) {
+        // 성공 메시지 표시
+        showUploadSuccess(file.name);
+
+        // 파일 입력 초기화
+        fileInput.value = "";
+
+        // FBX 목록 새로고침
+        setTimeout(async () => {
+          try {
+            await displayFBXList();
+            console.log("✅ FBX 목록 새로고침 완료");
+          } catch (error) {
+            console.error("❌ FBX 목록 새로고침 실패:", error);
+          }
+        }, 1500);
+
+      } else {
+        showUploadError("파일 업로드에 실패했습니다.");
+      }
+
+    } catch (error) {
+      console.error("❌ 파일 업로드 오류:", error);
+      showUploadError(`업로드 오류: ${error.message}`);
     }
-
-    // 파일 목록 새로고침
-    await loadVideoFilesFromFolder();
-
-    // 파일 입력 초기화
-    fileInput.value = "";
   });
+
 
   // 비디오 목록 로드
   loadVideoFilesFromFolder();
@@ -360,7 +390,9 @@ export function createVideoPanel(editor) {
 
       const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.UPLOAD), {
         method: 'POST',
-        body: formData
+        body: formData,
+        mode: 'cors',
+        credentials: 'omit'
       });
 
       if (!response.ok) {
