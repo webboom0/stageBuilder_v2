@@ -17,6 +17,12 @@ export function createVideoPanel(editor) {
   const videoPanel = document.createElement("div");
   videoPanel.className = "video-panel";
 
+  // 선택된 비디오 항목을 추적하는 변수
+  let selectedVideoItem = null;
+  
+  // 다중 선택된 비디오 항목들을 추적하는 변수
+  let selectedVideoItems = new Set();
+
   // Motion 패널 컨텐츠
   const videoContent = document.createElement("div");
   videoContent.className = "panel-content";
@@ -26,6 +32,59 @@ export function createVideoPanel(editor) {
   const footer = document.createElement("div");
   footer.className = "panel-footer";
   videoPanel.appendChild(footer);
+
+  // 선택 해제 함수
+  function clearSelection() {
+    if (selectedVideoItem) {
+      selectedVideoItem.classList.remove('selected');
+      selectedVideoItem = null;
+    }
+    
+    // 다중 선택된 항목들도 모두 해제
+    selectedVideoItems.forEach(item => {
+      item.classList.remove('selected');
+    });
+    selectedVideoItems.clear();
+    
+    updateDeleteButton();
+    console.log("🎬 비디오 항목 선택 해제됨");
+  }
+  
+  // 문서 전체 클릭 이벤트 (선택 해제용)
+  function setupGlobalClickHandler() {
+    document.addEventListener('click', (event) => {
+      // video-item이나 관련 버튼을 클릭한 경우는 제외
+      if (event.target.closest('.video-item') || 
+          event.target.closest('.delete-video-btn') ||
+          event.target.closest('.add-btn')) {
+        return;
+      }
+      
+      // 다른 곳을 클릭하면 선택 해제
+      clearSelection();
+    });
+  }
+  
+  // 삭제 버튼 상태 업데이트
+  function updateDeleteButton() {
+    if (deleteBtn && deleteBtn.dom) {
+      if (selectedVideoItems.size > 0) {
+        deleteBtn.dom.disabled = false;
+        deleteBtn.dom.style.opacity = "1";
+        // 선택된 파일 수에 따라 텍스트 설정
+        if (selectedVideoItems.size === 1) {
+          const filename = Array.from(selectedVideoItems)[0].dataset.filename;
+          deleteBtn.dom.title = `선택된 비디오: ${filename}`;
+        } else {
+          deleteBtn.dom.title = `선택된 비디오: ${selectedVideoItems.size}개`;
+        }
+      } else {
+        deleteBtn.dom.disabled = true;
+        deleteBtn.dom.style.opacity = "0.5";
+        deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
+      }
+    }
+  }
 
   // 비디오 목록 컨테이너
   const videoListContainer = document.createElement("div");
@@ -39,7 +98,7 @@ export function createVideoPanel(editor) {
   // 파일 선택 버튼
   const fileInput = document.createElement("input");
   fileInput.type = "file";
-  fileInput.id = "fbxFileInput";
+  fileInput.id = "videoFileInput";
   fileInput.accept = "video/*";
   fileInput.style.display = "none";
   uploadSection.appendChild(fileInput);
@@ -104,13 +163,13 @@ export function createVideoPanel(editor) {
         // 파일 입력 초기화
         fileInput.value = "";
 
-        // FBX 목록 새로고침
+        // 비디오 목록 새로고침
         setTimeout(async () => {
           try {
-            await displayFBXList();
-            console.log("✅ FBX 목록 새로고침 완료");
+            await loadVideoFilesFromFolder();
+            console.log("✅ 비디오 목록 새로고침 완료");
           } catch (error) {
-            console.error("❌ FBX 목록 새로고침 실패:", error);
+            console.error("❌ 비디오 목록 새로고침 실패:", error);
           }
         }, 1500);
 
@@ -128,6 +187,9 @@ export function createVideoPanel(editor) {
   // 비디오 목록 로드
   loadVideoFilesFromFolder();
 
+  // 전역 클릭 핸들러 설정
+  setupGlobalClickHandler();
+
   // 패널 푸터
   // const videoFooter = new UIRow();
   // videoFooter.setClass("panel-footer");
@@ -143,16 +205,26 @@ export function createVideoPanel(editor) {
   // 삭제 버튼 (초기에는 비활성화)
   const deleteBtn = new UIButton("");
   deleteBtn.setInnerHTML("<i class='fas fa-trash'></i>");
+  deleteBtn.setClass("Button");
+  deleteBtn.dom.className += " delete-video-btn";
   deleteBtn.dom.disabled = true;
+  deleteBtn.dom.style.opacity = "0.5";
   deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
 
   deleteBtn.onClick(async () => {
-    await deleteSelectedVideo();
+    if (selectedVideoItems.size > 0) {
+      await deleteSelectedVideo();
+    } else {
+      alert("삭제할 비디오를 선택해주세요.");
+    }
   });
 
   footer.appendChild(refreshBtn.dom);
   footer.appendChild(deleteBtn.dom);
   videoPanel.appendChild(footer);
+
+  // 초기 삭제 버튼 상태 설정
+  updateDeleteButton();
 
   // 비디오 파일 목록 로드
   async function loadVideoFilesFromFolder() {
@@ -178,6 +250,8 @@ export function createVideoPanel(editor) {
 
         console.log("처리된 파일 목록:", processedFiles);
         displayVideoList(videoFiles);
+        // 선택 상태 초기화
+        clearSelection();
         return processedFiles;
       } else {
         console.warn("서버에서 비디오 파일 목록을 가져올 수 없습니다. 기본 목록 사용");
@@ -334,11 +408,52 @@ export function createVideoPanel(editor) {
       videoItem.add(videoInfo);
       videoItem.add(addBtn);
 
-      // 비디오 항목 클릭 이벤트
-      videoItem.dom.addEventListener("click", (e) => {
-        if (e.target !== addBtn.dom && !addBtn.dom.contains(e.target)) {
-          selectVideoItem(videoItem, videoFile.filename);
+      // 비디오 항목 클릭 이벤트 (토글 선택 지원)
+      videoItem.dom.addEventListener("click", (event) => {
+        // 버튼 클릭은 제외
+        if (event.target.closest('.add-btn')) {
+          return;
         }
+
+        // Ctrl/Cmd + 클릭으로 다중 선택/해제
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          
+          if (selectedVideoItems.has(videoItem.dom)) {
+            // 이미 선택된 항목이면 선택 해제
+            selectedVideoItems.delete(videoItem.dom);
+            videoItem.dom.classList.remove('selected');
+            console.log("🎬 비디오 항목 선택 해제됨:", videoFile.filename);
+          } else {
+            // 새로 선택
+            selectedVideoItems.add(videoItem.dom);
+            videoItem.dom.classList.add('selected');
+            console.log("🎬 비디오 항목 다중 선택됨:", videoFile.filename);
+          }
+        } else {
+          // 일반 클릭으로 토글 선택
+          if (selectedVideoItems.has(videoItem.dom)) {
+            // 이미 선택된 항목이면 선택 해제
+            selectedVideoItems.delete(videoItem.dom);
+            videoItem.dom.classList.remove('selected');
+            console.log("🎬 비디오 항목 선택 해제됨:", videoFile.filename);
+          } else {
+            // 새로 선택
+            selectedVideoItems.add(videoItem.dom);
+            videoItem.dom.classList.add('selected');
+            console.log("🎬 비디오 항목 선택됨:", videoFile.filename);
+          }
+        }
+        
+        // 단일 선택 상태 업데이트 (휴지통 버튼용)
+        if (selectedVideoItems.size === 1) {
+          selectedVideoItem = Array.from(selectedVideoItems)[0];
+        } else {
+          selectedVideoItem = null;
+        }
+        
+        // 삭제 버튼 상태 업데이트
+        updateDeleteButton();
       });
 
       videoListContainer.appendChild(videoItem.dom);
@@ -383,7 +498,7 @@ export function createVideoPanel(editor) {
   // 서버에 비디오 파일 업로드
   async function uploadFileToServer(file) {
     try {
-      console.log(" 비디오 업로드 요청 시작:", file.name);
+      console.log("🎬 비디오 업로드 요청 시작:", file.name);
 
       const formData = new FormData();
       formData.append('video', file);
@@ -400,57 +515,107 @@ export function createVideoPanel(editor) {
       }
 
       const result = await response.json();
-      console.log(" 비디오 업로드 완료:", result);
+      console.log("✅ 비디오 업로드 완료:", result);
 
       // 성공 메시지 표시
       showUploadSuccess(file.name);
+      
+      return true; // 성공 시 true 반환
 
     } catch (error) {
       console.error("❌ 업로드 중 오류:", error);
       showUploadError(error.message);
+      return false; // 실패 시 false 반환
     }
   }
 
   // 선택된 비디오 삭제
   async function deleteSelectedVideo() {
-    const selectedItem = videoListContainer.querySelector(".video-item.selected");
-    if (!selectedItem) {
+    if (selectedVideoItems.size === 0) {
       alert("삭제할 비디오를 선택해주세요.");
       return;
     }
 
-    const filename = selectedItem.dataset.filename;
-    if (!confirm(`정말로 "${filename}"을(를) 삭제하시겠습니까?`)) {
+    // 다중 선택된 파일들의 정보 수집
+    const filesToDelete = Array.from(selectedVideoItems).map(item => ({
+      filename: item.dataset.filename,
+      displayName: item.dataset.filename
+    }));
+
+    // 삭제 확인 메시지
+    let confirmMessage;
+    if (filesToDelete.length === 1) {
+      const file = filesToDelete[0];
+      confirmMessage = `정말로 "${file.displayName}" 파일을 삭제하시겠습니까?`;
+    } else {
+      const fileNames = filesToDelete.map(f => f.displayName).join(', ');
+      confirmMessage = `정말로 ${filesToDelete.length}개 파일을 삭제하시겠습니까?\n\n${fileNames}`;
+    }
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     try {
-      console.log("🗑️ 비디오 파일 삭제 시작:", filename);
+      console.log("🗑️ 비디오 파일 삭제 시작:", filesToDelete.length, "개");
 
-      const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.DELETE_VIDEO, filename), {
-        method: 'DELETE'
-      });
+      // 모든 선택된 파일을 순차적으로 삭제
+      const results = [];
+      for (let i = 0; i < filesToDelete.length; i++) {
+        const fileInfo = filesToDelete[i];
+        console.log(`🗑️ 파일 ${i + 1}/${filesToDelete.length} 삭제 중:`, fileInfo.filename);
 
-      if (!response.ok) {
-        throw new Error(`삭제 실패: ${response.status} ${response.statusText}`);
+        try {
+          // 서버에 삭제 요청
+          const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.DELETE_VIDEO, fileInfo.filename), {
+            method: 'DELETE',
+            mode: 'cors',
+            credentials: 'omit'
+          });
+
+          if (response.ok) {
+            console.log(`✅ ${fileInfo.filename} 삭제 성공`);
+            results.push({ filename: fileInfo.filename, success: true });
+          } else {
+            const errorText = await response.text();
+            console.error(`❌ ${fileInfo.filename} 삭제 실패:`, response.status, errorText);
+            results.push({ filename: fileInfo.filename, success: false, error: `HTTP ${response.status}: ${errorText}` });
+          }
+        } catch (error) {
+          console.error(`❌ ${fileInfo.filename} 삭제 중 오류:`, error);
+          results.push({ filename: fileInfo.filename, success: false, error: error.message });
+        }
       }
 
-      console.log("✅ 비디오 파일 삭제 완료:", filename);
+      // 결과 분석
+      const successfulDeletes = results.filter(r => r.success);
+      const failedDeletes = results.filter(r => !r.success);
 
-      // 선택 해제
-      selectedItem.classList.remove("selected");
-      deleteBtn.dom.disabled = true;
-      deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
+      // 결과 표시
+      if (successfulDeletes.length > 0) {
+        if (successfulDeletes.length === 1) {
+          alert(`"${successfulDeletes[0].filename}" 파일이 삭제되었습니다.`);
+        } else {
+          alert(`${successfulDeletes.length}개 파일이 성공적으로 삭제되었습니다.`);
+        }
+        console.log("✅ 삭제 성공한 파일들:", successfulDeletes.map(r => r.filename));
+      }
 
-      // 파일 목록 새로고침
+      if (failedDeletes.length > 0) {
+        const failedNames = failedDeletes.map(r => r.filename).join(', ');
+        alert(`${failedDeletes.length}개 파일 삭제에 실패했습니다:\n${failedNames}`);
+        console.error("❌ 삭제 실패한 파일들:", failedDeletes);
+      }
+
+      // 선택 상태 초기화
+      clearSelection();
+
+      // 목록 새로고침
       await loadVideoFilesFromFolder();
-
-      // 성공 메시지 표시
-      showDeleteSuccess(filename);
 
     } catch (error) {
       console.error("❌ 비디오 파일 삭제 중 오류:", error);
-      showDeleteError(error.message);
+      alert(`파일 삭제 중 오류가 발생했습니다: ${error.message}`);
     }
   }
 
@@ -594,6 +759,23 @@ export function createVideoPanel(editor) {
 
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  // 업로드 진행 상태 표시
+  function showUploadProgress(fileName) {
+    const existingProgress = uploadSection.querySelector(".upload-progress");
+    if (existingProgress) existingProgress.remove();
+
+    const progressDiv = document.createElement("div");
+    progressDiv.className = "upload-progress";
+    progressDiv.innerHTML = `
+      <div class="progress-text">📤 ${fileName} 업로드 중...</div>
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+    `;
+
+    uploadSection.appendChild(progressDiv);
   }
 
   // 성공/오류 메시지 표시

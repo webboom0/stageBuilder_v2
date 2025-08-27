@@ -230,6 +230,13 @@ function SidebarAssets(editor) {
       justify-content: center;
       font-size: 11px;
     }
+    .panel-footer .Button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+      .panel-footer .Button:disabled:hover{
+        background-color: transparent;
+      }
   `;
   document.head.appendChild(style);
 

@@ -760,7 +760,8 @@ select:hover {
 
 #sidebar .Row .Label,
 #floatingPanels .Row .Label {
-  width: 80px;
+  /* width: 80px; */
+  white-space: nowrap;
 }
 
 #tabs {

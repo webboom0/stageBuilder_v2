@@ -3,6 +3,12 @@ import { createPanel } from './ui/floatPanel.js';
 import { getFbxApiUrl, FBX_UPLOAD_CONFIG, validateFBXFile } from "./config/fbx-upload-config.js";
 
 export function createMotionPanel(editor) {
+  // 선택된 FBX 항목을 추적하는 변수
+  let selectedFBXItem = null;
+
+  // 다중 선택된 FBX 항목들을 추적하는 변수
+  let selectedFBXItems = new Set();
+
   // Motion 패널
   const motionPanel = document.createElement("div");
   motionPanel.className = "motion-panel";
@@ -12,79 +18,325 @@ export function createMotionPanel(editor) {
   motionContent.className = "panel-content";
   motionPanel.appendChild(motionContent);
 
+  // FBX 목록 컨테이너 추가
+  const fbxListContainer = document.createElement("div");
+  fbxListContainer.className = "fbx-list-container";
+  motionContent.appendChild(fbxListContainer);
+
+  // FBX 업로드 기능
+  const uploadSection = document.createElement("div");
+  uploadSection.className = "upload-section";
+  motionContent.appendChild(uploadSection);
+
+  // 파일 입력 요소 (숨김) - 다중 선택 가능
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.id = "fbxFileInput";
+  fileInput.accept = ".fbx";
+  fileInput.multiple = true; // 다중 선택 활성화
+  fileInput.style.display = "none";
+  uploadSection.appendChild(fileInput);
+
+  // 불러오기 버튼 (다중 파일 선택)
+  const uploadBtn = new UIButton("");
+  uploadBtn.setInnerHTML("<i class='fas fa-upload'></i> ");
+  uploadBtn.onClick(async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    console.log("FBX 다중 파일 업로드 시작...");
+
+    // 🚀 수정: getFbxApiUrl 사용하여 올바른 서버 URL 생성
+    try {
+      const healthResponse = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      if (!healthResponse.ok) {
+        alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
+        return;
+      }
+
+      // 파일 선택 다이얼로그 열기
+      fileInput.click();
+
+    } catch (error) {
+      console.error("❌ 서버 연결 확인 실패:", error);
+      alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
+    }
+  });
+
+  // 파일 선택 이벤트 - 다중 파일 처리
+  fileInput.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    console.log("📁 선택된 파일들:", files.length, "개");
+    files.forEach(file => {
+      console.log("  -", file.name, file.size, file.type);
+    });
+
+    try {
+      // 모든 파일 유효성 검사
+      const validFiles = [];
+      const invalidFiles = [];
+
+      for (const file of files) {
+        if (validateSelectedFBXFile(file)) {
+          validFiles.push(file);
+        } else {
+          invalidFiles.push(file);
+        }
+      }
+
+      if (validFiles.length === 0) {
+        showUploadError("유효한 FBX 파일이 없습니다.");
+        return;
+      }
+
+      if (invalidFiles.length > 0) {
+        console.warn("⚠️ 유효하지 않은 파일들:", invalidFiles.map(f => f.name));
+        showUploadWarning(`${invalidFiles.length}개 파일이 유효하지 않아 제외되었습니다.`);
+      }
+
+      // 업로드 진행 상태 표시
+      showUploadProgress(`${validFiles.length}개 파일 업로드 중...`);
+
+      // 모든 유효한 파일을 서버에 업로드
+      const uploadResults = await Promise.allSettled(
+        validFiles.map(file => uploadFileToServer(file))
+      );
+
+      // 업로드 결과 분석
+      const successfulUploads = [];
+      const failedUploads = [];
+
+      uploadResults.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value === true) {
+          successfulUploads.push(validFiles[index]);
+        } else {
+          failedUploads.push(validFiles[index]);
+        }
+      });
+
+      // 결과 표시
+      if (successfulUploads.length > 0) {
+        showUploadSuccess(`${successfulUploads.length}개 파일 업로드 완료!`);
+
+        // 성공한 파일들을 씬에 추가
+        await addFilesToScene(successfulUploads);
+      }
+
+      if (failedUploads.length > 0) {
+        showUploadError(`${failedUploads.length}개 파일 업로드 실패`);
+      }
+
+      // 파일 입력 초기화
+      fileInput.value = "";
+
+      // FBX 목록 새로고침
+      setTimeout(async () => {
+        try {
+          await displayFBXList();
+          console.log("✅ FBX 목록 새로고침 완료");
+        } catch (error) {
+          console.error("❌ FBX 목록 새로고침 실패:", error);
+        }
+      }, 1500);
+
+    } catch (error) {
+      console.error("❌ 파일 업로드 오류:", error);
+      showUploadError(`업로드 오류: ${error.message}`);
+    }
+  });
+
   // Motion 패널 푸터
   const motionFooter = document.createElement("div");
   motionFooter.className = "panel-footer";
   motionPanel.appendChild(motionFooter);
 
-  // FBX 파일 목록을 동적으로 로드하는 함수
-  async function loadFBXFilesFromFolder() {
-    try {
-      console.log("FBX 폴더 스캔 시작...");
+  // FBX 불러오기 버튼을 Motion 패널에 직접 추가
+  motionFooter.appendChild(uploadBtn.dom);
+  // 선택된 파일들을 씬에 추가하는 버튼
+  const selectsAddBtn = createSelectsAddBtn();
+  motionFooter.appendChild(selectsAddBtn.dom);
+  // 서버 연결 테스트 버튼
+  const testConnectionBtn = createTestConnectionButton();
+  motionFooter.appendChild(testConnectionBtn.dom);
+  // 새로고침 버튼
+  const refreshBtn = createRefreshButton();
+  motionFooter.appendChild(refreshBtn.dom);
+  // 휴지통 버튼 
+  const deleteBtn = createDeleteButton();
+  motionFooter.appendChild(deleteBtn.dom);
 
-      // 서버에서 FBX 파일 목록 가져오기
-      const response = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.GET_FILES));
 
-      if (response.ok) {
-        const fbxFiles = await response.json();
-        console.log("서버에서 로드된 FBX 파일:", fbxFiles);
+  // 새로고침 버튼 함수 생성
+  function createRefreshButton() {
+    const button = new UIButton("");
+    button.setInnerHTML("<i class='fas fa-retweet'></i>");
+    button.onClick(async () => {
+      console.log("새로고침 버튼 클릭됨");
+      try {
+        await displayFBXList();
+        console.log("✅ 새로고침 완료");
+      } catch (error) {
+        console.error("❌ 새로고침 실패:", error);
+      }
+    });
+    return button;
+  }
 
-        // 서버에서 받은 데이터를 그대로 사용
-        const processedFiles = fbxFiles.map(file => {
-          console.log("처리 중인 파일:", file);
+  // 휴지통 버튼 생성 및 관리
+  function createDeleteButton() {
+    const button = new UIButton("");
+    button.setInnerHTML("<i class='fas fa-trash'></i>");
+    button.setClass("Button");
+    button.onClick(async () => {
+      if (selectedFBXItems.size > 0) {
+        await deleteSelectedFBX();
+      } else {
+        alert("삭제할 FBX 파일을 선택해주세요.");
+      }
+    });
+    return button;
+  }
+
+  // 서버 연결 테스트 버튼
+  function createTestConnectionButton() {
+    const button = new UIButton("");
+    button.setInnerHTML("<i class='fas fa-server'></i>");
+    button.onClick(async () => {
+      console.log("🔍 서버 연결 테스트 시작...");
+      try {
+        // 🚀 수정: getFbxApiUrl 사용하여 올바른 서버 URL 생성
+        const healthResponse = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit'
+        });
+
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          console.log("✅ 서버 응답:", healthData);
+          alert(`서버 연결 성공!\n상태: ${healthData.status || 'OK'}`);
+        } else {
+          alert(`서버 연결 실패!\nHTTP ${healthResponse.status}: ${healthResponse.statusText}`);
+        }
+      } catch (error) {
+        console.error("❌ 서버 연결 테스트 실패:", error);
+        alert(`서버 연결 테스트 실패!\n오류: ${error.message}`);
+      }
+    });
+    return button;
+  }
+
+  // 선택된 파일들을 씬에 추가하는 함수 생성
+  function createSelectsAddBtn() {
+    const button = new UIButton("");
+    button.setInnerHTML("<i class='fas fa-plus'></i>");
+    button.setClass("Button");
+    button.dom.className += " selects-add-btn"; // CSS 클래스 추가
+    button.dom.disabled = true;
+    button.onClick(async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (selectedFBXItems.size === 0) {
+        alert("씬에 추가할 파일을 선택해주세요.");
+        return;
+      }
+
+      console.log("🚀 선택된 파일들을 씬에 추가 시작:", selectedFBXItems.size, "개");
+
+      try {
+        // 선택된 파일들을 씬에 추가
+        const selectedFiles = Array.from(selectedFBXItems).map(item => {
+          const filename = item.dataset.filename;
+          const displayName = item.querySelector('.fbx-name').textContent;
+          const path = item.dataset.path || `../files/fbx/${filename}`;
+
           return {
-            path: `..${file.path}`, // 상대 경로로 변환
-            name: file.name,
-            displayName: file.displayName,
-            filename: file.filename// 실제 파일명 (확장자 포함)
+            filename,
+            displayName,
+            path
           };
         });
 
-        console.log("처리된 파일 목록:", processedFiles);
-        return processedFiles;
-      } else {
-        console.warn("서버에서 FBX 파일 목록을 가져올 수 없습니다. 기본 목록 사용");
-        throw new Error(`HTTP ${response.status}`);
+        console.log("📁 선택된 파일들:", selectedFiles);
+
+        // 선택된 파일들을 씬에 추가
+        await addSelectedFilesToScene(selectedFiles);
+
+        // 선택 상태 초기화
+        clearSelection();
+
+      } catch (error) {
+        console.error("❌ 선택된 파일들을 씬에 추가 중 오류:", error);
+        alert(`파일 추가 중 오류가 발생했습니다: ${error.message}`);
       }
-
-    } catch (error) {
-      console.error("FBX 폴더 스캔 실패:", error);
-
-      // 기본 파일 목록 반환
-      return [
-        {
-          path: "../files/fbx/Belly Dance.fbx",
-          name: "Belly Dance",
-          displayName: "Belly Dance",
-          filename: "Belly Dance.fbx"
-        },
-        {
-          path: "../files/fbx/Samba Dancing.fbx",
-          name: "Samba Dancing",
-          displayName: "Samba Dancing",
-          filename: "Samba Dancing.fbx"
-        },
-        {
-          path: "../files/fbx/Overhead Squat.fbx",
-          name: "Overhead Squat",
-          displayName: "Overhead Squat",
-          filename: "Overhead Squat.fbx"
-        }
-      ];
-    }
+    });
+    return button;
   }
-
-  // 선택된 FBX 항목을 추적하는 변수
-  let selectedFBXItem = null;
 
   // 선택 해제 함수
   function clearSelection() {
     if (selectedFBXItem) {
       selectedFBXItem.classList.remove('selected');
       selectedFBXItem = null;
-      updateDeleteButton();
-      console.log("🎬 FBX 항목 선택 해제됨");
     }
+
+    // 다중 선택된 항목들도 모두 해제
+    selectedFBXItems.forEach(item => {
+      item.classList.remove('selected');
+    });
+    selectedFBXItems.clear();
+
+    // updateDeleteButton();
+    console.log("🗑️ clearSelection에서 updateButtons 호출");
+    updateButtons();
+    console.log("🎬 FBX 항목 선택 해제됨");
+  }
+
+  // 선택된 항목들 표시 함수
+  function updateButtons() {
+    const btns = [deleteBtn.dom, selectsAddBtn.dom];
+    const selectedCount = selectedFBXItems.size;
+    console.log("🔧 updateButtons 호출됨:", { selectedCount });
+    btns.forEach(btn => {
+      if (btn) {
+        console.log("🔍 btn 찾기 결과:", btn);
+        if (selectedCount > 0) {
+          btn.disabled = false;
+          // btn.style.opacity = "1";
+        } else {
+          btn.disabled = true;
+          // btn.style.opacity = "0.5";
+        }
+      }
+    });
+    // if (selectsAddBtn) {
+    //   console.log("✅ selectsAddBtn DOM 요소 찾음, 상태 업데이트 중...");
+    //   if (selectedCount > 0) {
+    //     selectsAddBtn.disabled = false;
+    //     selectsAddBtn.style.opacity = "1";
+    //     // selectsAddBtn.textContent = `➕ ${selectedCount}개 파일 씬에 추가`;
+    //     console.log("✅ 버튼 활성화 완료:", selectsAddBtn.textContent);
+    //   } else {
+    //     selectsAddBtn.disabled = true;
+    //     selectsAddBtn.style.opacity = "0.5";
+    //     // selectsAddBtn.textContent = "➕ 선택된 파일 없음";
+    //     console.log("✅ 버튼 비활성화 완료:", selectsAddBtn.textContent);
+    //   }
+    // } else {
+    //   console.warn("⚠️ selectsAddBtn을 찾을 수 없음:", {
+    //     selectsAddBtn: selectsAddBtn,
+    //     motionPanel: motionPanel,
+    //     querySelector: motionPanel.querySelector('.selects-add-btn')
+    //   });
+    // }
   }
 
   // 문서 전체 클릭 이벤트 (선택 해제용)
@@ -93,7 +345,8 @@ export function createMotionPanel(editor) {
       // fbx-item이나 관련 버튼을 클릭한 경우는 제외
       if (event.target.closest('.fbx-item') ||
         event.target.closest('.delete-fbx-btn') ||
-        event.target.closest('.add-fbx-btn')) {
+        event.target.closest('.add-fbx-btn') ||
+        event.target.closest('.selects-add-btn')) {
         return;
       }
 
@@ -102,78 +355,89 @@ export function createMotionPanel(editor) {
     });
   }
 
-  // 휴지통 버튼 생성 및 관리
-  function createDeleteButton() {
-    const deleteBtn = new UIButton("");
-    deleteBtn.setInnerHTML("<i class='fas fa-trash'></i>");
-    deleteBtn.setClass("Button");
-    deleteBtn.onClick(async () => {
-      if (selectedFBXItem) {
-        await deleteSelectedFBX();
-      } else {
-        alert("삭제할 FBX 파일을 선택해주세요.");
-      }
-    });
-    return deleteBtn;
-  }
-
-  // 삭제 버튼 상태 업데이트
-  function updateDeleteButton() {
-    const deleteBtn = motionPanel.querySelector('.delete-fbx-btn');
-    if (deleteBtn && deleteBtn.dom) {
-      if (selectedFBXItem) {
-        deleteBtn.dom.disabled = false;
-        deleteBtn.dom.style.opacity = "1";
-        const filename = selectedFBXItem.dataset.filename;
-        deleteBtn.dom.textContent = `��️ ${filename} 삭제`;
-      } else {
-        deleteBtn.dom.disabled = true;
-        deleteBtn.dom.style.opacity = "0.5";
-        deleteBtn.dom.textContent = "🗑️ 삭제";
-      }
-    } else {
-      console.log("휴지통 버튼을 찾을 수 없습니다. 아직 생성되지 않았을 수 있습니다.");
-    }
-  }
-
   // 선택된 FBX 파일 삭제
   async function deleteSelectedFBX() {
-    if (!selectedFBXItem) {
+    if (selectedFBXItems.size === 0) {
       alert("삭제할 FBX 파일을 선택해주세요.");
       return;
     }
 
-    const filename = selectedFBXItem.dataset.filename;
-    const displayName = selectedFBXItem.querySelector('.fbx-name').textContent;
+    // 다중 선택된 파일들의 정보 수집
+    const filesToDelete = Array.from(selectedFBXItems).map(item => ({
+      filename: item.dataset.filename,
+      displayName: item.querySelector('.fbx-name').textContent
+    }));
 
-    if (!confirm(`정말로 "${displayName}" (${filename}) 파일을 삭제하시겠습니까?`)) {
+    // 삭제 확인 메시지
+    let confirmMessage;
+    if (filesToDelete.length === 1) {
+      const file = filesToDelete[0];
+      confirmMessage = `정말로 "${file.displayName}" (${file.filename}) 파일을 삭제하시겠습니까?`;
+    } else {
+      const fileNames = filesToDelete.map(f => f.displayName).join(', ');
+      confirmMessage = `정말로 ${filesToDelete.length}개 파일을 삭제하시겠습니까?\n\n${fileNames}`;
+    }
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     try {
-      console.log("🗑️ FBX 파일 삭제 시작:", filename);
+      console.log("🗑️ FBX 파일 삭제 시작:", filesToDelete.length, "개");
 
-      // 서버에 삭제 요청
-      const response = await fetch(getFbxApiUrl(`${FBX_UPLOAD_CONFIG.ENDPOINTS.DELETE_FILE}/${encodeURIComponent(filename)}`), {
-        method: 'DELETE',
-        mode: 'cors',
-        credentials: 'omit'
-      });
+      // 모든 선택된 파일을 순차적으로 삭제
+      const results = [];
+      for (let i = 0; i < filesToDelete.length; i++) {
+        const fileInfo = filesToDelete[i];
+        console.log(`🗑️ 파일 ${i + 1}/${filesToDelete.length} 삭제 중:`, fileInfo.filename);
 
-      if (response.ok) {
-        console.log("✅ FBX 파일 삭제 성공:", filename);
-        alert(`"${displayName}" 파일이 삭제되었습니다.`);
+        try {
+          // 서버에 삭제 요청
+          const response = await fetch(getFbxApiUrl(`${FBX_UPLOAD_CONFIG.ENDPOINTS.DELETE_FILE}/${encodeURIComponent(fileInfo.filename)}`), {
+            method: 'DELETE',
+            mode: 'cors',
+            credentials: 'omit'
+          });
 
-        // 선택 상태 초기화
-        clearSelection();
-
-        // 목록 새로고침
-        await displayFBXList();
-      } else {
-        const errorText = await response.text();
-        console.error("❌ FBX 파일 삭제 실패:", response.status, errorText);
-        alert(`파일 삭제에 실패했습니다. (HTTP ${response.status})`);
+          if (response.ok) {
+            console.log(`✅ ${fileInfo.filename} 삭제 성공`);
+            results.push({ filename: fileInfo.filename, success: true });
+          } else {
+            const errorText = await response.text();
+            console.error(`❌ ${fileInfo.filename} 삭제 실패:`, response.status, errorText);
+            results.push({ filename: fileInfo.filename, success: false, error: `HTTP ${response.status}` });
+          }
+        } catch (error) {
+          console.error(`❌ ${fileInfo.filename} 삭제 중 오류:`, error);
+          results.push({ filename: fileInfo.filename, success: false, error: error.message });
+        }
       }
+
+      // 결과 분석
+      const successfulDeletes = results.filter(r => r.success);
+      const failedDeletes = results.filter(r => !r.success);
+
+      // 결과 표시
+      if (successfulDeletes.length > 0) {
+        if (successfulDeletes.length === 1) {
+          alert(`"${successfulDeletes[0].filename}" 파일이 삭제되었습니다.`);
+        } else {
+          alert(`${successfulDeletes.length}개 파일이 성공적으로 삭제되었습니다.`);
+        }
+        console.log("✅ 삭제 성공한 파일들:", successfulDeletes.map(r => r.filename));
+      }
+
+      if (failedDeletes.length > 0) {
+        const failedNames = failedDeletes.map(r => r.filename).join(', ');
+        alert(`${failedDeletes.length}개 파일 삭제에 실패했습니다:\n${failedNames}`);
+        console.error("❌ 삭제 실패한 파일들:", failedDeletes);
+      }
+
+      // 선택 상태 초기화
+      clearSelection();
+
+      // 목록 새로고침
+      await displayFBXList();
 
     } catch (error) {
       console.error("❌ FBX 파일 삭제 중 오류:", error);
@@ -230,21 +494,49 @@ export function createMotionPanel(editor) {
           </button>
         `;
 
-        // FBX 항목 클릭 이벤트 (선택)
+        // FBX 항목 클릭 이벤트 (토글 선택 지원)
         fbxItem.addEventListener("click", (event) => {
           // 버튼 클릭은 제외
           if (event.target.closest('.add-fbx-btn')) {
             return;
           }
 
-          // 기존 선택 해제
-          if (selectedFBXItem) {
-            selectedFBXItem.classList.remove('selected');
+          // Ctrl/Cmd + 클릭으로 다중 선택/해제
+          if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+
+            if (selectedFBXItems.has(fbxItem)) {
+              // 이미 선택된 항목이면 선택 해제
+              selectedFBXItems.delete(fbxItem);
+              fbxItem.classList.remove('selected');
+              console.log("🎬 FBX 항목 선택 해제됨:", fbxFile.displayName);
+            } else {
+              // 새로 선택
+              selectedFBXItems.add(fbxItem);
+              fbxItem.classList.add('selected');
+              console.log("🎬 FBX 항목 다중 선택됨:", fbxFile.displayName);
+            }
+          } else {
+            // 일반 클릭으로 토글 선택
+            if (selectedFBXItems.has(fbxItem)) {
+              // 이미 선택된 항목이면 선택 해제
+              selectedFBXItems.delete(fbxItem);
+              fbxItem.classList.remove('selected');
+              console.log("🎬 FBX 항목 선택 해제됨:", fbxFile.displayName);
+            } else {
+              // 새로 선택
+              selectedFBXItems.add(fbxItem);
+              fbxItem.classList.add('selected');
+              console.log("🎬 FBX 항목 선택됨:", fbxFile.displayName);
+            }
           }
 
-          // 새 항목 선택
-          selectedFBXItem = fbxItem;
-          fbxItem.classList.add('selected');
+          // 단일 선택 상태 업데이트 (휴지통 버튼용)
+          if (selectedFBXItems.size === 1) {
+            selectedFBXItem = Array.from(selectedFBXItems)[0];
+          } else {
+            selectedFBXItem = null;
+          }
 
           // 휴지통 버튼 상태 업데이트
           try {
@@ -253,7 +545,9 @@ export function createMotionPanel(editor) {
             console.log("🔍 휴지통 버튼 상태 업데이트 실패:", error.message);
           }
 
-          console.log("🎬 FBX 항목 선택됨:", fbxFile.displayName);
+          // 선택된 항목들 표시
+          console.log("🎯 선택 상태 변경 후 updateButtons 호출");
+          updateButtons();
         });
 
         // 추가 버튼 클릭 이벤트
@@ -345,7 +639,6 @@ export function createMotionPanel(editor) {
           console.error(`❌ FBX ${index + 1}의 추가 버튼을 찾을 수 없습니다`);
         }
 
-
         fbxListContainer.appendChild(fbxItem);
         console.log(`✅ FBX ${index + 1} UI 항목 추가 완료`);
       });
@@ -357,99 +650,6 @@ export function createMotionPanel(editor) {
     }
   }
 
-  // FBX 목록 컨테이너 추가
-  const fbxListContainer = document.createElement("div");
-  fbxListContainer.className = "fbx-list-container";
-  motionContent.appendChild(fbxListContainer);
-
-  // FBX 업로드 기능
-  const uploadSection = document.createElement("div");
-  uploadSection.className = "upload-section";
-
-  // 파일 입력 요소 (숨김)
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.id = "fbxFileInput";
-  fileInput.accept = ".fbx";
-  fileInput.style.display = "none";
-  uploadSection.appendChild(fileInput);
-
-  // 불러오기 버튼
-  const uploadBtn = new UIButton("");
-  uploadBtn.setInnerHTML("<i class='fas fa-upload'></i>");
-  uploadBtn.onClick(async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    console.log("FBX 업로드 시작...");
-
-    // 🚀 수정: getFbxApiUrl 사용하여 올바른 서버 URL 생성
-    try {
-      const healthResponse = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit'
-      });
-
-      if (!healthResponse.ok) {
-        alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
-        return;
-      }
-
-      // 파일 선택 다이얼로그 열기
-      fileInput.click();
-
-    } catch (error) {
-      console.error("❌ 서버 연결 확인 실패:", error);
-      alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
-    }
-  });
-
-  // 파일 선택 이벤트
-  fileInput.addEventListener("change", async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    console.log("📁 선택된 파일:", file.name, file.size, file.type);
-
-    try {
-      // 수정: 함수명 변경하여 중복 제거
-      if (!validateSelectedFBXFile(file)) {
-        return;
-      }
-
-      // 업로드 진행 상태 표시
-      showUploadProgress(file.name);
-
-      // 파일을 서버에 업로드
-      const success = await uploadFileToServer(file);
-
-      if (success) {
-        // 성공 메시지 표시
-        showUploadSuccess(file.name);
-
-        // 파일 입력 초기화
-        fileInput.value = "";
-
-        // FBX 목록 새로고침
-        setTimeout(async () => {
-          try {
-            await displayFBXList();
-            console.log("✅ FBX 목록 새로고침 완료");
-          } catch (error) {
-            console.error("❌ FBX 목록 새로고침 실패:", error);
-          }
-        }, 1500);
-
-      } else {
-        showUploadError("파일 업로드에 실패했습니다.");
-      }
-
-    } catch (error) {
-      console.error("❌ 파일 업로드 오류:", error);
-      showUploadError(`업로드 오류: ${error.message}`);
-    }
-  });
 
   // 🚀 수정: 함수명을 validateSelectedFBXFile로 변경
   function validateSelectedFBXFile(file) {
@@ -459,6 +659,142 @@ export function createMotionPanel(editor) {
       return false;
     }
     return true;
+  }
+
+  // 여러 파일을 씬에 추가하는 함수
+  async function addFilesToScene(files) {
+    try {
+      console.log("🚀 여러 파일을 씬에 추가 시작:", files.length, "개");
+
+      // 진행 상태 표시
+      showAddProgress(`${files.length}개 파일을 씬에 추가 중...`);
+
+      // 모든 파일을 순차적으로 씬에 추가
+      const results = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`📁 파일 ${i + 1}/${files.length} 추가 중:`, file.name);
+
+        try {
+          // 진행 상태 업데이트
+          showAddProgress(`${file.name} 추가 중... (${i + 1}/${files.length})`);
+
+          // editor.loader.loadFiles 사용하여 파일 추가
+          if (editor && editor.loader && editor.loader.loadFiles) {
+            const fileList = new DataTransfer();
+            fileList.items.add(file);
+
+            await editor.loader.loadFiles(fileList.files);
+            results.push({ file: file.name, success: true });
+            console.log(`✅ ${file.name} 씬에 추가 완료`);
+          } else {
+            throw new Error("editor.loader.loadFiles를 찾을 수 없습니다.");
+          }
+        } catch (error) {
+          console.error(`❌ ${file.name} 씬에 추가 실패:`, error);
+          results.push({ file: file.name, success: false, error: error.message });
+        }
+      }
+
+      // 진행 상태 메시지 제거
+      clearAddProgress();
+
+      // 결과 분석
+      const successfulAdds = results.filter(r => r.success);
+      const failedAdds = results.filter(r => !r.success);
+
+      // 결과 표시
+      if (successfulAdds.length > 0) {
+        showAddSuccess(`${successfulAdds.length}개 파일을 씬에 성공적으로 추가했습니다!`);
+        console.log("✅ 씬에 추가된 파일들:", successfulAdds.map(r => r.file));
+      }
+
+      if (failedAdds.length > 0) {
+        showAddError(`${failedAdds.length}개 파일 추가에 실패했습니다.`);
+        console.error("❌ 씬에 추가 실패한 파일들:", failedAdds);
+      }
+
+      return { successful: successfulAdds.length, failed: failedAdds.length };
+
+    } catch (error) {
+      // 오류 발생 시에도 진행 상태 메시지 제거
+      clearAddProgress();
+
+      console.error("❌ 여러 파일 씬 추가 중 오류:", error);
+      showAddError(`여러 파일 추가 중 오류: ${error.message}`);
+      return { successful: 0, failed: files.length };
+    }
+  }
+
+  // 선택된 파일들을 씬에 추가하는 함수
+  async function addSelectedFilesToScene(selectedFiles) {
+    try {
+      console.log("🚀 선택된 파일들을 씬에 추가 시작:", selectedFiles.length, "개");
+
+      // 진행 상태 표시
+      showAddProgress(`${selectedFiles.length}개 선택된 파일을 씬에 추가 중...`);
+
+      // 모든 파일을 순차적으로 씬에 추가
+      const results = [];
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const fileInfo = selectedFiles[i];
+        console.log(`📁 파일 ${i + 1}/${selectedFiles.length} 추가 중:`, fileInfo.displayName);
+
+        try {
+          // 진행 상태 업데이트
+          showAddProgress(`${fileInfo.displayName} 추가 중... (${i + 1}/${selectedFiles.length})`);
+
+          // 파일을 Blob으로 가져와서 File 객체 생성
+          const fileBlob = await fetch(fileInfo.path).then(r => r.blob());
+          const file = new File([fileBlob], fileInfo.filename, {
+            type: 'application/octet-stream'
+          });
+
+          // editor.loader.loadFiles 사용하여 파일 추가
+          if (editor && editor.loader && editor.loader.loadFiles) {
+            const fileList = new DataTransfer();
+            fileList.items.add(file);
+
+            await editor.loader.loadFiles(fileList.files);
+            results.push({ file: fileInfo.displayName, success: true });
+            console.log(`✅ ${fileInfo.displayName} 씬에 추가 완료`);
+          } else {
+            throw new Error("editor.loader.loadFiles를 찾을 수 없습니다.");
+          }
+        } catch (error) {
+          console.error(`❌ ${fileInfo.displayName} 씬에 추가 실패:`, error);
+          results.push({ file: fileInfo.displayName, success: false, error: error.message });
+        }
+      }
+
+      // 진행 상태 메시지 제거
+      clearAddProgress();
+
+      // 결과 분석
+      const successfulAdds = results.filter(r => r.success);
+      const failedAdds = results.filter(r => !r.success);
+
+      // 결과 표시
+      if (successfulAdds.length > 0) {
+        showAddSuccess(`${successfulAdds.length}개 파일을 씬에 성공적으로 추가했습니다!`);
+        console.log("✅ 씬에 추가된 파일들:", successfulAdds.map(r => r.file));
+      }
+
+      if (failedAdds.length > 0) {
+        showAddError(`${failedAdds.length}개 파일 추가에 실패했습니다.`);
+        console.error("❌ 씬에 추가 실패한 파일들:", failedAdds);
+      }
+
+      return { successful: successfulAdds.length, failed: failedAdds.length };
+
+    } catch (error) {
+      // 오류 발생 시에도 진행 상태 메시지 제거
+      clearAddProgress();
+
+      console.error("❌ 선택된 파일들을 씬에 추가 중 오류:", error);
+      showAddError(`선택된 파일들을 씬에 추가 중 오류: ${error.message}`);
+      return { successful: 0, failed: selectedFiles.length };
+    }
   }
 
   // 파일 업로드 함수
@@ -544,7 +880,7 @@ export function createMotionPanel(editor) {
       <div class="error-text">❌ ${message}</div>
     `;
 
-    uploadSection.appendChild(errorDiv);
+    errorDiv.appendChild(errorDiv);
 
     // 5초 후 제거
     setTimeout(() => {
@@ -554,20 +890,41 @@ export function createMotionPanel(editor) {
     }, 5000);
   }
 
+  // 업로드 경고 메시지 표시
+  function showUploadWarning(message) {
+    const existingProgress = uploadSection.querySelector(".upload-progress");
+    if (existingProgress) existingProgress.remove();
+
+    const warningDiv = document.createElement("div");
+    warningDiv.className = "upload-warning";
+    warningDiv.innerHTML = `
+      <div class="warning-text">⚠️ ${message}</div>
+    `;
+
+    uploadSection.appendChild(warningDiv);
+
+    // 3초 후 제거
+    setTimeout(() => {
+      if (warningDiv.parentNode) {
+        warningDiv.remove();
+      }
+    }, 3000);
+  }
+
   // FBX 추가 성공 메시지 표시
   function showAddSuccess(fbxName) {
     const existingMessage = motionPanel.querySelector(".add-success-message");
     if (existingMessage) existingMessage.remove();
-  
+
     const successDiv = document.createElement("div");
     successDiv.className = "add-success-message";
     successDiv.innerHTML = `
       <div class="success-text">✅ "${fbxName}" 씬에 가져옴!</div>
       <div class="success-detail">3D 뷰포트에서 모델을 확인할 수 있습니다.</div>
     `;
-  
+
     motionPanel.appendChild(successDiv);
-  
+
     // 5초 후 제거
     setTimeout(() => {
       if (successDiv.parentNode) {
@@ -578,24 +935,50 @@ export function createMotionPanel(editor) {
 
   // FBX 추가 실패 메시지 표시
   function showAddError(fbxName, errorMessage) {
-    const existingMessage = motionPanel.querySelector(".add-error-message");
+    const existingMessage = motionPanel.querySelector(".add-success-message");
     if (existingMessage) existingMessage.remove();
-  
+
     const errorDiv = document.createElement("div");
     errorDiv.className = "add-error-message";
     errorDiv.innerHTML = `
       <div class="error-text">❌ "${fbxName}" 씬 가져오기 실패: ${errorMessage}</div>
       <div class="error-detail">파일 경로와 형식을 확인해주세요.</div>
     `;
-  
+
     motionPanel.appendChild(errorDiv);
-  
+
     // 5초 후 제거
     setTimeout(() => {
       if (errorDiv.parentNode) {
         errorDiv.remove();
       }
     }, 5000);
+  }
+
+  // FBX 추가 진행 상태 표시
+  function showAddProgress(message) {
+    const existingProgress = motionPanel.querySelector(".add-progress-message");
+    if (existingProgress) existingProgress.remove();
+
+    const progressDiv = document.createElement("div");
+    progressDiv.className = "add-progress-message";
+    progressDiv.innerHTML = `
+      <div class="progress-text">🔄 ${message}</div>
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+    `;
+
+    motionPanel.appendChild(progressDiv);
+  }
+
+  // FBX 추가 진행 상태 메시지 제거
+  function clearAddProgress() {
+    const existingProgress = motionPanel.querySelector(".add-progress-message");
+    if (existingProgress) {
+      existingProgress.remove();
+      console.log("🧹 진행 상태 메시지 제거됨");
+    }
   }
 
   // FBX 로더를 동적으로 로드하는 함수
@@ -620,58 +1003,63 @@ export function createMotionPanel(editor) {
     });
   }
 
-  // FBX 불러오기 버튼을 Motion 패널에 직접 추가
-  motionFooter.appendChild(uploadBtn.dom);
-
-  // 업로드 섹션을 Motion 패널 컨텐츠에 추가
-  motionContent.appendChild(uploadSection);
-
-  // 서버 연결 테스트 버튼
-  const testConnectionBtn = new UIButton("");
-  testConnectionBtn.setInnerHTML("<i class='fas fa-server'></i>");
-  testConnectionBtn.onClick(async () => {
-    console.log("🔍 서버 연결 테스트 시작...");
+  // FBX 파일 목록을 동적으로 로드하는 함수
+  async function loadFBXFilesFromFolder() {
     try {
-      // 🚀 수정: getFbxApiUrl 사용하여 올바른 서버 URL 생성
-      const healthResponse = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit'
-      });
-      console.log("🏥 서버 상태:", healthResponse.status, healthResponse.statusText);
+      console.log("FBX 폴더 스캔 시작...");
 
-      if (healthResponse.ok) {
-        const healthData = await healthResponse.json();
-        console.log("✅ 서버 응답:", healthData);
-        alert(`서버 연결 성공!\n상태: ${healthData.status || 'OK'}`);
+      // 서버에서 FBX 파일 목록 가져오기
+      const response = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.GET_FILES));
+
+      if (response.ok) {
+        const fbxFiles = await response.json();
+        console.log("서버에서 로드된 FBX 파일:", fbxFiles);
+
+        // 서버에서 받은 데이터를 그대로 사용
+        const processedFiles = fbxFiles.map(file => {
+          console.log("처리 중인 파일:", file);
+          return {
+            path: `..${file.path}`, // 상대 경로로 변환
+            name: file.name,
+            displayName: file.displayName,
+            filename: file.filename// 실제 파일명 (확장자 포함)
+          };
+        });
+
+        console.log("처리된 파일 목록:", processedFiles);
+        return processedFiles;
       } else {
-        alert(`서버 연결 실패!\nHTTP ${healthResponse.status}: ${healthResponse.statusText}`);
+        console.warn("서버에서 FBX 파일 목록을 가져올 수 없습니다. 기본 목록 사용");
+        throw new Error(`HTTP ${response.status}`);
       }
+
     } catch (error) {
-      console.error("❌ 서버 연결 테스트 실패:", error);
-      alert(`서버 연결 테스트 실패!\n오류: ${error.message}`);
+      console.error("FBX 폴더 스캔 실패:", error);
+
+      // 기본 파일 목록 반환
+      return [
+        {
+          path: "../files/fbx/Belly Dance.fbx",
+          name: "Belly Dance",
+          displayName: "Belly Dance",
+          filename: "Belly Dance.fbx"
+        },
+        {
+          path: "../files/fbx/Samba Dancing.fbx",
+          name: "Samba Dancing",
+          displayName: "Samba Dancing",
+          filename: "Samba Dancing.fbx"
+        },
+        {
+          path: "../files/fbx/Overhead Squat.fbx",
+          name: "Overhead Squat",
+          displayName: "Overhead Squat",
+          filename: "Overhead Squat.fbx"
+        }
+      ];
     }
-  });
-  motionFooter.appendChild(testConnectionBtn.dom);
+  }
 
-
-  // 새로고침 버튼
-  const refreshBtn = new UIButton("");
-  refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
-  refreshBtn.onClick(async () => {
-    console.log("새로고침 버튼 클릭됨");
-    try {
-      await displayFBXList();
-      console.log("✅ 새로고침 완료");
-    } catch (error) {
-      console.error("❌ 새로고침 실패:", error);
-    }
-  });
-  motionFooter.appendChild(refreshBtn.dom);
-
-  // 휴지통 버튼 추가
-  const deleteBtn = createDeleteButton();
-  motionFooter.appendChild(deleteBtn.dom);
 
   // 전역 클릭 핸들러 설정
   setupGlobalClickHandler();
@@ -682,6 +1070,10 @@ export function createMotionPanel(editor) {
       console.log("🚀 초기 FBX 목록 로드 시작");
       await displayFBXList();
       console.log("✅ 초기 FBX 목록 로드 완료");
+
+      // 초기 선택 상태 표시 업데이트
+      console.log("🚀 초기화 후 updateButtons 호출");
+      updateButtons();
     } catch (error) {
       console.error("❌ 초기 FBX 목록 로드 실패:", error);
     }

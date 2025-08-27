@@ -400,19 +400,32 @@
 #sidebar-assets *[class*="list-container"] *[class*="-info"] {
   display: flex;
   flex-direction: column;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  /* white-space: nowrap; */
+  /* text-overflow: ellipsis; */
   overflow: hidden;
   padding-right: 30px;
-  width: 80%;
+  width: 70%;
   gap: 0 !important;
   cursor: pointer;
+  white-space: nowrap;
+  text-overflow: inherit !important;
 }
 
-
+#sidebar-assets *[class*="list-container"] *[class*="-info"]:hover >*[class*="-name"]{
+  animation: 5s linear infinite infiniteAnimation2;
+}
+@keyframes infiniteAnimation2 {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
 #sidebar-assets *[class*="list-container"] *[class*="-name"] {
   font-weight: bold;
   color: #fff;
+  overflow: visible !important;
 }
 
 #sidebar-assets *[class*="list-container"] *[class*="-filename"],
