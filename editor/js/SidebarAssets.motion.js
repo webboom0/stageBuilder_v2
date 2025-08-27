@@ -1,5 +1,4 @@
 import { UIButton } from "./libs/ui.js";
-import { createPanel } from './ui/floatPanel.js';
 import { getFbxApiUrl, FBX_UPLOAD_CONFIG, validateFBXFile } from "./config/fbx-upload-config.js";
 
 export function createMotionPanel(editor) {
@@ -294,49 +293,23 @@ export function createMotionPanel(editor) {
     });
     selectedFBXItems.clear();
 
-    // updateDeleteButton();
     console.log("🗑️ clearSelection에서 updateButtons 호출");
     updateButtons();
-    console.log("🎬 FBX 항목 선택 해제됨");
   }
 
   // 선택된 항목들 표시 함수
   function updateButtons() {
     const btns = [deleteBtn.dom, selectsAddBtn.dom];
     const selectedCount = selectedFBXItems.size;
-    console.log("🔧 updateButtons 호출됨:", { selectedCount });
     btns.forEach(btn => {
       if (btn) {
-        console.log("🔍 btn 찾기 결과:", btn);
         if (selectedCount > 0) {
           btn.disabled = false;
-          // btn.style.opacity = "1";
         } else {
           btn.disabled = true;
-          // btn.style.opacity = "0.5";
         }
       }
     });
-    // if (selectsAddBtn) {
-    //   console.log("✅ selectsAddBtn DOM 요소 찾음, 상태 업데이트 중...");
-    //   if (selectedCount > 0) {
-    //     selectsAddBtn.disabled = false;
-    //     selectsAddBtn.style.opacity = "1";
-    //     // selectsAddBtn.textContent = `➕ ${selectedCount}개 파일 씬에 추가`;
-    //     console.log("✅ 버튼 활성화 완료:", selectsAddBtn.textContent);
-    //   } else {
-    //     selectsAddBtn.disabled = true;
-    //     selectsAddBtn.style.opacity = "0.5";
-    //     // selectsAddBtn.textContent = "➕ 선택된 파일 없음";
-    //     console.log("✅ 버튼 비활성화 완료:", selectsAddBtn.textContent);
-    //   }
-    // } else {
-    //   console.warn("⚠️ selectsAddBtn을 찾을 수 없음:", {
-    //     selectsAddBtn: selectsAddBtn,
-    //     motionPanel: motionPanel,
-    //     querySelector: motionPanel.querySelector('.selects-add-btn')
-    //   });
-    // }
   }
 
   // 문서 전체 클릭 이벤트 (선택 해제용)
@@ -981,28 +954,6 @@ export function createMotionPanel(editor) {
     }
   }
 
-  // FBX 로더를 동적으로 로드하는 함수
-  async function loadFBXLoader() {
-    // 이미 로드되어 있는지 확인
-    if (window.THREE && window.THREE.FBXLoader) {
-      return window.THREE.FBXLoader;
-    }
-
-    // FBX 로더 스크립트 동적 로드
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/FBXLoader.js';
-      script.onload = () => {
-        console.log('✅ FBX 로더 로드 완료');
-        resolve(window.THREE.FBXLoader);
-      };
-      script.onerror = () => {
-        reject(new Error('FBX 로더 로드 실패'));
-      };
-      document.head.appendChild(script);
-    });
-  }
-
   // FBX 파일 목록을 동적으로 로드하는 함수
   async function loadFBXFilesFromFolder() {
     try {
@@ -1059,7 +1010,6 @@ export function createMotionPanel(editor) {
       ];
     }
   }
-
 
   // 전역 클릭 핸들러 설정
   setupGlobalClickHandler();
