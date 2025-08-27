@@ -3,6 +3,11 @@ import { createPanel } from './ui/floatPanel.js';
 import { getApiUrl, AUDIO_UPLOAD_CONFIG } from "./config/audio-upload-config.js";
 
 export function createAudioPanel(editor) {
+  // 선택된 음악 항목을 추적하는 변수
+  let selectedAudioItem = null;
+
+  // 다중 선택된 음악 항목들을 추적하는 변수
+  let selectedAudioItems = new Set();
   // Sound 패널
   const soundPanel = document.createElement("div");
   soundPanel.className = "sound-panel";
@@ -12,10 +17,91 @@ export function createAudioPanel(editor) {
   soundContent.className = "panel-content";
   soundPanel.appendChild(soundContent);
 
+  // 음악 목록 컨테이너 추가
+  const audioListContainer = document.createElement("div");
+  audioListContainer.className = "audio-list-container";
+  soundContent.appendChild(audioListContainer);
+
   // Sound 패널 푸터
   const soundFooter = document.createElement("div");
   soundFooter.className = "panel-footer";
   soundPanel.appendChild(soundFooter);
+
+  // 음악 업로드 기능
+  const uploadSection = document.createElement("div");
+  uploadSection.className = "upload-section";
+  // 업로드 섹션을 Sound 패널 컨텐츠에 추가
+  soundContent.appendChild(uploadSection);
+
+  // 파일 입력 요소 (숨김)
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.id = "audioFileInput";
+  fileInput.multiple = true; // 다중 선택 활성화
+  fileInput.accept = "audio/*";
+  fileInput.style.display = "none";
+  uploadSection.appendChild(fileInput);
+
+  // 불러오기 버튼
+  const uploadBtn = new UIButton("");
+  uploadBtn.setInnerHTML("<i class='fas fa-upload'></i>");
+  uploadBtn.onClick(async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    console.log("🎵 음악 업로드 시작...");
+
+    // 서버 연결 상태 확인
+    try {
+      const healthUrl = getApiUrl('/api/health');
+      console.log("🔍 서버 연결 확인 URL:", healthUrl);
+
+      const healthResponse = await fetch(healthUrl, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      console.log("🏥 서버 연결 상태:", healthResponse.status, healthResponse.statusText);
+
+      if (!healthResponse.ok) {
+        alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
+        return;
+      }
+
+      // 파일 선택 다이얼로그 열기
+      fileInput.click();
+
+    } catch (error) {
+      console.error("❌ 서버 연결 확인 실패:", error);
+      alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
+    }
+  });
+
+  // 음악 불러오기 버튼을 Sound 패널에 직접 추가
+  soundFooter.appendChild(uploadBtn.dom);
+
+  // 선택된 파일들 추가 버튼
+  const selectsAddBtn = createSelectsAddBtn();
+  soundFooter.appendChild(selectsAddBtn.dom);
+
+  // 새로고침 버튼
+  const refreshBtn = new UIButton("");
+  refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
+  refreshBtn.onClick(async () => {
+    console.log("새로고침 버튼 클릭됨");
+    try {
+      await displayAudioList();
+      console.log("✅ 새로고침 완료");
+    } catch (error) {
+      console.error("❌ 새로고침 실패:", error);
+    }
+  });
+  soundFooter.appendChild(refreshBtn.dom);
+
+  // 휴지통 버튼 추가
+  const deleteBtn = createDeleteButton();
+  soundFooter.appendChild(deleteBtn.dom);
 
   // 음악 파일 목록을 동적으로 로드하는 함수
   async function loadAudioFilesFromFolder() {
@@ -68,43 +154,6 @@ export function createAudioPanel(editor) {
     }
   }
 
-  // 선택된 음악 항목을 추적하는 변수
-  let selectedAudioItem = null;
-
-  // 다중 선택된 음악 항목들을 추적하는 변수
-  let selectedAudioItems = new Set();
-
-  // 선택 해제 함수
-  function clearSelection() {
-    if (selectedAudioItem) {
-      selectedAudioItem.classList.remove('selected');
-      selectedAudioItem = null;
-    }
-
-    // 다중 선택된 항목들도 모두 해제
-    selectedAudioItems.forEach(item => {
-      item.classList.remove('selected');
-    });
-    selectedAudioItems.clear();
-    updateButtons();
-  }
-
-  // 문서 전체 클릭 이벤트 (선택 해제용)
-  function setupGlobalClickHandler() {
-    document.addEventListener('click', (event) => {
-      // audio-item이나 관련 버튼을 클릭한 경우는 제외
-      if (event.target.closest('.audio-item') ||
-        event.target.closest('.delete-audio-btn') ||
-        event.target.closest('.add-audio-btn') ||
-        event.target.closest('.selects-add-btn')) {
-        return;
-      }
-
-      // 다른 곳을 클릭하면 선택 해제
-      clearSelection();
-    });
-  }
-
   // 휴지통 버튼 생성 및 관리
   function createDeleteButton() {
     const deleteBtn = new UIButton("");
@@ -121,25 +170,6 @@ export function createAudioPanel(editor) {
     return deleteBtn;
   }
 
-
-  // 선택된 항목들 표시 함수
-  function updateButtons() {
-    const btns = [deleteBtn.dom, selectsAddBtn.dom];
-    const selectedCount = selectedAudioItems.size;
-    console.log("🔧 updateButtons 호출됨:", { selectedCount });
-    btns.forEach(btn => {
-      if (btn) {
-        console.log("🔍 btn 찾기 결과:", btn);
-        if (selectedCount > 0) {
-          btn.disabled = false;
-        } else {
-          btn.disabled = true;
-        }
-      }
-    });
-  }
-
-
   // 선택된 파일들을 오디오 트랙에 추가하는 함수 생성
   function createSelectsAddBtn() {
     const button = new UIButton("");
@@ -147,7 +177,6 @@ export function createAudioPanel(editor) {
     button.setClass("Button");
     button.dom.className += " selects-add-btn"; // CSS 클래스 추가
     button.dom.disabled = true;
-    button.dom.style.opacity = "0.5";
 
     button.onClick(async (event) => {
       event.preventDefault();
@@ -285,61 +314,6 @@ export function createAudioPanel(editor) {
     }
   }
 
-
-
-  // 음악 목록 컨테이너 추가
-  const audioListContainer = document.createElement("div");
-  audioListContainer.className = "audio-list-container";
-  soundContent.appendChild(audioListContainer);
-
-  // 음악 업로드 기능
-  const uploadSection = document.createElement("div");
-  uploadSection.className = "upload-section";
-
-  // 파일 입력 요소 (숨김)
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.id = "audioFileInput";
-  fileInput.accept = "audio/*";
-  fileInput.style.display = "none";
-  uploadSection.appendChild(fileInput);
-
-  // 불러오기 버튼
-  const uploadBtn = new UIButton("");
-  uploadBtn.setInnerHTML("<i class='fas fa-upload'></i>");
-  uploadBtn.onClick(async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    console.log("🎵 음악 업로드 시작...");
-
-    // 서버 연결 상태 확인
-    try {
-      const healthUrl = getApiUrl('/api/health');
-      console.log("🔍 서버 연결 확인 URL:", healthUrl);
-
-      const healthResponse = await fetch(healthUrl, {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit'
-      });
-
-      console.log("🏥 서버 연결 상태:", healthResponse.status, healthResponse.statusText);
-
-      if (!healthResponse.ok) {
-        alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
-        return;
-      }
-
-      // 파일 선택 다이얼로그 열기
-      fileInput.click();
-
-    } catch (error) {
-      console.error("❌ 서버 연결 확인 실패:", error);
-      alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
-    }
-  });
-
   // 파일 선택 이벤트
   fileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
@@ -388,6 +362,54 @@ export function createAudioPanel(editor) {
       showUploadError(`업로드 오류: ${error.message}`);
     }
   });
+
+  // 선택 해제 함수
+  function clearSelection() {
+    if (selectedAudioItem) {
+      selectedAudioItem.classList.remove('selected');
+      selectedAudioItem = null;
+    }
+
+    // 다중 선택된 항목들도 모두 해제
+    selectedAudioItems.forEach(item => {
+      item.classList.remove('selected');
+    });
+    selectedAudioItems.clear();
+    updateButtons();
+  }
+
+  // 선택된 항목들 표시 함수
+  function updateButtons() {
+    const btns = [deleteBtn.dom, selectsAddBtn.dom];
+    const selectedCount = selectedAudioItems.size;
+    console.log("🔧 updateButtons 호출됨:", { selectedCount });
+    btns.forEach(btn => {
+      if (btn) {
+        console.log("🔍 btn 찾기 결과:", btn);
+        if (selectedCount > 0) {
+          btn.disabled = false;
+        } else {
+          btn.disabled = true;
+        }
+      }
+    });
+  }
+
+  // 문서 전체 클릭 이벤트 (선택 해제용)
+  function setupGlobalClickHandler() {
+    document.addEventListener('click', (event) => {
+      // audio-item이나 관련 버튼을 클릭한 경우는 제외
+      if (event.target.closest('.audio-item') ||
+        event.target.closest('.delete-audio-btn') ||
+        event.target.closest('.add-audio-btn') ||
+        event.target.closest('.selects-add-btn')) {
+        return;
+      }
+
+      // 다른 곳을 클릭하면 선택 해제
+      clearSelection();
+    });
+  }
 
   // 파일 유효성 검사 함수
   function validateAudioFile(file) {
@@ -652,63 +674,6 @@ export function createAudioPanel(editor) {
       return { successful: 0, failed: selectedFiles.length };
     }
   }
-
-  // 음악 불러오기 버튼을 Sound 패널에 직접 추가
-  soundFooter.appendChild(uploadBtn.dom);
-
-  // 선택된 파일들을 씬에 추가하는 버튼을 푸터에 추가
-  const selectsAddBtn = createSelectsAddBtn();
-  soundFooter.appendChild(selectsAddBtn.dom);
-
-  // 업로드 섹션을 Sound 패널 컨텐츠에 추가
-  soundContent.appendChild(uploadSection);
-
-  // 서버 연결 테스트 버튼
-  const testConnectionBtn = new UIButton("");
-  testConnectionBtn.setInnerHTML("<i class='fas fa-server'></i>");
-  testConnectionBtn.onClick(async () => {
-    console.log("🔍 서버 연결 테스트 시작...");
-    try {
-      const healthResponse = await fetch(getApiUrl('/api/health'), {
-        method: 'GET',
-        mode: 'cors',
-        credentials: 'omit'
-      });
-      console.log("🏥 서버 상태:", healthResponse.status, healthResponse.statusText);
-
-      if (healthResponse.ok) {
-        const healthData = await healthResponse.json();
-        console.log("✅ 서버 응답:", healthData);
-        alert(`서버 연결 성공!\n상태: ${healthData.status || 'OK'}`);
-      } else {
-        alert(`서버 연결 실패!\nHTTP ${healthResponse.status}: ${healthResponse.statusText}`);
-      }
-    } catch (error) {
-      console.error("❌ 서버 연결 테스트 실패:", error);
-      alert(`서버 연결 테스트 실패!\n오류: ${error.message}`);
-    }
-  });
-  soundFooter.appendChild(testConnectionBtn.dom);
-
-
-  // 새로고침 버튼
-  const refreshBtn = new UIButton("");
-  refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
-  refreshBtn.onClick(async () => {
-    console.log("새로고침 버튼 클릭됨");
-    try {
-      await displayAudioList();
-      console.log("✅ 새로고침 완료");
-    } catch (error) {
-      console.error("❌ 새로고침 실패:", error);
-    }
-  });
-  soundFooter.appendChild(refreshBtn.dom);
-
-  // 휴지통 버튼 추가
-  const deleteBtn = createDeleteButton();
-  soundFooter.appendChild(deleteBtn.dom);
-
 
   // 음악 목록 표시 함수
   async function displayAudioList() {

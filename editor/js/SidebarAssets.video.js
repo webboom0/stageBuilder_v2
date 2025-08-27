@@ -7,6 +7,12 @@ import { VideoBackground } from './timeline/VideoBackground.js';
 
 
 export function createVideoPanel(editor) {
+  // 선택된 비디오 항목을 추적하는 변수
+  let selectedVideoItem = null;
+
+  // 다중 선택된 비디오 항목들을 추적하는 변수
+  let selectedVideoItems = new Set();
+
   // VideoBackground import 확인
   console.log("🎬 VideoBackground import 상태:", {
     VideoBackground: typeof VideoBackground,
@@ -14,82 +20,24 @@ export function createVideoPanel(editor) {
     scene: !!editor?.scene
   });
 
+  // Video 패널
   const videoPanel = document.createElement("div");
   videoPanel.className = "video-panel";
-
-  // 선택된 비디오 항목을 추적하는 변수
-  let selectedVideoItem = null;
-  
-  // 다중 선택된 비디오 항목들을 추적하는 변수
-  let selectedVideoItems = new Set();
 
   // Motion 패널 컨텐츠
   const videoContent = document.createElement("div");
   videoContent.className = "panel-content";
   videoPanel.appendChild(videoContent);
 
-  // Motion 패널 푸터
-  const footer = document.createElement("div");
-  footer.className = "panel-footer";
-  videoPanel.appendChild(footer);
-
-  // 선택 해제 함수
-  function clearSelection() {
-    if (selectedVideoItem) {
-      selectedVideoItem.classList.remove('selected');
-      selectedVideoItem = null;
-    }
-    
-    // 다중 선택된 항목들도 모두 해제
-    selectedVideoItems.forEach(item => {
-      item.classList.remove('selected');
-    });
-    selectedVideoItems.clear();
-    
-    updateDeleteButton();
-    console.log("🎬 비디오 항목 선택 해제됨");
-  }
-  
-  // 문서 전체 클릭 이벤트 (선택 해제용)
-  function setupGlobalClickHandler() {
-    document.addEventListener('click', (event) => {
-      // video-item이나 관련 버튼을 클릭한 경우는 제외
-      if (event.target.closest('.video-item') || 
-          event.target.closest('.delete-video-btn') ||
-          event.target.closest('.add-btn')) {
-        return;
-      }
-      
-      // 다른 곳을 클릭하면 선택 해제
-      clearSelection();
-    });
-  }
-  
-  // 삭제 버튼 상태 업데이트
-  function updateDeleteButton() {
-    if (deleteBtn && deleteBtn.dom) {
-      if (selectedVideoItems.size > 0) {
-        deleteBtn.dom.disabled = false;
-        deleteBtn.dom.style.opacity = "1";
-        // 선택된 파일 수에 따라 텍스트 설정
-        if (selectedVideoItems.size === 1) {
-          const filename = Array.from(selectedVideoItems)[0].dataset.filename;
-          deleteBtn.dom.title = `선택된 비디오: ${filename}`;
-        } else {
-          deleteBtn.dom.title = `선택된 비디오: ${selectedVideoItems.size}개`;
-        }
-      } else {
-        deleteBtn.dom.disabled = true;
-        deleteBtn.dom.style.opacity = "0.5";
-        deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
-      }
-    }
-  }
-
   // 비디오 목록 컨테이너
   const videoListContainer = document.createElement("div");
   videoListContainer.className = "video-list-container";
   videoContent.appendChild(videoListContainer);
+
+  // Motion 패널 푸터
+  const footer = document.createElement("div");
+  footer.className = "panel-footer";
+  videoPanel.appendChild(footer);
 
   // 업로드 섹션
   const uploadSection = document.createElement("div");
@@ -99,6 +47,7 @@ export function createVideoPanel(editor) {
   const fileInput = document.createElement("input");
   fileInput.type = "file";
   fileInput.id = "videoFileInput";
+  fileInput.multiple = true; // 다중 선택 활성화
   fileInput.accept = "video/*";
   fileInput.style.display = "none";
   uploadSection.appendChild(fileInput);
@@ -132,7 +81,6 @@ export function createVideoPanel(editor) {
       alert("서버에 연결할 수 없습니다. 서버를 시작해주세요.");
     }
   });
-
 
   footer.appendChild(uploadBtn.dom);
   videoContent.appendChild(uploadSection);
@@ -183,16 +131,32 @@ export function createVideoPanel(editor) {
     }
   });
 
+  // 삭제 버튼 상태 업데이트
+  function updateDeleteButton() {
+    if (deleteBtn && deleteBtn.dom) {
+      if (selectedVideoItems.size > 0) {
+        deleteBtn.dom.disabled = false;
+        deleteBtn.dom.style.opacity = "1";
+        // 선택된 파일 수에 따라 텍스트 설정
+        if (selectedVideoItems.size === 1) {
+          const filename = Array.from(selectedVideoItems)[0].dataset.filename;
+          deleteBtn.dom.title = `선택된 비디오: ${filename}`;
+        } else {
+          deleteBtn.dom.title = `선택된 비디오: ${selectedVideoItems.size}개`;
+        }
+      } else {
+        deleteBtn.dom.disabled = true;
+        deleteBtn.dom.style.opacity = "0.5";
+        deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
+      }
+    }
+  }
 
   // 비디오 목록 로드
   loadVideoFilesFromFolder();
 
   // 전역 클릭 핸들러 설정
   setupGlobalClickHandler();
-
-  // 패널 푸터
-  // const videoFooter = new UIRow();
-  // videoFooter.setClass("panel-footer");
 
 
   // 새로고침 버튼
@@ -210,7 +174,6 @@ export function createVideoPanel(editor) {
   deleteBtn.dom.disabled = true;
   deleteBtn.dom.style.opacity = "0.5";
   deleteBtn.dom.title = "삭제할 비디오를 선택해주세요";
-
   deleteBtn.onClick(async () => {
     if (selectedVideoItems.size > 0) {
       await deleteSelectedVideo();
@@ -222,6 +185,38 @@ export function createVideoPanel(editor) {
   footer.appendChild(refreshBtn.dom);
   footer.appendChild(deleteBtn.dom);
   videoPanel.appendChild(footer);
+
+  // 선택 해제 함수
+  function clearSelection() {
+    if (selectedVideoItem) {
+      selectedVideoItem.classList.remove('selected');
+      selectedVideoItem = null;
+    }
+
+    // 다중 선택된 항목들도 모두 해제
+    selectedVideoItems.forEach(item => {
+      item.classList.remove('selected');
+    });
+    selectedVideoItems.clear();
+
+    updateDeleteButton();
+    console.log("🎬 비디오 항목 선택 해제됨");
+  }
+
+  // 문서 전체 클릭 이벤트 (선택 해제용)
+  function setupGlobalClickHandler() {
+    document.addEventListener('click', (event) => {
+      // video-item이나 관련 버튼을 클릭한 경우는 제외
+      if (event.target.closest('.video-item') ||
+        event.target.closest('.delete-video-btn') ||
+        event.target.closest('.add-btn')) {
+        return;
+      }
+
+      // 다른 곳을 클릭하면 선택 해제
+      clearSelection();
+    });
+  }
 
   // 초기 삭제 버튼 상태 설정
   updateDeleteButton();
@@ -418,7 +413,7 @@ export function createVideoPanel(editor) {
         // Ctrl/Cmd + 클릭으로 다중 선택/해제
         if (event.ctrlKey || event.metaKey) {
           event.preventDefault();
-          
+
           if (selectedVideoItems.has(videoItem.dom)) {
             // 이미 선택된 항목이면 선택 해제
             selectedVideoItems.delete(videoItem.dom);
@@ -444,14 +439,14 @@ export function createVideoPanel(editor) {
             console.log("🎬 비디오 항목 선택됨:", videoFile.filename);
           }
         }
-        
+
         // 단일 선택 상태 업데이트 (휴지통 버튼용)
         if (selectedVideoItems.size === 1) {
           selectedVideoItem = Array.from(selectedVideoItems)[0];
         } else {
           selectedVideoItem = null;
         }
-        
+
         // 삭제 버튼 상태 업데이트
         updateDeleteButton();
       });
@@ -519,7 +514,7 @@ export function createVideoPanel(editor) {
 
       // 성공 메시지 표시
       showUploadSuccess(file.name);
-      
+
       return true; // 성공 시 true 반환
 
     } catch (error) {
@@ -619,48 +614,6 @@ export function createVideoPanel(editor) {
     }
   }
 
-  // 서버 연결 테스트
-  async function testServerConnection() {
-    try {
-      const startTime = Date.now();
-      const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.HEALTH));
-      const endTime = Date.now();
-      const responseTime = endTime - startTime;
-
-      if (response.ok) {
-        const status = await response.json();
-        console.log("서버 연결 성공:", status);
-
-        // 연결 테스트 버튼 업데이트
-        testConnectionBtn.setTextContent(`🔍 연결됨 (${responseTime}ms)`);
-        testConnectionBtn.dom.style.background = "#4CAF50";
-
-        setTimeout(() => {
-          testConnectionBtn.setTextContent("🔍 연결 테스트");
-          testConnectionBtn.dom.style.background = "";
-        }, 3000);
-
-        return true;
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-    } catch (error) {
-      console.error("❌ 서버 연결 실패:", error);
-
-      // 연결 테스트 버튼 업데이트
-      testConnectionBtn.setTextContent("❌ 연결 실패");
-      testConnectionBtn.dom.style.background = "#f44336";
-
-      setTimeout(() => {
-        testConnectionBtn.setTextContent("🔍 연결 테스트");
-        testConnectionBtn.dom.style.background = "";
-      }, 3000);
-
-      return false;
-    }
-  }
-
   // 씬에 비디오 배경 추가
   async function addVideoToScene(filename) {
     try {
@@ -749,7 +702,6 @@ export function createVideoPanel(editor) {
     }
   }
 
-
   // 파일 크기 포맷팅
   function formatFileSize(bytes) {
     if (typeof bytes === 'string') return bytes;
@@ -785,22 +737,6 @@ export function createVideoPanel(editor) {
 
   function showUploadError(message) {
     showMessage(`❌ 업로드 실패: ${message}`, 'error');
-  }
-
-  function showDeleteSuccess(filename) {
-    showMessage(`✅ "${filename}" 삭제 완료`, 'success');
-  }
-
-  function showDeleteError(message) {
-    showMessage(`❌ 삭제 실패: ${message}`, 'error');
-  }
-
-  function showAddSuccess(filename) {
-    showMessage(`✅ "${filename}" 씬에 추가 완료`, 'success');
-  }
-
-  function showAddError(filename, message) {
-    showMessage(`❌ "${filename}" 씬에 추가 실패: ${message}`, 'error');
   }
 
   function showMessage(text, type = 'info') {
