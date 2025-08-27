@@ -932,6 +932,22 @@ Editor.prototype = {
 
       this.history.fromJSON(projectData.history);
       this.scripts = projectData.scripts;
+      
+      // 사용자 프로젝트 정보 복원 (공연명, 공연기간, 공연장소 등)
+      if (projectData.userProject) {
+        this.project = projectData.userProject;
+        console.log("사용자 프로젝트 정보 복원됨:", this.project);
+        
+        // 프로젝트 로드 완료 이벤트 발생
+        const event = new CustomEvent('projectLoadComplete', {
+          detail: { projectData: this.project, editor: this }
+        });
+        document.dispatchEvent(event);
+        console.log("📡 projectLoadComplete 이벤트 발생됨");
+      } else {
+        console.log("저장된 사용자 프로젝트 정보가 없습니다.");
+        this.project = null;
+      }
 
       // 씬 로드 시 오류 처리
       try {
@@ -1716,6 +1732,8 @@ Editor.prototype = {
           "project/renderer/toneMappingExposure"
         ),
       },
+      // 사용자 프로젝트 정보 저장 (공연명, 공연기간, 공연장소 등)
+      userProject: this.project || null,
       camera: this.viewportCamera.toJSON(),
       scene: sceneData,
       scripts: this.scripts,

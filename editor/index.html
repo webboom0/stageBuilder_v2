@@ -222,6 +222,7 @@
     import { VideoEdit } from "./js/VideoEdit.js";
     import { SidebarProperties } from "./js/Sidebar.Properties.js";
     import { SidebarAssets } from "./js/SidebarAssets.js";
+    import { ProjectSetup } from "./js/ProjectSetup.js";
     // import { Music } from './js/Music.js';
     const { createFFmpeg, fetchFile } = FFmpeg;
 
@@ -292,6 +293,10 @@
 
       // 컴포넌트 초기화 전에 탭을 활성화
       activateTab(tabCounter);
+
+      // 새 프로젝트 시작 시 프로젝트 설정 팝업 표시
+      const projectSetup = new ProjectSetup();
+      projectSetup.startNewProject(editor);
 
       // DOM이 추가된 후 컴포넌트 초기화
       const menubar = new Menubar(editor);

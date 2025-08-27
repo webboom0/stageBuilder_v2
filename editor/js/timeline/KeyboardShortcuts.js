@@ -12,7 +12,12 @@ export class KeyboardShortcuts {
             'Space': {
                 description: '재생/일시정지',
                 action: () => this.togglePlayPause(),
-                preventDefault: true
+                preventDefault: true,
+                conditions: {
+                    ctrlKey: false,
+                    metaKey: false,
+                    shiftKey: false
+                }
             },
             'KeyK': {
                 description: '현재 시간에 키프레임 추가',
@@ -20,7 +25,8 @@ export class KeyboardShortcuts {
                 preventDefault: true,
                 conditions: {
                     ctrlKey: false,
-                    metaKey: false
+                    metaKey: false,
+                    shiftKey: false
                 }
             },
             'KeyD': {
@@ -29,7 +35,8 @@ export class KeyboardShortcuts {
                 preventDefault: true,
                 conditions: {
                     ctrlKey: false,
-                    metaKey: false
+                    metaKey: false,
+                    shiftKey: false
                 }
             },
             'KeyM': {
@@ -38,48 +45,29 @@ export class KeyboardShortcuts {
                 preventDefault: true,
                 conditions: {
                     ctrlKey: false,
-                    metaKey: false
+                    metaKey: false,
+                    shiftKey: false
                 }
             },
-            // 'KeyZ': {
-            //     description: '되돌리기 (Undo)',
-            //     action: () => this.undo(),
-            //     preventDefault: true,
-            //     conditions: {
-            //         ctrlKey: true,
-            //         metaKey: false
-            //     }
-            // },
-            // 'KeyY': {
-            //     description: 'MotionTimeline 다시하기 (Redo)',
-            //     action: () => this.redo(),
-            //     preventDefault: true,
-            //     conditions: {
-            //         ctrlKey: true,
-            //         metaKey: false
-            //     }
-            // },
-            // 'KeyZ': {
-            //     description: 'MotionTimeline 히스토리 되돌리기 (Ctrl+Z) / 에디터 히스토리 되돌리기 (Ctrl+Shift+Z)',
-            //     action: () => {
-            //         // Ctrl+Shift+Z: 에디터 히스토리, Ctrl+Z: MotionTimeline 히스토리
-            //         this.handleKeyZAction();
-            //     },
-            //     preventDefault: true,
-            //     conditions: {
-            //         ctrlKey: true,
-            //         metaKey: false
-            //     }
-            // },
             'Escape': {
                 description: '정지',
                 action: () => this.stop(),
-                preventDefault: true
+                preventDefault: true,
+                conditions: {
+                    ctrlKey: false,
+                    metaKey: false,
+                    shiftKey: false
+                }
             },
             'F1': {
                 description: '단축키 도움말 표시',
                 action: () => this.showHelp(),
-                preventDefault: true
+                preventDefault: true,
+                conditions: {
+                    ctrlKey: false,
+                    metaKey: false,
+                    shiftKey: false
+                }
             }
         };
 
@@ -98,6 +86,12 @@ export class KeyboardShortcuts {
     handleKeyDown(e) {
         if (!this.isEnabled) return;
 
+        // 입력 필드에 포커스가 있으면 단축키 비활성화
+        const activeElement = document.activeElement;
+        if (this.isInputField(activeElement)) {
+            return;
+        }
+
         // Ctrl+Z 디버깅
         // if (e.code === 'KeyZ' && e.ctrlKey) {
         //     console.log("🎯 Ctrl+Z 감지됨:", {
@@ -110,22 +104,14 @@ export class KeyboardShortcuts {
 
         const shortcut = this.shortcuts[e.code];
         if (!shortcut) {
-            console.log("❌ 단축키를 찾을 수 없음:", e.code);
-            return;
+            return; // 로그 제거
         }
-
-        console.log("🎯 단축키 찾음:", {
-            code: e.code,
-            description: shortcut.description,
-            conditions: shortcut.conditions
-        });
 
         // 조건 확인
         if (shortcut.conditions) {
             for (const [key, value] of Object.entries(shortcut.conditions)) {
                 if (e[key] !== value) {
-                    console.log("❌ 조건 불일치:", { key, expected: value, actual: e[key] });
-                    return;
+                    return; // 로그 제거
                 }
             }
         }
@@ -146,6 +132,50 @@ export class KeyboardShortcuts {
         } catch (error) {
             console.error('단축키 실행 중 오류:', error);
         }
+    }
+
+    // 입력 필드인지 확인하는 헬퍼 함수
+    isInputField(element) {
+        if (!element) return false;
+        
+        const inputTypes = [
+            'input', 'textarea', 'select', 'contenteditable'
+        ];
+        
+        // input, textarea, select 요소 확인
+        if (inputTypes.includes(element.tagName.toLowerCase())) {
+            return true;
+        }
+        
+        // contenteditable 속성 확인
+        if (element.contentEditable === 'true') {
+            return true;
+        }
+        
+        // CodeMirror 에디터 확인
+        if (element.closest('.CodeMirror')) {
+            return true;
+        }
+        
+        // 특정 클래스나 ID를 가진 입력 필드 확인
+        const inputClasses = ['input', 'textarea', 'form-control', 'ui-input', 'totalSeconds', 'seconds'];
+        const inputIds = ['seconds', 'search', 'command', 'totalSeconds'];
+        
+        if (inputClasses.some(cls => element.classList.contains(cls))) {
+            return true;
+        }
+        
+        if (inputIds.some(id => element.id === id)) {
+            return true;
+        }
+        
+        // 부모 요소에서 입력 필드 관련 클래스 확인
+        const parentWithInputClass = element.closest('.input, .textarea, .form-control, .ui-input');
+        if (parentWithInputClass) {
+            return true;
+        }
+        
+        return false;
     }
 
     // 재생/일시정지 토글
@@ -639,12 +669,12 @@ export class KeyboardShortcuts {
 
         document.body.appendChild(notification);
 
-        // 1초 후 자동 제거
+        // 0.8초 후 자동 제거 (더 빠르게 사라지도록)
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
             }
-        }, 1000);
+        }, 800);
     }
 
     // 단축키 활성화/비활성화

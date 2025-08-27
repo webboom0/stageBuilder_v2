@@ -1,6 +1,7 @@
 import { UIPanel, UIRow, UIHorizontalRule } from "./libs/ui.js";
 import { ProgressiveLoader } from './utils/ProgressiveLoader.js';
 import { Timeline } from './timeline/Timeline.js';
+import { ProjectSetup } from './ProjectSetup.js';
 
 function MenubarFile(editor) {
   const strings = editor.strings;
@@ -41,6 +42,8 @@ function MenubarFile(editor) {
     }
   });
   options.add(newButton);
+
+
 
   // New Project
 
@@ -190,6 +193,7 @@ function MenubarFile(editor) {
     .onClick(async function () {
       try {
         const json = await editor.toJSON(); // async 호출
+        
         console.log("Saving project:", json); // 저장되는 전체 데이터 확인
         // 특히 music 데이터가 있는지 확인
         if (json.music) {
@@ -197,10 +201,24 @@ function MenubarFile(editor) {
         } else {
           console.log("No music data to save");
         }
+        
+        // 기본 파일명을 공연명으로 설정 (공연명이 있으면)
+        let defaultFileName = "project.json";
+        if (editor.project && editor.project.showName) {
+          // 파일명에 사용할 수 없는 문자 제거 및 한글 지원
+          const safeFileName = editor.project.showName
+            .replace(/[<>:"/\\|?*]/g, '') // Windows 파일명 제한 문자 제거
+            .replace(/\s+/g, '_') // 공백을 언더스코어로 변경
+            .trim();
+          if (safeFileName) {
+            defaultFileName = `${safeFileName}.json`;
+          }
+        }
+        
         const blob = new Blob([JSON.stringify(json)], {
           type: "application/json",
         });
-        editor.utils.save(blob, "project.json");
+        editor.utils.save(blob, defaultFileName);
       } catch (error) {
         console.error("프로젝트 저장 중 오류:", error);
         alert("프로젝트 저장 중 오류가 발생했습니다: " + error.message);
@@ -247,8 +265,21 @@ function MenubarFile(editor) {
 
       // showSaveFilePicker를 사용자 제스처 내에서 즉시 실행
       if ("showSaveFilePicker" in window) {
+        // 기본 파일명을 공연명으로 설정 (공연명이 있으면)
+        let suggestedFileName = "project.zip";
+        if (editor.project && editor.project.showName) {
+          // 파일명에 사용할 수 없는 문자 제거 및 한글 지원
+          const safeFileName = editor.project.showName
+            .replace(/[<>:"/\\|?*]/g, '') // Windows 파일명 제한 문자 제거
+            .replace(/\s+/g, '_') // 공백을 언더스코어로 변경
+            .trim();
+          if (safeFileName) {
+            suggestedFileName = `${safeFileName}.zip`;
+          }
+        }
+        
         const handle = await window.showSaveFilePicker({
-          suggestedName: "project.zip",
+          suggestedName: suggestedFileName,
           types: [
             {
               description: "ZIP Files",
@@ -290,7 +321,21 @@ function MenubarFile(editor) {
         loader.loadedItems = 3;
         loader.updateProgress();
         document.getElementById('progress-detail').textContent = '파일 저장 중...';
-        const fileName = prompt("파일 이름을 입력하세요:", "project.zip");
+        
+        // 기본 파일명을 공연명으로 설정 (공연명이 있으면)
+        let defaultFileName = "project.zip";
+        if (editor.project && editor.project.showName) {
+          // 파일명에 사용할 수 없는 문자 제거 및 한글 지원
+          const safeFileName = editor.project.showName
+            .replace(/[<>:"/\\|?*]/g, '') // Windows 파일명 제한 문자 제거
+            .replace(/\s+/g, '_') // 공백을 언더스코어로 변경
+            .trim();
+          if (safeFileName) {
+            defaultFileName = `${safeFileName}.zip`;
+          }
+        }
+        
+        const fileName = prompt("파일 이름을 입력하세요:", defaultFileName);
         if (fileName) {
           const url = URL.createObjectURL(zipBlob);
           const link = document.createElement('a');
@@ -636,6 +681,16 @@ function MenubarFile(editor) {
   });
 
   options.add(option);
+
+   // 프로젝트 설정 메뉴
+   const projectSetupButton = new UIRow();
+   projectSetupButton.setClass("option button-style");
+   projectSetupButton.setTextContent("프로젝트 설정");
+   projectSetupButton.onClick(function () {
+     const projectSetup = new ProjectSetup();
+     projectSetup.showProjectSetupPopup(editor);
+   });
+   options.add(projectSetupButton);
 
   function getAnimations(scene) {
     const animations = [];
