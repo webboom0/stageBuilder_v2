@@ -241,7 +241,7 @@ function SidebarAssets(editor) {
   document.head.appendChild(style);
 
   // 오디오 패널을 floatPanel로 생성
-  const audioFloatPanel = createPanel('Sound', audioPanel);
+  const audioFloatPanel = createPanel('Audio', audioPanel);
 
   // 모션 패널을 floatPanel로 생성
   const motionFloatPanel = createPanel('Motion', motionPanel);
