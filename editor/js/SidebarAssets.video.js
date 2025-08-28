@@ -73,6 +73,8 @@ export function createVideoPanel(editor) {
         return;
       }
 
+      
+
       // 파일 선택 다이얼로그 열기
       fileInput.click();
 
