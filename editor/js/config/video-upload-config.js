@@ -3,7 +3,7 @@
 // 비디오 업로드 설정
 export const VIDEO_UPLOAD_CONFIG = {
   SERVER: {
-      HOST: 'https://pivot.mhsoft.co.kr',
+      HOST: 'http://localhost:3001',
   },
   ENDPOINTS: {
       UPLOAD: '/api/upload-video',

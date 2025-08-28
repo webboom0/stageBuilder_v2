@@ -72,7 +72,7 @@ class TimelineRenderer {
       header.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 5px;">
           <h3 style="margin: 0; color: #4CAF50; font-size: 18px;">🎬 타임라인 렌더링 뷰어</h3>
-          <div style="font-size: 12px; color: #888;">
+          <div style="font-size: 12px; color: #888; display: none;">
             🖱️ 좌클릭+드래그: 회전 | 🖱️ 우클릭+드래그: 이동 | 🖱️ 휠: 줌 | 🎮 버튼: 정밀 조정
           </div>
         </div>
