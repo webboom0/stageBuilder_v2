@@ -821,6 +821,10 @@ select:hover {
   opacity: 0.5;
 }
 
+#toolbar button.big img {
+  width: 24px;
+}
+
 #info {
   display: none !important;
 }
@@ -1731,6 +1735,7 @@ select:hover {
   transition: all 0.2s ease;
   cursor: pointer;
   margin: 0;
+  padding: 5px;
 }
 #toolbar input{
   position: absolute;

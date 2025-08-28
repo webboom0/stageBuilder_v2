@@ -43,7 +43,7 @@ app.get('/api/health', (req, res) => {
 // 루트 경로
 app.get('/', (req, res) => {
   res.json({
-    message: '음악 & 🎬 FBX 업로드 서버가 실행 중입니다.',
+    message: '음악 & FBX 업로드 서버가 실행 중입니다.',
     endpoints: {
       health: '/api/health',
       // 오디오 관련
@@ -51,12 +51,12 @@ app.get('/', (req, res) => {
         upload: '/api/upload-audio',
         files: '/api/audio-files'
       },
-      // 🎬 FBX 관련
+      // FBX 관련
       fbx: {
         upload: '/api/upload-fbx',
         files: '/api/fbx-files'
       },
-      // 🎬 비디오 관련
+      // 비디오 관련
       video: {
         upload: '/api/upload-video',
         files: '/api/video-files'
@@ -248,13 +248,13 @@ app.post('/api/upload-fbx', fbxUpload.single('fbxFile'), (req, res) => {
     }
 
     const uploadedFile = req.file;
-    console.log('🎬 FBX 파일 업로드:', uploadedFile.originalname);
+    console.log('FBX 파일 업로드:', uploadedFile.originalname);
 
     // 파일이 이미 fbxStorage에 의해 올바른 위치에 저장됨
     console.log('✅ FBX 파일 저장됨:', uploadedFile.path);
 
     res.json({
-      message: '🎬 FBX 파일 업로드 성공',
+      message: 'FBX 파일 업로드 성공',
       filename: uploadedFile.originalname,
       path: `/files/fbx/${uploadedFile.originalname}`,
       size: uploadedFile.size,
@@ -294,7 +294,7 @@ app.get('/api/fbx-files', (req, res) => {
         };
       });
 
-    console.log(`🎬 FBX 파일 ${files.length}개 발견`);
+    console.log(`FBX 파일 ${files.length}개 발견`);
     res.json(files);
 
   } catch (error) {
@@ -303,7 +303,7 @@ app.get('/api/fbx-files', (req, res) => {
   }
 });
 
-// 🎬 FBX 파일 삭제 엔드포인트
+// FBX 파일 삭제 엔드포인트
 app.delete('/api/fbx-files/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
@@ -342,7 +342,7 @@ app.get('/files/fbx/:filename', (req, res) => {
     res.download(fbxPath, filename);
 
   } catch (error) {
-    console.error('❌ FBX 파일 다운로드 오류:', error);
+    console.error('FBX 파일 다운로드 오류:', error);
     res.status(500).json({ error: 'FBX 파일 다운로드 중 오류가 발생했습니다.' });
   }
 });
@@ -449,9 +449,9 @@ app.delete('/api/video-files/:filename', (req, res) => {
 
 // 서버 시작
 app.listen(PORT, () => {
-  console.log(`🎵 음악 업로드 서버가 포트 ${PORT}에서 실행 중입니다.`);
-  console.log(`📁 음악 파일 경로: ${path.join(__dirname, '../files/music')}`);
-  console.log(`🌐 API 엔드포인트: http://localhost:${PORT}/api`);
+  console.log(`음악 업로드 서버가 포트 ${PORT}에서 실행 중입니다.`);
+  console.log(`음악 파일 경로: ${path.join(__dirname, '../files/music')}`);
+  console.log(`API 엔드포인트: http://localhost:${PORT}/api`);
 });
 
 // 에러 핸들링

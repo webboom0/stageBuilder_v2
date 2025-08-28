@@ -83,6 +83,53 @@ function MenubarView( editor ) {
 	} ).toggleClass( 'toggle-on', states.skeletonHelpers );
 
 	options.add( option );
+	
+	options.add( new UIHorizontalRule() );
+
+	// Audience View (객석시점)
+	option = new UIRow();
+	option.setClass( 'option' );
+	option.setTextContent( '객석시점' );
+	option.onClick( function () {
+		
+		// 카메라를 객석시점으로 변경 (이미지 속성 기반)
+		const camera = editor.camera;
+		if ( camera ) {
+			
+			// 위치 설정 (X: -0.103, Y: 46.167, Z: -70.978)
+			camera.position.set( -0.103, 46.167, -70.978 );
+			
+			// 회전 설정 (X: -172.04°, Y: 0.94°, Z: 179.87°)
+			camera.rotation.set(
+				THREE.MathUtils.degToRad( -172.04 ),
+				THREE.MathUtils.degToRad( 0.94 ),
+				THREE.MathUtils.degToRad( 179.87 )
+			);
+			
+			// 스케일 설정 (X: 1.000, Y: 1.000, Z: 1.000)
+			camera.scale.set( 1.000, 1.000, 1.000 );
+			
+			// 화각 설정 (50.00)
+			if ( camera.fov !== undefined ) {
+				camera.fov = 50.00;
+				camera.updateProjectionMatrix();
+			}
+			
+			// near, far 클리핑 플레인 설정
+			if ( camera.near !== undefined ) camera.near = 0.01;
+			if ( camera.far !== undefined ) camera.far = 1000.00;
+			
+			// 카메라 업데이트
+			camera.updateMatrix();
+			camera.updateMatrixWorld();
+			
+			// 에디터에 변경사항 알림
+			signals.cameraChanged.dispatch();
+			
+		}
+		
+	} );
+	options.add( option );
 
 	//
 

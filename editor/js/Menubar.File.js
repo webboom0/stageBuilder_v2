@@ -682,6 +682,8 @@ function MenubarFile(editor) {
 
   options.add(option);
 
+  options.add( new UIHorizontalRule() );
+  
    // 프로젝트 설정 메뉴
    const projectSetupButton = new UIRow();
    projectSetupButton.setClass("option button-style");

@@ -1,7 +1,7 @@
 // FBX 파일 업로드 설정
 export const FBX_UPLOAD_CONFIG = {
   // 서버 기본 URL (개발 환경)
-  SERVER_URL: 'http://localhost:3001',
+  SERVER_URL: 'https://pivot.mhsoft.co.kr',
   
   // API 엔드포인트
   ENDPOINTS: {

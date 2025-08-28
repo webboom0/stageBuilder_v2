@@ -263,6 +263,11 @@ export function createVideoPanel(editor) {
           name: "video3",
           displayName: "Video 3",
           filename: "video3.mp4"
+        },{
+          path: "../files/video/su_test.mp4",
+          name: "su_test",
+          displayName: "su_test",
+          filename: "su_test.mp4"
         }
       ];
 
