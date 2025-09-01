@@ -1735,12 +1735,27 @@ class TimelineRenderer {
       }
       
       // 2. LightTimeline 데이터 활용
+      console.log("🎬 LightTimeline 확인:", {
+        hasLightTimeline: !!this.editor.lightTimeline,
+        lightTimeline: this.editor.lightTimeline,
+        hasTimelineData: !!(this.editor.lightTimeline && this.editor.lightTimeline.timelineData),
+        timelineData: this.editor.lightTimeline ? this.editor.lightTimeline.timelineData : null
+      });
+      
       if (this.editor.lightTimeline && this.editor.lightTimeline.timelineData) {
         const lightData = this.editor.lightTimeline.timelineData;
         const currentTime = customTime !== null ? customTime : (this.editor.lightTimeline.currentTime || 0);
         
+        console.log("🎬 LightTimeline 데이터 발견:", {
+          lightData: lightData,
+          currentTime: currentTime,
+          tracksSize: lightData.tracks ? lightData.tracks.size : 0
+        });
+        
         // 현재 시간에 맞는 조명 값 적용
         this.applyLightTimelineData(lightData, currentTime);
+      } else {
+        console.log("⚠️ LightTimeline 또는 timelineData가 없습니다");
       }
       
       // 3. Scene의 userData에서 애니메이션 정보 활용
@@ -1964,49 +1979,133 @@ class TimelineRenderer {
   // 🎯 LightTimeline 데이터 적용
   applyLightTimelineData(lightData, currentTime) {
     try {
-      if (!lightData || !lightData.tracks) return;
+      // console.log("🎬 === LightTimeline 데이터 적용 시작 ===");
+      // console.log("🎬 lightData:", lightData);
+      // console.log("🎬 currentTime:", currentTime);
       
-      console.log("🎬 LightTimeline 데이터 적용 중...");
-      console.log("🎬 현재 시간:", currentTime);
-      console.log("🎬 tracks 크기:", lightData.tracks.size);
+      if (!lightData) {
+        console.warn("⚠️ lightData가 없습니다");
+        return;
+      }
+      
+      if (!lightData.tracks) {
+        console.warn("⚠️ lightData.tracks가 없습니다");
+        return;
+      }
+      
+      // console.log("🎬 tracks 크기:", lightData.tracks.size);
 
       // 각 조명의 애니메이션 데이터 적용
       lightData.tracks.forEach((objectTracks, objectId) => {
-        console.log(`🎬 조명 ${objectId} 처리 중...`);
-        console.log(`🎬 조명 속성 개수:`, objectTracks.size);
-
-        // 원본 에디터 씬에서 직접 조명 찾기
-          let targetLight = null;
+        // 원본 에디터 씬에서 직접 조명 찾기 (UUID 매칭)
+        let targetLight = null;
         this.editor.scene.traverse((object) => {
-          if (object.uuid === objectId && object.type.includes('Light')) {
+          if (object.type.includes('Light') && object.uuid === objectId) {
+            targetLight = object;
+          }
+        });
+          
+        if (!targetLight) {
+          // UUID로 찾지 못한 경우 이름으로도 시도
+          this.editor.scene.traverse((object) => {
+            if (object.type.includes('Light') && object.name === objectId) {
               targetLight = object;
             }
           });
-          
-        if (!targetLight) {
-          console.warn(`⚠️ 조명 ID ${objectId}에 해당하는 조명을 찾을 수 없음`);
-          return;
         }
 
-        console.log(`🎬 대상 조명:`, targetLight);
-        console.log(`🎬 원본 ID: ${objectId} 직접 사용`);
+        if (!targetLight) {
+          return; // 조명을 찾지 못한 경우 건너뛰기
+        }
 
         // 각 속성에 대해 처리
         objectTracks.forEach((trackData, property) => {
-          console.log(`🎬 조명 속성 ${property} 처리 중...`);
+          if (trackData.getKeyframeCount() === 0) {
+            return; // 키프레임이 없는 경우 건너뛰기
+          }
 
-          const value = this.calculateTimelineValue(trackData, currentTime, property);
-            if (value !== null) {
-            console.log(`🎬 조명 ${property} 값 적용:`, value);
-            this.applyValueToObject(targetLight, property, value);
-          } else {
-            console.log(`⚠️ 조명 ${property} 값 계산 실패`);
+          const value = trackData.getValueAtTime(currentTime);
+          
+          if (value !== null) {
+            // 조명 속성 적용
+            switch (property) {
+              case "intensity":
+                targetLight.intensity = value.x;
+                break;
+              case "color":
+                targetLight.color.setRGB(value.x, value.y, value.z);
+                break;
+              case "position":
+                targetLight.position.copy(value);
+                break;
+              case "distance":
+                targetLight.distance = value.x;
+                break;
+              case "angle":
+                targetLight.angle = value.x;
+                break;
+              case "penumbra":
+                targetLight.penumbra = value.x;
+                break;
+              case "decay":
+                targetLight.decay = value.x;
+                break;
+            }
+
+            // 조명 객체의 matrix 업데이트 (렌더링 시 정확한 위치/회전 보장)
+            if (targetLight.updateMatrix) {
+              targetLight.updateMatrix();
+            }
+            if (targetLight.updateMatrixWorld) {
+              targetLight.updateMatrixWorld(true);
+            }
           }
         });
       });
+
+      // 🎯 타겟 조명의 target position 처리
+      if (lightData.targetTracks) {
+        lightData.targetTracks.forEach((objectTracks, objectId) => {
+          // 타겟 객체 찾기 (이름으로)
+          let targetObject = this.editor.scene.getObjectByName(objectId);
+          
+          if (!targetObject) {
+            return; // 타겟 객체를 찾지 못한 경우 건너뛰기
+          }
+
+          // 각 속성에 대해 처리
+          objectTracks.forEach((trackData, property) => {
+            if (trackData.getKeyframeCount() === 0) {
+              return; // 키프레임이 없는 경우 건너뛰기
+            }
+
+            const value = trackData.getValueAtTime(currentTime);
+            
+            if (value !== null) {
+              // 타겟 속성 적용
+              switch (property) {
+                case "position":
+                  targetObject.position.copy(value);
+                  break;
+              }
+
+              // 타겟 객체의 matrix 업데이트
+              if (targetObject.updateMatrix) {
+                targetObject.updateMatrix();
+              }
+              if (targetObject.updateMatrixWorld) {
+                targetObject.updateMatrixWorld(true);
+              }
+            }
+          });
+        });
+      }
+      
+      // console.log("🎬 === LightTimeline 데이터 적용 완료 ===");
       
     } catch (error) {
-      console.warn("⚠️ LightTimeline 데이터 적용 실패:", error);
+      console.error("❌ LightTimeline 데이터 적용 실패:", error);
+      console.error("❌ 에러 스택:", error.stack);
     }
   }
 
@@ -2137,13 +2236,25 @@ class TimelineRenderer {
         console.log(`🎬 scale 적용: ${object.name}`, value);
       } else if (property === 'intensity' && typeof value === 'number') {
         if (object.intensity !== undefined) {
+          const oldIntensity = object.intensity;
           object.intensity = value;
-          console.log(`🎬 intensity 적용: ${object.name}`, value);
+          console.log(`🎬 intensity 적용: ${object.name} ${oldIntensity} → ${value}`);
+        } else {
+          console.warn(`⚠️ ${object.name}에 intensity 속성이 없습니다`);
         }
-      } else if (property === 'color' && value instanceof THREE.Color) {
+      } else if (property === 'color') {
         if (object.color) {
-          object.color.copy(value);
-          console.log(`🎬 color 적용: ${object.name}`, value);
+          const oldColor = object.color.getHexString();
+          if (value instanceof THREE.Color) {
+            object.color.copy(value);
+          } else if (typeof value === 'number') {
+            object.color.setHex(value);
+          } else if (Array.isArray(value) && value.length >= 3) {
+            object.color.setRGB(value[0], value[1], value[2]);
+          }
+          console.log(`🎬 color 적용: ${object.name} #${oldColor} → #${object.color.getHexString()}`);
+        } else {
+          console.warn(`⚠️ ${object.name}에 color 속성이 없습니다`);
         }
       }
 

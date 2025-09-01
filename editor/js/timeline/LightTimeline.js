@@ -2516,6 +2516,11 @@ export class LightTimeline extends BaseTimeline {
     let totalUpdates = 0;
     let totalTracks = 0;
 
+    // 타겟 트랙 데이터를 저장할 Map 초기화
+    if (!this.timelineData.targetTracks) {
+      this.timelineData.targetTracks = new Map();
+    }
+
     this.tracks.forEach((track) => {
       totalTracks++;
 
@@ -2759,6 +2764,12 @@ export class LightTimeline extends BaseTimeline {
       times: Array.from(trackData.times.slice(0, trackData.keyframeCount)),
       currentTime: this.currentTime
     });
+
+    // 타겟 트랙 데이터를 targetTracks에 저장 (TimelineRenderer에서 사용)
+    if (!this.timelineData.targetTracks.has(track.objectId)) {
+      this.timelineData.targetTracks.set(track.objectId, new Map());
+    }
+    this.timelineData.targetTracks.get(track.objectId).set("position", trackData);
 
     // 현재 시간에서 타겟 위치 값 가져오기
     const targetValue = trackData.getValueAtTime(this.currentTime);
