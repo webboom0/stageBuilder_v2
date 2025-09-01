@@ -832,6 +832,11 @@ export class MotionTimeline extends BaseTimeline {
             this.editor.scene.userData.timeline.currentSeconds = currentTime;
         }
 
+        // 🎬 TimelineRenderer와 동기화 (렌더링 시 FBX 애니메이션 속도 조정)
+        if (this.editor.timelineRenderer) {
+            this.editor.timelineRenderer.updateAnimationFromTimeline(currentTime);
+        }
+
 
 
         // 타임라인 컨테이너에 애니메이션 상태 업데이트
@@ -934,45 +939,44 @@ export class MotionTimeline extends BaseTimeline {
             }
         });
 
-        // FBX 애니메이션 업데이트 (클립 범위에 있을 때만)
-        if (this.isPlaying) {
-            this.mixers.forEach((mixer, uuid) => {
-                const object = this.editor.scene.getObjectByProperty('uuid', uuid);
-                if (!object) return;
+        // FBX 애니메이션 업데이트 (클립 범위에 있을 때만) - 렌더링 시에도 작동하도록 isPlaying 조건 제거
+        this.mixers.forEach((mixer, uuid) => {
+            const object = this.editor.scene.getObjectByProperty('uuid', uuid);
+            if (!object) return;
 
-                // 해당 객체의 클립 범위 확인
-                const trackElement = this.container.querySelector(`[data-uuid="${uuid}"]`);
-                if (!trackElement) {
-                    console.warn(`트랙 UI 요소가 없습니다: ${uuid}`);
-                    return;
-                }
+            // 해당 객체의 클립 범위 확인
+            const trackElement = this.container.querySelector(`[data-uuid="${uuid}"]`);
+            if (!trackElement) {
+                console.warn(`트랙 UI 요소가 없습니다: ${uuid}`);
+                return;
+            }
 
-                const sprites = trackElement.querySelectorAll('.animation-sprite');
-                let isInActiveClip = false;
-                let clipRelativeTime = 0;
+            const sprites = trackElement.querySelectorAll('.animation-sprite');
+            let isInActiveClip = false;
+            let clipRelativeTime = 0;
 
-                sprites.forEach(sprite => {
-                    const clipLeft = parseFloat(sprite.style.left) || 0;
-                    const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
-                    const clipDuration = parseFloat(sprite.dataset.duration) || 5;
-                    const clipEndTime = clipStartTime + clipDuration;
+            sprites.forEach(sprite => {
+                const clipLeft = parseFloat(sprite.style.left) || 0;
+                const clipStartTime = (clipLeft / 100) * this.options.totalSeconds;
+                const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+                const clipEndTime = clipStartTime + clipDuration;
 
-                    if (currentTime >= clipStartTime && currentTime <= clipEndTime) {
-                        isInActiveClip = true;
-                        clipRelativeTime = currentTime - clipStartTime;
-                    }
-                });
-
-                // 클립 범위에 있을 때만 FBX 애니메이션 업데이트
-                if (isInActiveClip && object.animations && object.animations.length > 0) {
-                    // FBX 애니메이션도 클립 상대 시간으로 설정
-                    mixer.setTime(clipRelativeTime);
-                    object.visible = true;
-                } else {
-                    object.visible = false;
+                if (currentTime >= clipStartTime && currentTime <= clipEndTime) {
+                    isInActiveClip = true;
+                    clipRelativeTime = currentTime - clipStartTime;
                 }
             });
-        }
+
+            // 클립 범위에 있을 때만 FBX 애니메이션 업데이트
+            if (isInActiveClip && object.animations && object.animations.length > 0) {
+                // FBX 애니메이션도 클립 상대 시간으로 설정
+                mixer.setTime(clipRelativeTime);
+                object.visible = true;
+                console.log(`🎬 MotionTimeline FBX 애니메이션 시간 설정: ${object.name || object.uuid} - 상대시간: ${clipRelativeTime}`);
+            } else {
+                object.visible = false;
+            }
+        });
     }
 
     // 타임라인 애니메이션 상태 업데이트 (data-* 속성 활용)

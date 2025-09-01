@@ -1149,6 +1149,100 @@ class TimelineRenderer {
     }
   }
 
+  // 🎬 FBX 애니메이션 믹서 업데이트 (렌더링용 - 클립 상대 시간 사용)
+  updateFBXAnimationMixersForRendering(currentTime) {
+    try {
+      console.log("🎬 FBX 애니메이션 믹서 렌더링 시간 설정 중...");
+      console.log("🎬 현재 시간:", currentTime);
+
+      // 🎬 MotionTimeline에서 클립 정보 가져오기
+      if (!this.editor.motionTimeline) {
+        console.warn("⚠️ MotionTimeline이 없습니다");
+        return;
+      }
+
+      // 🎬 씬 내의 모든 객체를 순회하며 애니메이션 믹서 찾기 및 시간 설정
+      this.editor.scene.traverse((object) => {
+        if (!object.animations || object.animations.length === 0) return;
+
+        // 🎬 해당 객체의 클립 범위 확인
+        const trackElement = this.editor.motionTimeline.container.querySelector(`[data-uuid="${object.uuid}"]`);
+        if (!trackElement) {
+          console.log(`🎬 객체 ${object.uuid}의 트랙 요소를 찾을 수 없음`);
+          return;
+        }
+
+        const sprites = trackElement.querySelectorAll('.animation-sprite');
+        let isInActiveClip = false;
+        let clipRelativeTime = 0;
+
+        sprites.forEach(sprite => {
+          const clipLeft = parseFloat(sprite.style.left) || 0;
+          const clipStartTime = (clipLeft / 100) * this.editor.motionTimeline.options.totalSeconds;
+          const clipDuration = parseFloat(sprite.dataset.duration) || 5;
+          const clipEndTime = clipStartTime + clipDuration;
+
+          if (currentTime >= clipStartTime && currentTime <= clipEndTime) {
+            isInActiveClip = true;
+            clipRelativeTime = currentTime - clipStartTime;
+            console.log(`🎬 객체 ${object.uuid} 클립 범위 내:`, {
+              clipStartTime,
+              clipEndTime,
+              clipRelativeTime,
+              currentTime
+            });
+          }
+        });
+
+        // 🎬 클립 범위에 있을 때만 FBX 애니메이션 믹서 시간 설정
+        if (isInActiveClip) {
+          // 🎬 객체 자체에 애니메이션 믹서가 있는 경우
+          if (object.animationMixer) {
+            object.animationMixer.setTime(clipRelativeTime);
+            console.log(`🎬 FBX 애니메이션 믹서 시간 설정: ${object.name || object.type} (object.animationMixer) - 상대시간: ${clipRelativeTime}`);
+          }
+
+          // 🎬 userData에 애니메이션 믹서가 있는 경우
+          if (object.userData && object.userData.animationMixer) {
+            object.userData.animationMixer.setTime(clipRelativeTime);
+            console.log(`🎬 FBX 애니메이션 믹서 시간 설정: ${object.name || object.type} (userData.animationMixer) - 상대시간: ${clipRelativeTime}`);
+          }
+
+          // 🎬 userData에 애니메이션 믹서 배열이 있는 경우
+          if (object.userData && object.userData.animationMixers && Array.isArray(object.userData.animationMixers)) {
+            object.userData.animationMixers.forEach((mixer, index) => {
+              if (mixer && mixer.setTime) {
+                mixer.setTime(clipRelativeTime);
+                console.log(`🎬 FBX 애니메이션 믹서 시간 설정: ${object.name || object.type} (userData.animationMixers[${index}]) - 상대시간: ${clipRelativeTime}`);
+              }
+            });
+          }
+
+          // 🎬 씬의 애니메이션 믹서 배열에서 해당 객체의 믹서 찾기
+          if (this.editor.scene.userData.animationMixers) {
+            this.editor.scene.userData.animationMixers.forEach((mixer, index) => {
+              if (mixer && mixer.setTime) {
+                // 🎬 믹서가 해당 객체에 속하는지 확인 (정확한 매칭은 어려우므로 일단 모든 믹서에 적용)
+                mixer.setTime(clipRelativeTime);
+                console.log(`🎬 씬 애니메이션 믹서 시간 설정: 인덱스 ${index} - 상대시간: ${clipRelativeTime}`);
+              }
+            });
+          }
+
+          // 🎬 객체 가시성 설정
+          object.visible = true;
+        } else {
+          // 🎬 클립 범위 밖이면 객체 숨기기
+          object.visible = false;
+          console.log(`🎬 객체 ${object.uuid} 클립 범위 밖 - 숨김`);
+        }
+      });
+
+    } catch (error) {
+      console.warn("⚠️ FBX 애니메이션 믹서 렌더링 시간 설정 실패:", error);
+    }
+  }
+
   // 🎬 FBX 애니메이션 믹서 업데이트
   updateFBXAnimationMixers(deltaTime) {
     try {
@@ -1777,6 +1871,9 @@ class TimelineRenderer {
       console.log("🎬 현재 시간:", currentTime);
       console.log("🎬 tracks 크기:", motionData.tracks ? motionData.tracks.size : "없음");
       console.log("🎬 precomputedData 크기:", motionData.precomputedData ? motionData.precomputedData.size : "없음");
+
+      // 🎬 FBX 애니메이션 믹서 시간 설정 (클립 상대 시간 사용)
+      this.updateFBXAnimationMixersForRendering(currentTime);
 
       // precomputedData가 있다면 사용, 없다면 tracks 사용
       if (motionData.precomputedData && motionData.precomputedData.size > 0) {
