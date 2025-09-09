@@ -1838,6 +1838,11 @@ export class AudioTimeline extends BaseTimeline {
     const track = trackId ? this.tracks.get(trackId) : null;
     this.bindSpriteEvents(sprite, track);
 
+    // 편집 모드가 활성화되어 있으면 리사이즈 핸들 추가
+    if (this.isEditMode) {
+      this.addResizeHandles(sprite);
+    }
+
     return trackTopArea;
   }
 
@@ -2275,6 +2280,33 @@ export class AudioTimeline extends BaseTimeline {
     clipDurationRow.add(new UIElement(clipDurationInput));
     panel.add(clipDurationRow);
 
+    // 클립 편집 도구 버튼들
+    const clipToolsRow = new UIRow();
+    clipToolsRow.add(new UIText("클립 편집"));
+
+    // 시작/끝 지점 편집 모드 토글 버튼
+    const editModeButton = document.createElement("button");
+    editModeButton.textContent = "편집 모드";
+    editModeButton.className = "edit-mode-button";
+    editModeButton.style.marginRight = "5px";
+    editModeButton.style.padding = "5px 10px";
+    editModeButton.style.backgroundColor = "#4CAF50";
+    editModeButton.style.color = "white";
+    editModeButton.style.border = "none";
+    editModeButton.style.borderRadius = "3px";
+    editModeButton.style.cursor = "pointer";
+
+    editModeButton.addEventListener("click", () => {
+      this.toggleEditMode();
+    });
+
+    // 편집 모드 상태 변수
+    this.isEditMode = false;
+    this.editModeButton = editModeButton;
+
+    clipToolsRow.add(new UIElement(editModeButton));
+    panel.add(clipToolsRow);
+
     // 볼륨 컨트롤 스타일 추가
     const style = document.createElement("style");
     style.textContent = `
@@ -2378,6 +2410,44 @@ export class AudioTimeline extends BaseTimeline {
 
       .audio-sprite:hover {
         background: rgba(76, 175, 80, 0.4);
+      }
+
+      /* 리사이즈 핸들 스타일 */
+      .resize-handle {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        width: 8px;
+        cursor: ew-resize;
+        z-index: 10;
+        opacity: 0.8;
+        transition: opacity 0.2s ease;
+      }
+
+      .resize-handle:hover {
+        opacity: 1;
+      }
+
+      .resize-handle-left {
+        left: 0;
+        background-color: #ff6b6b;
+        border-radius: 4px 0 0 4px;
+      }
+
+      .resize-handle-right {
+        right: 0;
+        background-color: #4ecdc4;
+        border-radius: 0 4px 4px 0;
+      }
+
+      /* 편집 모드 버튼 스타일 */
+      .edit-mode-button {
+        transition: all 0.3s ease;
+      }
+
+      .edit-mode-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       }
     `;
     document.head.appendChild(style);
@@ -3147,12 +3217,20 @@ export class AudioTimeline extends BaseTimeline {
       const sprite = trackContent.querySelector('.audio-sprite');
       if (sprite) {
         this.bindSpriteEvents(sprite, track);
+        // 편집 모드가 활성화되어 있으면 리사이즈 핸들 추가
+        if (this.isEditMode) {
+          this.addResizeHandles(sprite);
+        }
       }
     } else {
       // 기존 요소에서 복사한 경우
       const sprite = trackContent.querySelector('.audio-sprite');
       if (sprite) {
         this.bindSpriteEvents(sprite, track);
+        // 편집 모드가 활성화되어 있으면 리사이즈 핸들 추가
+        if (this.isEditMode) {
+          this.addResizeHandles(sprite);
+        }
       }
     }
 
@@ -3323,6 +3401,250 @@ export class AudioTimeline extends BaseTimeline {
     });
 
     // 여기서 속성 패널을 업데이트하는 로직을 추가할 수 있습니다
+  }
+
+  // 편집 모드 토글 메서드
+  toggleEditMode() {
+    this.isEditMode = !this.isEditMode;
+    
+    if (this.isEditMode) {
+      this.editModeButton.textContent = "편집 모드 (ON)";
+      this.editModeButton.style.backgroundColor = "#f44336";
+      this.enableClipEditMode();
+    } else {
+      this.editModeButton.textContent = "편집 모드";
+      this.editModeButton.style.backgroundColor = "#4CAF50";
+      this.disableClipEditMode();
+    }
+  }
+
+  // 클립 편집 모드 활성화
+  enableClipEditMode() {
+    console.log("클립 편집 모드 활성화");
+    
+    // 모든 오디오 스프라이트에 리사이즈 핸들 추가
+    document.querySelectorAll('.audio-sprite').forEach(sprite => {
+      this.addResizeHandles(sprite);
+    });
+  }
+
+  // 클립 편집 모드 비활성화
+  disableClipEditMode() {
+    console.log("클립 편집 모드 비활성화");
+    
+    // 모든 리사이즈 핸들 제거
+    document.querySelectorAll('.resize-handle').forEach(handle => {
+      handle.remove();
+    });
+  }
+
+  // 리사이즈 핸들 추가
+  addResizeHandles(sprite) {
+    // 이미 핸들이 있으면 제거
+    sprite.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
+
+    // 왼쪽 핸들 (시작 지점 조정)
+    const leftHandle = document.createElement('div');
+    leftHandle.className = 'resize-handle resize-handle-left';
+    leftHandle.style.position = 'absolute';
+    leftHandle.style.left = '0';
+    leftHandle.style.top = '0';
+    leftHandle.style.width = '8px';
+    leftHandle.style.height = '100%';
+    leftHandle.style.backgroundColor = '#ff6b6b';
+    leftHandle.style.cursor = 'ew-resize';
+    leftHandle.style.zIndex = '10';
+    leftHandle.style.opacity = '0.8';
+    leftHandle.title = '시작 지점 조정';
+
+    // 오른쪽 핸들 (끝 지점 조정)
+    const rightHandle = document.createElement('div');
+    rightHandle.className = 'resize-handle resize-handle-right';
+    rightHandle.style.position = 'absolute';
+    rightHandle.style.right = '0';
+    rightHandle.style.top = '0';
+    rightHandle.style.width = '8px';
+    rightHandle.style.height = '100%';
+    rightHandle.style.backgroundColor = '#4ecdc4';
+    rightHandle.style.cursor = 'ew-resize';
+    rightHandle.style.zIndex = '10';
+    rightHandle.style.opacity = '0.8';
+    rightHandle.title = '끝 지점 조정';
+
+    // 핸들 이벤트 바인딩
+    this.bindResizeHandleEvents(leftHandle, sprite, 'left');
+    this.bindResizeHandleEvents(rightHandle, sprite, 'right');
+
+    // 스프라이트에 핸들 추가
+    sprite.appendChild(leftHandle);
+    sprite.appendChild(rightHandle);
+  }
+
+  // 리사이즈 핸들 이벤트 바인딩
+  bindResizeHandleEvents(handle, sprite, side) {
+    let isResizing = false;
+    let startX = 0;
+    let startLeft = 0;
+    let startWidth = 0;
+    let startTime = 0;
+    let startDuration = 0;
+    let originalAudioStartTime = 0;
+    let originalAudioEndTime = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      isResizing = true;
+      startX = e.clientX;
+      
+      const spriteRect = sprite.getBoundingClientRect();
+      const container = sprite.closest('.timeline-viewport');
+      const containerRect = container.getBoundingClientRect();
+      
+      startLeft = parseFloat(sprite.style.left) || 0;
+      startWidth = parseFloat(sprite.style.width) || 0;
+      startTime = parseFloat(sprite.dataset.startTime) || 0;
+      startDuration = parseFloat(sprite.dataset.duration) || 0;
+
+      // 드래그 시작 시점의 원본 오디오 시간 저장
+      const track = this.findTrackBySprite(sprite);
+      if (track) {
+        const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+        if (audioObject) {
+          originalAudioStartTime = audioObject.userData.audioStartTime || 0;
+          originalAudioEndTime = audioObject.userData.audioEndTime || (audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : originalAudioStartTime + startDuration);
+        }
+      }
+
+      handle.style.opacity = '1';
+      document.body.style.cursor = 'ew-resize';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+
+      const container = sprite.closest('.timeline-viewport');
+      const containerRect = container.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+      const totalSeconds = this.getTotalSeconds();
+
+      const deltaX = e.clientX - startX;
+      const deltaPercent = (deltaX / containerWidth) * 100;
+
+      if (side === 'left') {
+        // 왼쪽 핸들: 클립 시작 위치와 오디오 시작 시간 조정
+        const track = this.findTrackBySprite(sprite);
+        if (track) {
+          const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+          if (audioObject) {
+            // 새로운 클립 시작 위치 계산
+            const newClipLeft = Math.max(0, startLeft + deltaPercent);
+            const newClipStartTime = (newClipLeft / 100) * totalSeconds;
+            
+            // 클립 너비는 원본에서 변화량만큼 줄어듦
+            const newClipWidth = Math.max(10, startWidth - deltaPercent); // 최소 10% 유지
+            const newClipDuration = (newClipWidth / 100) * totalSeconds;
+            
+            // 오디오 시간 조정 - 클립 시작 시간 변화에 따라 오디오 시작 시간도 조정
+            const timeDifference = newClipStartTime - startTime;
+            const newAudioStartTime = Math.max(0, originalAudioStartTime + timeDifference);
+            const newAudioEndTime = Math.min(
+              audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : originalAudioEndTime,
+              newAudioStartTime + newClipDuration
+            );
+            
+            // 클립 위치와 크기 업데이트
+            sprite.style.left = `${newClipLeft}%`;
+            sprite.style.width = `${newClipWidth}%`;
+            sprite.dataset.startTime = newClipStartTime.toString();
+            sprite.dataset.duration = newClipDuration.toString();
+            
+            // 오디오 시작/끝 시간 업데이트
+            audioObject.userData.audioStartTime = newAudioStartTime;
+            audioObject.userData.audioEndTime = newAudioEndTime;
+            
+            // input 필드 실시간 업데이트
+            this.updateInputFields(newAudioStartTime, newAudioEndTime);
+            this.updateClipInputFields(newClipStartTime, newClipDuration);
+          }
+        }
+        
+      } else if (side === 'right') {
+        // 오른쪽 핸들: 클립 끝 위치와 오디오 끝 시간 조정
+        const track = this.findTrackBySprite(sprite);
+        if (track) {
+          const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+          if (audioObject) {
+            // 새로운 클립 너비 계산 (최소 10% 유지)
+            const newClipWidth = Math.max(10, startWidth + deltaPercent);
+            const newClipDuration = (newClipWidth / 100) * totalSeconds;
+            
+            // 오디오 끝 시간 계산 - 클립 길이 변화에 따라 조정
+            const newAudioEndTime = Math.min(
+              audioObject.userData.audioElement ? audioObject.userData.audioElement.duration : originalAudioEndTime + newClipDuration,
+              originalAudioStartTime + newClipDuration
+            );
+            
+            // 클립 크기 업데이트 (위치는 그대로)
+            sprite.style.width = `${newClipWidth}%`;
+            sprite.dataset.duration = newClipDuration.toString();
+            
+            // 오디오 시작/끝 시간 업데이트
+            audioObject.userData.audioStartTime = originalAudioStartTime;
+            audioObject.userData.audioEndTime = newAudioEndTime;
+            
+            // input 필드 실시간 업데이트
+            this.updateInputFields(originalAudioStartTime, newAudioEndTime);
+            this.updateClipInputFields(startTime, newClipDuration);
+          }
+        }
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        handle.style.opacity = '0.8';
+        document.body.style.cursor = '';
+        
+        // 최종 업데이트
+        const track = this.findTrackBySprite(sprite);
+        if (track) {
+          this.updateClipInputFields(
+            parseFloat(sprite.dataset.startTime),
+            parseFloat(sprite.dataset.duration)
+          );
+        }
+      }
+    });
+  }
+
+  // 스프라이트로부터 오디오 객체 업데이트
+  updateAudioObjectFromSprite(sprite, startTime, duration) {
+    const track = this.findTrackBySprite(sprite);
+    if (!track) return;
+
+    const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+    if (!audioObject) return;
+
+    audioObject.userData.startTime = startTime;
+    audioObject.userData.duration = duration;
+
+    // input 필드 실시간 업데이트
+    const audioStartTime = audioObject.userData.audioStartTime || 0;
+    const audioEndTime = audioObject.userData.audioEndTime || (audioStartTime + duration);
+    
+    this.updateInputFields(audioStartTime, audioEndTime);
+    this.updateClipInputFields(startTime, duration);
+  }
+
+  // 스프라이트로부터 트랙 찾기
+  findTrackBySprite(sprite) {
+    for (const [objectId, track] of this.tracks) {
+      if (track.element && track.element.contains(sprite)) {
+        return track;
+      }
+    }
+    return null;
   }
 
   formatPropertyName(propertyType) {

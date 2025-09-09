@@ -4,7 +4,6 @@ import { BaseTimeline } from "./BaseTimeline.js";
 import { MotionTimeline } from "./MotionTimeline.js";
 import { LightTimeline } from "./LightTimeline.js";
 import { AudioTimeline } from "./AudioTimeline.js";
-import { RenderTimeline } from "./RenderTimeline.js";
 import { KeyboardShortcuts } from "./KeyboardShortcuts.js";
 import { TimelineRenderer } from "./TimelineRenderer.js";
 import { VideoBackground } from './VideoBackground.js';
@@ -134,8 +133,6 @@ class Timeline {
       });
     }
 
-    // RenderTimeline 인스턴스 생성
-    this.renderTimeline = new RenderTimeline(editor, this.timelineSettings);
 
     // 🎬 TimelineRenderer 인스턴스 생성 (새로운 렌더링 시스템)
     this.timelineRenderer = new TimelineRenderer(editor);

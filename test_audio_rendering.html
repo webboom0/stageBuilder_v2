@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오디오 렌더링 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .audio-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #333;
+            border-radius: 5px;
+        }
+        .render-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #333;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .checkbox-container {
+            margin: 10px 0;
+        }
+        label {
+            margin-left: 10px;
+        }
+        audio {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .log {
+            background: #000;
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎵 오디오 렌더링 테스트</h1>
+        
+        <div class="audio-controls">
+            <h3>🎵 오디오 컨트롤</h3>
+            <audio id="test-audio" controls>
+                <source src="../files/music/SUJESHUN.mp3" type="audio/mpeg">
+                브라우저가 오디오를 지원하지 않습니다.
+            </audio>
+            <div>
+                <button onclick="playAudio()">재생</button>
+                <button onclick="pauseAudio()">일시정지</button>
+                <button onclick="stopAudio()">정지</button>
+            </div>
+        </div>
+        
+        <div class="render-controls">
+            <h3>🎬 렌더링 컨트롤</h3>
+            <div class="checkbox-container">
+                <input type="checkbox" id="audio-mute-checkbox">
+                <label for="audio-mute-checkbox">🎵 렌더링 시 음소거</label>
+            </div>
+            <div>
+                <button onclick="startRendering()">렌더링 시작</button>
+                <button onclick="stopRendering()">렌더링 중지</button>
+                <button onclick="testMute()">음소거 테스트</button>
+                <button onclick="testUnmute()">음소거 해제 테스트</button>
+            </div>
+        </div>
+        
+        <div class="log" id="log">
+            <div>로그가 여기에 표시됩니다...</div>
+        </div>
+    </div>
+
+    <script>
+        let isRendering = false;
+        let renderInterval = null;
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function playAudio() {
+            const audio = document.getElementById('test-audio');
+            audio.play();
+            log('🎵 오디오 재생 시작');
+        }
+        
+        function pauseAudio() {
+            const audio = document.getElementById('test-audio');
+            audio.pause();
+            log('⏸️ 오디오 일시정지');
+        }
+        
+        function stopAudio() {
+            const audio = document.getElementById('test-audio');
+            audio.pause();
+            audio.currentTime = 0;
+            log('⏹️ 오디오 정지');
+        }
+        
+        function startRendering() {
+            if (isRendering) {
+                log('⚠️ 이미 렌더링 중입니다');
+                return;
+            }
+            
+            isRendering = true;
+            log('🎬 렌더링 시작...');
+            
+            // 음소거 체크박스 상태 확인
+            const muteCheckbox = document.getElementById('audio-mute-checkbox');
+            if (muteCheckbox && muteCheckbox.checked) {
+                log('🎵 렌더링 중 오디오 음소거 적용');
+                applyMuteSettingForRendering(true);
+            } else {
+                log('🎵 렌더링 중 오디오 음소거 해제');
+                applyMuteSettingForRendering(false);
+            }
+            
+            // 렌더링 시뮬레이션 (5초)
+            let progress = 0;
+            renderInterval = setInterval(() => {
+                progress += 20;
+                log(`🎬 렌더링 진행률: ${progress}%`);
+                
+                if (progress >= 100) {
+                    stopRendering();
+                    log('✅ 렌더링 완료!');
+                }
+            }, 1000);
+        }
+        
+        function stopRendering() {
+            if (!isRendering) {
+                log('⚠️ 렌더링 중이 아닙니다');
+                return;
+            }
+            
+            isRendering = false;
+            if (renderInterval) {
+                clearInterval(renderInterval);
+                renderInterval = null;
+            }
+            
+            log('⏹️ 렌더링 중지');
+            
+            // 오디오 상태 복구
+            restoreAudioStateAfterRendering();
+        }
+        
+        function testMute() {
+            log('🎵 음소거 테스트 시작');
+            applyMuteSettingForRendering(true);
+        }
+        
+        function testUnmute() {
+            log('🎵 음소거 해제 테스트 시작');
+            applyMuteSettingForRendering(false);
+        }
+        
+        // 🎵 렌더링 중 오디오 음소거 설정 적용
+        function applyMuteSettingForRendering(mute) {
+            try {
+                log(`🎵 렌더링 중 오디오 음소거 설정: ${mute}`);
+                
+                // 모든 오디오 요소 찾기
+                const audioElements = document.querySelectorAll('audio');
+                log(`🎵 음소거 적용할 오디오 요소: ${audioElements.length}개`);
+                
+                audioElements.forEach((audio, index) => {
+                    try {
+                        // 원본 상태 저장 (복구용)
+                        if (!audio._prevRenderingState) {
+                            audio._prevRenderingState = {
+                                muted: audio.muted,
+                                volume: audio.volume,
+                                paused: audio.paused
+                            };
+                        }
+                        
+                        if (mute) {
+                            // 음소거 적용
+                            audio.muted = true;
+                            log(`🎵 오디오 요소 ${index} 음소거 적용`);
+                        } else {
+                            // 원본 상태 복구
+                            if (audio._prevRenderingState) {
+                                audio.muted = audio._prevRenderingState.muted;
+                                audio.volume = audio._prevRenderingState.volume;
+                                log(`🎵 오디오 요소 ${index} 원본 상태 복구: muted=${audio._prevRenderingState.muted}, volume=${audio._prevRenderingState.volume}`);
+                            }
+                        }
+                    } catch (error) {
+                        log(`⚠️ 오디오 요소 ${index} 음소거 설정 실패: ${error.message}`);
+                    }
+                });
+                
+                log("✅ 렌더링 중 오디오 음소거 설정 완료");
+                
+            } catch (error) {
+                log(`❌ 렌더링 중 오디오 음소거 설정 실패: ${error.message}`);
+            }
+        }
+        
+        // 🎵 렌더링 완료 후 오디오 상태 복구
+        function restoreAudioStateAfterRendering() {
+            try {
+                log("🎵 렌더링 완료 후 오디오 상태 복구 시작...");
+                
+                // 모든 오디오 요소 찾기
+                const audioElements = document.querySelectorAll('audio');
+                log(`🎵 상태 복구할 오디오 요소: ${audioElements.length}개`);
+                
+                audioElements.forEach((audio, index) => {
+                    try {
+                        if (audio._prevRenderingState) {
+                            // 원본 상태 복구
+                            audio.muted = audio._prevRenderingState.muted;
+                            audio.volume = audio._prevRenderingState.volume;
+                            log(`🎵 오디오 요소 ${index} 상태 복구: muted=${audio._prevRenderingState.muted}, volume=${audio._prevRenderingState.volume}`);
+                            
+                            // 복구 완료 후 저장된 상태 제거
+                            delete audio._prevRenderingState;
+                        }
+                    } catch (error) {
+                        log(`⚠️ 오디오 요소 ${index} 상태 복구 실패: ${error.message}`);
+                    }
+                });
+                
+                log("✅ 렌더링 완료 후 오디오 상태 복구 완료");
+                
+            } catch (error) {
+                log(`❌ 렌더링 완료 후 오디오 상태 복구 실패: ${error.message}`);
+            }
+        }
+        
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            log('🚀 페이지 로드 완료');
+            log('🎵 오디오 요소 준비됨');
+        });
+        
+        // 페이지 언로드 시 정리
+        window.addEventListener('beforeunload', () => {
+            if (renderInterval) {
+                clearInterval(renderInterval);
+            }
+        });
+    </script>
+</body>
+</html>
+
