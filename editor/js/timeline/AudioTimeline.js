@@ -782,8 +782,19 @@ export class AudioTimeline extends BaseTimeline {
     this.propertyPanel = this.createPropertyPanel();
     this.container.appendChild(this.propertyPanel.dom);
 
+    // 타임라인 맞춤 관련 초기화
+    this.isTimelineFit = false;
+    this.originalClipData = null;
+
     // 음악 파일 목록을 동적으로 로드하고 asset 선택기 초기화
     this.initAudioTimeline();
+    
+    // 초기 상태에서 타임라인 맞춤 버튼 비활성화
+    setTimeout(() => {
+      if (this.timelineFitButton) {
+        this.updateTimelineFitButtonState();
+      }
+    }, 100);
   }
 
   // 타임라인 총 길이 안전 조회
@@ -2304,7 +2315,29 @@ export class AudioTimeline extends BaseTimeline {
     this.isEditMode = false;
     this.editModeButton = editModeButton;
 
+    // 타임라인 맞춤 버튼 추가
+    const timelineFitButton = document.createElement("button");
+    timelineFitButton.textContent = "타임라인 맞춤";
+    timelineFitButton.className = "timeline-fit-button";
+    timelineFitButton.style.marginRight = "5px";
+    timelineFitButton.style.padding = "5px 10px";
+    timelineFitButton.style.backgroundColor = "#2196F3";
+    timelineFitButton.style.color = "white";
+    timelineFitButton.style.border = "none";
+    timelineFitButton.style.borderRadius = "3px";
+    timelineFitButton.style.cursor = "pointer";
+    timelineFitButton.title = "클립을 타임라인 크기에 맞춤 / 원본 크기로 복원 (토글)";
+
+    timelineFitButton.addEventListener("click", () => {
+      this.toggleTimelineFit();
+    });
+
+    // 타임라인 맞춤 상태 변수
+    this.isTimelineFit = false;
+    this.timelineFitButton = timelineFitButton;
+
     clipToolsRow.add(new UIElement(editModeButton));
+    clipToolsRow.add(new UIElement(timelineFitButton));
     panel.add(clipToolsRow);
 
     // 볼륨 컨트롤 스타일 추가
@@ -2448,6 +2481,22 @@ export class AudioTimeline extends BaseTimeline {
       .edit-mode-button:hover {
         transform: scale(1.05);
         box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      }
+
+      /* 타임라인 맞춤 버튼 스타일 */
+      .timeline-fit-button {
+        transition: all 0.3s ease;
+      }
+
+      .timeline-fit-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      }
+
+      .timeline-fit-button:disabled {
+        background-color: #ccc !important;
+        cursor: not-allowed !important;
+        opacity: 0.6;
       }
     `;
     document.head.appendChild(style);
@@ -3378,6 +3427,9 @@ export class AudioTimeline extends BaseTimeline {
             audioEndTime
           });
         }
+
+        // 타임라인 맞춤 버튼 상태 업데이트
+        this.updateTimelineFitButtonState();
       }
 
       // 속성 패널에 트랙 정보 표시
@@ -5687,4 +5739,166 @@ export class AudioTimeline extends BaseTimeline {
       throw error;
     }
   }
+
+  // 타임라인 맞춤 토글 메서드
+  toggleTimelineFit() {
+    console.log("타임라인 맞춤 토글:", this.isTimelineFit);
+    
+    if (!this.isTimelineFit) {
+      // 타임라인 크기로 맞춤
+      this.fitToTimeline();
+    } else {
+      // 원본 크기로 복원
+      this.restoreOriginalSize();
+    }
+  }
+
+  // 선택된 클립을 타임라인 크기에 맞춤
+  fitToTimeline() {
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    if (!selectedSprite) {
+      alert("클립을 먼저 선택해주세요.");
+      return;
+    }
+
+    const track = this.findTrackBySprite(selectedSprite);
+    if (!track) {
+      console.error("선택된 클립의 트랙을 찾을 수 없습니다.");
+      return;
+    }
+
+    const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+    if (!audioObject) {
+      console.error("오디오 객체를 찾을 수 없습니다.");
+      return;
+    }
+
+    const totalSeconds = this.getTotalSeconds();
+    const currentClipEndTime = parseFloat(selectedSprite.dataset.startTime) + parseFloat(selectedSprite.dataset.duration);
+    
+    // 클립이 타임라인보다 크거나 같을 때만 맞춤 가능
+    if (currentClipEndTime <= totalSeconds) {
+      alert("클립이 이미 타임라인 범위 내에 있습니다.");
+      this.updateTimelineFitButtonState();
+      return;
+    }
+
+    // 원본 클립 정보 저장 (복원용)
+    this.originalClipData = {
+      startTime: parseFloat(selectedSprite.dataset.startTime),
+      duration: parseFloat(selectedSprite.dataset.duration),
+      audioStartTime: audioObject.userData.audioStartTime || 0,
+      audioEndTime: audioObject.userData.audioEndTime || audioObject.userData.audioElement?.duration || 0,
+      left: parseFloat(selectedSprite.style.left) || 0,
+      width: parseFloat(selectedSprite.style.width) || 0
+    };
+
+    // 클립 시작 위치
+    const clipStartTime = parseFloat(selectedSprite.dataset.startTime);
+    
+    // 타임라인 끝까지의 시간으로 조정
+    const newDuration = totalSeconds - clipStartTime;
+    const newWidth = (newDuration / totalSeconds) * 100;
+
+    // 클립 크기 업데이트
+    selectedSprite.style.width = `${newWidth}%`;
+    selectedSprite.dataset.duration = newDuration.toString();
+
+    // 오디오 끝 시간을 클립 길이에 맞게 조정
+    const newAudioEndTime = audioObject.userData.audioStartTime + newDuration;
+    audioObject.userData.audioEndTime = Math.min(
+      newAudioEndTime,
+      audioObject.userData.audioElement?.duration || newAudioEndTime
+    );
+
+    // input 필드 업데이트
+    this.updateInputFields(audioObject.userData.audioStartTime, audioObject.userData.audioEndTime);
+    this.updateClipInputFields(clipStartTime, newDuration);
+
+    // 상태 업데이트
+    this.isTimelineFit = true;
+    this.timelineFitButton.textContent = "원본 크기";
+    this.timelineFitButton.style.backgroundColor = "#FF9800";
+    this.timelineFitButton.title = "원본 음악 크기로 복원";
+
+    console.log("타임라인에 맞춤:", {
+      newDuration,
+      newWidth,
+      newAudioEndTime
+    });
+  }
+
+  // 원본 크기로 복원
+  restoreOriginalSize() {
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    if (!selectedSprite || !this.originalClipData) {
+      console.error("복원할 데이터가 없습니다.");
+      return;
+    }
+
+    const track = this.findTrackBySprite(selectedSprite);
+    if (!track) {
+      console.error("선택된 클립의 트랙을 찾을 수 없습니다.");
+      return;
+    }
+
+    const audioObject = this.editor.scene.getObjectById(parseInt(track.objectId));
+    if (!audioObject) {
+      console.error("오디오 객체를 찾을 수 없습니다.");
+      return;
+    }
+
+    // 원본 크기로 복원
+    selectedSprite.style.left = `${this.originalClipData.left}%`;
+    selectedSprite.style.width = `${this.originalClipData.width}%`;
+    selectedSprite.dataset.startTime = this.originalClipData.startTime.toString();
+    selectedSprite.dataset.duration = this.originalClipData.duration.toString();
+
+    // 오디오 시간 복원
+    audioObject.userData.audioStartTime = this.originalClipData.audioStartTime;
+    audioObject.userData.audioEndTime = this.originalClipData.audioEndTime;
+
+    // input 필드 업데이트
+    this.updateInputFields(audioObject.userData.audioStartTime, audioObject.userData.audioEndTime);
+    this.updateClipInputFields(this.originalClipData.startTime, this.originalClipData.duration);
+
+    // 상태 업데이트
+    this.isTimelineFit = false;
+    this.timelineFitButton.textContent = "타임라인 맞춤";
+    this.timelineFitButton.style.backgroundColor = "#2196F3";
+    this.timelineFitButton.title = "클립을 타임라인 크기에 맞춤 / 원본 크기로 복원 (토글)";
+
+    // 원본 데이터 삭제
+    this.originalClipData = null;
+
+    console.log("원본 크기로 복원 완료");
+  }
+
+  // 타임라인 맞춤 버튼 상태 업데이트
+  updateTimelineFitButtonState() {
+    const selectedSprite = document.querySelector('.audio-sprite.selected');
+    
+    if (!selectedSprite) {
+      // 선택된 클립이 없으면 비활성화
+      this.timelineFitButton.disabled = true;
+      return;
+    }
+
+    const totalSeconds = this.getTotalSeconds();
+    const clipStartTime = parseFloat(selectedSprite.dataset.startTime) || 0;
+    const clipDuration = parseFloat(selectedSprite.dataset.duration) || 0;
+    const clipEndTime = clipStartTime + clipDuration;
+
+    // 클립이 타임라인보다 작거나 같으면 비활성화
+    if (clipEndTime <= totalSeconds) {
+      this.timelineFitButton.disabled = true;
+      this.timelineFitButton.title = "클립이 타임라인 범위 내에 있어 맞춤이 불필요합니다";
+    } else {
+      this.timelineFitButton.disabled = false;
+      this.timelineFitButton.title = this.isTimelineFit ? 
+        "원본 음악 크기로 복원" : 
+        "클립을 타임라인 크기에 맞춤 / 원본 크기로 복원 (토글)";
+    }
+  }
+
 }
