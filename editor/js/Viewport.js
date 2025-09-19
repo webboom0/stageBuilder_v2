@@ -227,6 +227,10 @@ function Viewport(editor) {
     document.removeEventListener("touchend", onTouchEnd);
   }
 
+  // 전체화면 상태 변수
+  let isFullscreen = false;
+  let originalContainerStyle = null;
+
   function onDoubleClick(event) {
     const array = getMousePosition(container.dom, event.clientX, event.clientY);
     onDoubleClickPosition.fromArray(array);
@@ -236,11 +240,174 @@ function Viewport(editor) {
       camera
     );
 
-    if (intersects.length > 0) {
-      const intersect = intersects[0];
+    // 객체 포커스 기능 주석처리
+    // if (intersects.length > 0) {
+    //   const intersect = intersects[0];
+    //   signals.objectFocused.dispatch(intersect.object);
+    // } else {
+    //   // 빈 공간을 더블클릭하면 전체화면 토글
+    //   toggleFullscreen();
+    // }
 
-      signals.objectFocused.dispatch(intersect.object);
+    // 객체 위든 빈 공간이든 상관없이 더블클릭하면 전체화면 토글
+    toggleFullscreen();
+  }
+
+  // 전체화면 토글 함수
+  function toggleFullscreen() {
+    if (!isFullscreen) {
+      enterFullscreen();
+    } else {
+      exitFullscreen();
     }
+  }
+
+  // 전체화면 진입
+  function enterFullscreen() {
+    // 현재 스타일 저장 (computed style도 고려)
+    const computedStyle = window.getComputedStyle(container.dom);
+    originalContainerStyle = {
+      position: container.dom.style.position || computedStyle.position,
+      width: container.dom.style.width || computedStyle.width,
+      height: container.dom.style.height || computedStyle.height,
+      zIndex: container.dom.style.zIndex || computedStyle.zIndex,
+      top: container.dom.style.top || computedStyle.top,
+      left: container.dom.style.left || computedStyle.left,
+      right: container.dom.style.right || computedStyle.right,
+      bottom: container.dom.style.bottom || computedStyle.bottom,
+      backgroundColor: container.dom.style.backgroundColor || computedStyle.backgroundColor
+    };
+
+    // 전체화면 스타일 적용
+    container.dom.style.position = 'fixed';
+    container.dom.style.top = '0';
+    container.dom.style.left = '0';
+    container.dom.style.width = '100vw';
+    container.dom.style.height = '100vh';
+    container.dom.style.zIndex = '9999';
+    container.dom.style.backgroundColor = '#1a1a1a';
+    container.dom.style.transition = 'all 0.3s ease';
+
+    // body 스크롤 방지 및 클래스 추가
+    document.body.style.overflow = 'hidden';
+    document.body.classList.add('full-mode');
+    
+    isFullscreen = true;
+
+    // 전체화면 알림 표시
+    showFullscreenNotification('전체화면 모드 (ESC키나 더블클릭으로 종료)');
+
+    // 렌더러 크기 조정
+    setTimeout(() => {
+      if (renderer) {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        updateAspectRatio();
+        render();
+      }
+    }, 100);
+
+    // ESC 키로 전체화면 종료 가능하도록 이벤트 리스너 추가
+    document.addEventListener('keydown', onEscapeKey);
+    
+    // 윈도우 크기 변경 이벤트 리스너 추가
+    window.addEventListener('resize', onFullscreenResize);
+  }
+
+  // 전체화면 종료
+  function exitFullscreen() {
+    if (originalContainerStyle) {
+      // 원래 스타일 복원
+      container.dom.style.position = originalContainerStyle.position;
+      container.dom.style.width = originalContainerStyle.width;
+      container.dom.style.height = originalContainerStyle.height;
+      container.dom.style.zIndex = originalContainerStyle.zIndex;
+      container.dom.style.top = originalContainerStyle.top;
+      container.dom.style.left = originalContainerStyle.left;
+      container.dom.style.right = originalContainerStyle.right;
+      container.dom.style.bottom = originalContainerStyle.bottom;
+      container.dom.style.backgroundColor = originalContainerStyle.backgroundColor;
+      container.dom.style.transition = '';
+    }
+
+    // body 스크롤 복원 및 클래스 제거
+    document.body.style.overflow = '';
+    document.body.classList.remove('full-mode');
+    
+    isFullscreen = false;
+
+    // 전체화면 종료 알림 표시
+    showFullscreenNotification('일반 모드로 복원되었습니다');
+
+    // 렌더러 크기 조정
+    setTimeout(() => {
+      if (renderer) {
+        renderer.setSize(container.dom.offsetWidth, container.dom.offsetHeight);
+        updateAspectRatio();
+        render();
+      }
+    }, 100);
+
+    // 이벤트 리스너 제거
+    document.removeEventListener('keydown', onEscapeKey);
+    window.removeEventListener('resize', onFullscreenResize);
+  }
+
+  // ESC 키 처리 함수
+  function onEscapeKey(event) {
+    if (event.key === 'Escape' && isFullscreen) {
+      exitFullscreen();
+    }
+  }
+
+  // 전체화면 모드에서 윈도우 크기 변경 처리
+  function onFullscreenResize() {
+    if (isFullscreen && renderer) {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      updateAspectRatio();
+      render();
+    }
+  }
+
+  // 전체화면 알림 표시 함수
+  function showFullscreenNotification(message) {
+    // 기존 알림이 있다면 제거
+    const existingNotification = document.getElementById('fullscreen-notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+
+    // 알림 요소 생성
+    const notification = document.createElement('div');
+    notification.id = 'fullscreen-notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 14px;
+      z-index: 10000;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    `;
+
+    document.body.appendChild(notification);
+
+    // 3초 후 자동 제거
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.remove();
+          }
+        }, 300);
+      }
+    }, 3000);
   }
 
   container.dom.addEventListener("mousedown", onMouseDown);

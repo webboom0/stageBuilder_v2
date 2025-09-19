@@ -1785,3 +1785,20 @@ select:hover {
   z-index:3;
   width: 100%;
 }
+
+.full-mode {
+  overflow: hidden;
+}
+
+.full-mode #viewport canvas{
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999;
+}
+
+.full-mode .timeline-top-container{
+  z-index: 0;
+}
