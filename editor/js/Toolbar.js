@@ -56,6 +56,7 @@ function Toolbar( editor ) {
 
 	const persp = new UIButton();
 	persp.dom.className = 'Button big';
+	persp.dom.style.cssText = 'margin-left: 8px;';
 	persp.dom.appendChild( perspIcon );
 	persp.dom.title = 'Perspective View';
 	persp.onClick( function () {
@@ -184,6 +185,70 @@ function Toolbar( editor ) {
 		
 	} );
 	container.add( top );
+
+	// Zoom In/Out buttons
+	const zoomInIcon = document.createElement( 'span' );
+	zoomInIcon.innerHTML = '<i class="fa fa-search-plus"></i>';
+	zoomInIcon.style.cssText = 'font-size: 16px;  color: #464646;';
+	
+	const zoomIn = new UIButton();
+	zoomIn.dom.className = 'Button big';
+	zoomIn.dom.style.cssText = 'margin-left: 8px;';
+	zoomIn.dom.appendChild( zoomInIcon );
+	zoomIn.dom.title = 'Zoom In';
+	zoomIn.onClick( function () {
+		
+		const camera = editor.camera;
+		if ( camera ) {
+			if ( camera.isPerspectiveCamera ) {
+				// Perspective 카메라: 위치를 목표점에 가깝게 이동
+				const direction = new THREE.Vector3();
+				camera.getWorldDirection( direction );
+				camera.position.add( direction.multiplyScalar( 10 ) );
+			} else if ( camera.isOrthographicCamera ) {
+				// Orthographic 카메라: zoom 속성 조정
+				camera.zoom = Math.min( camera.zoom * 1.2, 10 );
+				camera.updateProjectionMatrix();
+			}
+			
+			camera.updateMatrix();
+			camera.updateMatrixWorld();
+			signals.cameraChanged.dispatch();
+		}
+		
+	} );
+	container.add( zoomIn );
+
+	const zoomOutIcon = document.createElement( 'span' );
+	zoomOutIcon.innerHTML = '<i class="fa fa-search-minus"></i>';
+	zoomOutIcon.style.cssText = 'font-size: 16px;  color: #464646;';
+	
+	const zoomOut = new UIButton();
+	zoomOut.dom.className = 'Button big';
+	zoomOut.dom.appendChild( zoomOutIcon );
+	zoomOut.dom.title = 'Zoom Out';
+	zoomOut.onClick( function () {
+		
+		const camera = editor.camera;
+		if ( camera ) {
+			if ( camera.isPerspectiveCamera ) {
+				// Perspective 카메라: 위치를 목표점에서 멀어지게 이동
+				const direction = new THREE.Vector3();
+				camera.getWorldDirection( direction );
+				camera.position.add( direction.multiplyScalar( -10 ) );
+			} else if ( camera.isOrthographicCamera ) {
+				// Orthographic 카메라: zoom 속성 조정
+				camera.zoom = Math.max( camera.zoom / 1.2, 0.1 );
+				camera.updateProjectionMatrix();
+			}
+			
+			camera.updateMatrix();
+			camera.updateMatrixWorld();
+			signals.cameraChanged.dispatch();
+		}
+		
+	} );
+	container.add( zoomOut );
 
 	const local = new UICheckbox( false );
 	local.dom.title = strings.getKey( 'toolbar/local' );

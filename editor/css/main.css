@@ -806,7 +806,7 @@ select:hover {
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   border: solid 1px #000;
   box-sizing: border-box;
 }
@@ -1788,7 +1788,7 @@ select:hover {
 
 .full-mode {
   overflow: hidden;
-}
+} 
 
 .full-mode #viewport canvas{
   position: fixed;
