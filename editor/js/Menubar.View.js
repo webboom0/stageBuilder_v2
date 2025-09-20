@@ -57,33 +57,33 @@ function MenubarView( editor ) {
 
 	options.add( option );
 
-	// Camera Helpers
+	// Camera Helpers - 주석처리
 
-	option = new UIRow().addClass( 'option' ).addClass( 'toggle' ).setTextContent( strings.getKey( 'menubar/view/cameraHelpers' ) ).onClick( function () {
+	// option = new UIRow().addClass( 'option' ).addClass( 'toggle' ).setTextContent( strings.getKey( 'menubar/view/cameraHelpers' ) ).onClick( function () {
 
-		states.cameraHelpers = ! states.cameraHelpers;
+	// 	states.cameraHelpers = ! states.cameraHelpers;
 
-		this.toggleClass( 'toggle-on', states.cameraHelpers );
+	// 	this.toggleClass( 'toggle-on', states.cameraHelpers );
 
-		signals.showHelpersChanged.dispatch( states );
+	// 	signals.showHelpersChanged.dispatch( states );
 
-	} ).toggleClass( 'toggle-on', states.cameraHelpers );
+	// } ).toggleClass( 'toggle-on', states.cameraHelpers );
 
-	options.add( option );
+	// options.add( option );
 
-	// Light Helpers
+	// Light Helpers - 주석처리
 
-	option = new UIRow().addClass( 'option' ).addClass( 'toggle' ).setTextContent( strings.getKey( 'menubar/view/lightHelpers' ) ).onClick( function () {
+	// option = new UIRow().addClass( 'option' ).addClass( 'toggle' ).setTextContent( strings.getKey( 'menubar/view/lightHelpers' ) ).onClick( function () {
 
-		states.lightHelpers = ! states.lightHelpers;
+	// 	states.lightHelpers = ! states.lightHelpers;
 
-		this.toggleClass( 'toggle-on', states.lightHelpers );
+	// 	this.toggleClass( 'toggle-on', states.lightHelpers );
 
-		signals.showHelpersChanged.dispatch( states );
+	// 	signals.showHelpersChanged.dispatch( states );
 
-	} ).toggleClass( 'toggle-on', states.lightHelpers );
+	// } ).toggleClass( 'toggle-on', states.lightHelpers );
 
-	options.add( option );
+	// options.add( option );
 
 	// Skeleton Helpers
 
