@@ -47,15 +47,88 @@ function Viewport(editor) {
 
   const grid = new THREE.Group();
 
-  const grid1 = new THREE.GridHelper(100, 100);
+  const grid1 = new THREE.GridHelper(200, 200);
   grid1.material.color.setHex(GRID_COLORS_LIGHT[0]);
   grid1.material.vertexColors = false;
+  // Z-fighting 완전 방지를 위한 강력한 설정
+  grid1.material.depthTest = false;
+  grid1.material.depthWrite = false;
+  grid1.renderOrder = -999;  // 가장 뒤에 렌더링
+  // 투명도 조정 - 더 진하게
+  grid1.material.opacity = 0.8;
+  grid1.material.transparent = true;
   grid.add(grid1);
 
-  const grid2 = new THREE.GridHelper(30, 6);
+  const grid2 = new THREE.GridHelper(60, 12);
   grid2.material.color.setHex(GRID_COLORS_LIGHT[1]);
   grid2.material.vertexColors = false;
+  // Z-fighting 완전 방지를 위한 강력한 설정
+  grid2.material.depthTest = false;
+  grid2.material.depthWrite = false;
+  grid2.renderOrder = -998;  // grid1보다 약간 앞에 렌더링
+  // 투명도 조정 - 더 진하게
+  grid2.material.opacity = 0.9;
+  grid2.material.transparent = true;
   grid.add(grid2);
+
+  // 그리드를 살짝 아래로 위치 조정 (Z-fighting 완전 방지)
+  grid.position.y = -0.01;
+
+  // 가이드 라인 생성
+  const guides = new THREE.Group();
+
+  // X축 가이드 (빨간색) - 항상 보이도록 설정
+  const xAxisGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-100, 0, 0),
+    new THREE.Vector3(100, 0, 0)
+  ]);
+  const xAxisMaterial = new THREE.LineBasicMaterial({ 
+    color: 0xff0000, 
+    linewidth: 2,
+    opacity: 0.8,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
+  const xAxisLine = new THREE.Line(xAxisGeometry, xAxisMaterial);
+  xAxisLine.renderOrder = -995;
+  guides.add(xAxisLine);
+
+  // Z축 가이드 (파란색) - 항상 보이도록 설정
+  const zAxisGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, -100),
+    new THREE.Vector3(0, 0, 100)
+  ]);
+  const zAxisMaterial = new THREE.LineBasicMaterial({ 
+    color: 0x0000ff, 
+    linewidth: 2,
+    opacity: 0.8,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
+  const zAxisLine = new THREE.Line(zAxisGeometry, zAxisMaterial);
+  zAxisLine.renderOrder = -995;
+  guides.add(zAxisLine);
+
+  // 중심점 마커 (노란색) - 항상 보이도록 설정
+  const centerGeometry = new THREE.RingGeometry(0.5, 1, 8);
+  const centerMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xffff00, 
+    side: THREE.DoubleSide,
+    opacity: 0.9,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
+  const centerMarker = new THREE.Mesh(centerGeometry, centerMaterial);
+  centerMarker.rotation.x = -Math.PI / 2; // 바닥에 평행하게
+  centerMarker.position.y = 0.02; // 그리드보다 살짝 더 위
+  centerMarker.renderOrder = -994;
+  guides.add(centerMarker);
+
+  // 가이드 그룹을 sceneHelpers에 추가
+  sceneHelpers.add(guides);
 
   const viewHelper = new ViewHelper(camera, container);
 
@@ -787,6 +860,7 @@ function Viewport(editor) {
 
   signals.showHelpersChanged.add(function (appearanceStates) {
     grid.visible = appearanceStates.gridHelper;
+    guides.visible = appearanceStates.guideHelper;
 
     sceneHelpers.traverse(function (object) {
       switch (object.type) {

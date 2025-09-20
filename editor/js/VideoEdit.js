@@ -185,7 +185,7 @@ function VideoEdit(editor) {
             */
             /* fbx 기준*/
             // object.position.set(228.340, -153.989, 764.44);
-            object.position.set(228.340, -122.909, 764.44); // object.scale.set(0.6, 0.6, 0.5)일때
+            object.position.set(228.340, -125.909, 764.44); // object.scale.set(0.6, 0.6, 0.5)일때
 
             object.rotation.set(
               -Math.PI / 2, // -90도
@@ -290,7 +290,7 @@ function VideoEdit(editor) {
         });
 
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.position.set(-2.975, -3.063, 0.0);
+        floor.position.set(-2.975, -4.163, 0.0);
         floor.scale.set(1.564, 6.779, 1.0);
         floor.name = "_Floor";
         // floor.userData.isBackground = true;

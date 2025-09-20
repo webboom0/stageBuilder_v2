@@ -22,6 +22,7 @@ function MenubarView( editor ) {
 	const states = {
 
 		gridHelper: true,
+		guideHelper: true,
 		cameraHelpers: true,
 		lightHelpers: true,
 		skeletonHelpers: true
@@ -39,6 +40,20 @@ function MenubarView( editor ) {
 		signals.showHelpersChanged.dispatch( states );
 
 	} ).toggleClass( 'toggle-on', states.gridHelper );
+
+	options.add( option );
+
+	// Guide Helper
+
+	option = new UIRow().addClass( 'option' ).addClass( 'toggle' ).setTextContent( '가이드 도우미' ).onClick( function () {
+
+		states.guideHelper = ! states.guideHelper;
+
+		this.toggleClass( 'toggle-on', states.guideHelper );
+
+		signals.showHelpersChanged.dispatch( states );
+
+	} ).toggleClass( 'toggle-on', states.guideHelper );
 
 	options.add( option );
 
