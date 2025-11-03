@@ -516,6 +516,7 @@ class TimelineRenderer {
       this.downloadVideo();
     });
 
+
     // 🎬 해상도 변경 이벤트
     const resolutionSelect = popup.querySelector('#resolution-select');
     resolutionSelect.addEventListener('change', () => {
@@ -2445,11 +2446,34 @@ class TimelineRenderer {
         console.log("✅ 캔버스 컨트롤 정리 완료");
       }
 
-      // 7. 렌더링된 프레임 데이터 정리
+      // 7. 렌더링된 프레임 데이터 정리 (메모리 해제 강화)
       if (this.renderedFrames) {
+        console.log(`🗑️ ${this.renderedFrames.length}개의 렌더링된 프레임 데이터 정리 시작...`);
+        
+        // 각 프레임의 데이터 URL 메모리 해제
+        this.renderedFrames.forEach((frame, index) => {
+          if (frame && frame.dataURL) {
+            // Blob URL이 있다면 해제
+            if (frame.dataURL.startsWith('blob:')) {
+              URL.revokeObjectURL(frame.dataURL);
+            }
+            // 프레임 데이터 완전 삭제
+            delete frame.dataURL;
+            delete frame.size;
+            delete frame.timestamp;
+          }
+        });
+        
+        // 배열 완전 초기화
         this.renderedFrames.length = 0;
-        this.renderedFrames = null;
-        console.log("✅ 렌더링된 프레임 데이터 정리 완료");
+        this.renderedFrames = [];
+        
+        // 가비지 컬렉션 힌트
+        if (typeof window.gc === 'function') {
+          window.gc();
+        }
+        
+        console.log("✅ 렌더링된 프레임 데이터 정리 완료 (메모리 해제 포함)");
       }
 
       // 8. 현재 프레임 인덱스 초기화
@@ -2488,15 +2512,44 @@ class TimelineRenderer {
       }
 
       if (this.renderCanvas) {
+        // 캔버스 메모리 정리
+        const ctx = this.renderCanvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, this.renderCanvas.width, this.renderCanvas.height);
+        }
+        
+        // WebGL 컨텍스트 정리
+        const gl = this.renderCanvas.getContext('webgl') || this.renderCanvas.getContext('webgl2');
+        if (gl) {
+          const ext = gl.getExtension('WEBGL_lose_context');
+          if (ext) {
+            ext.loseContext();
+          }
+        }
+        
         this.renderCanvas = null;
-        console.log("✅ 렌더링 캔버스 참조 정리 완료");
+        console.log("✅ 렌더링 캔버스 메모리 정리 완료");
       }
 
-      // 14. 메모리 정리
+      // 14. 추가 메모리 정리
+      // DOM 요소들의 이벤트 리스너 정리
+      const renderElements = document.querySelectorAll('#render-canvas, #start-render-btn, #download-video-btn, #close-render-popup');
+      renderElements.forEach(element => {
+        if (element && element.cloneNode) {
+          const newElement = element.cloneNode(true);
+          if (element.parentNode) {
+            element.parentNode.replaceChild(newElement, element);
+          }
+        }
+      });
+
+      // 15. 최종 메모리 정리
       if (typeof window.gc === 'function') {
         window.gc();
         console.log("✅ 가비지 컬렉션 요청 완료");
       }
+      
+      console.log("🎯 렌더링 데이터 완전 정리 완료 - 메모리 해제됨");
 
       console.log("✅ TimelineRenderer 리소스 정리 완료");
       
@@ -2684,6 +2737,8 @@ class TimelineRenderer {
       // 렌더링 상태 비활성화
       this.isRenderingActive = false;
 
+      // 총 크기 계산
+      const totalSize = this.renderedFrames.reduce((sum, frame) => sum + (frame?.size || 0), 0);
       console.log(`🎬 렌더링 완료 요약: ${this.renderedFrames.length}개 프레임, 총 ${totalSize}KB`);
 
     } catch (error) {
@@ -3395,6 +3450,21 @@ class TimelineRenderer {
       console.error("❌ visible 속성 디버깅 실패:", error);
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 export { TimelineRenderer };

@@ -3019,8 +3019,9 @@ export class MotionTimeline extends BaseTimeline {
         warning.className = 'clip-range-warning';
         warning.style.cssText = `
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             background: #ff6b6b;
             color: white;
             padding: 12px 16px;
@@ -3030,7 +3031,7 @@ export class MotionTimeline extends BaseTimeline {
             font-family: Arial, sans-serif;
             font-size: 14px;
             max-width: 300px;
-            animation: slideInRight 0.3s ease-out;
+            animation: fadeIn 0.3s ease-out;
         `;
 
         warning.textContent = message;
@@ -3038,14 +3039,24 @@ export class MotionTimeline extends BaseTimeline {
         // CSS 애니메이션 추가
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes slideInRight {
+            @keyframes fadeIn {
                 from {
-                    transform: translateX(100%);
+                    transform: translate(-50%, -50%) scale(0.8);
                     opacity: 0;
                 }
                 to {
-                    transform: translateX(0);
+                    transform: translate(-50%, -50%) scale(1);
                     opacity: 1;
+                }
+            }
+            @keyframes fadeOut {
+                from {
+                    transform: translate(-50%, -50%) scale(1);
+                    opacity: 1;
+                }
+                to {
+                    transform: translate(-50%, -50%) scale(0.8);
+                    opacity: 0;
                 }
             }
         `;
@@ -3056,7 +3067,7 @@ export class MotionTimeline extends BaseTimeline {
         // 3초 후 자동 제거
         setTimeout(() => {
             if (warning.parentNode) {
-                warning.style.animation = 'slideOutRight 0.3s ease-in';
+                warning.style.animation = 'fadeOut 0.3s ease-in';
                 setTimeout(() => {
                     if (warning.parentNode) {
                         warning.remove();
@@ -6469,8 +6480,9 @@ export class MotionTimeline extends BaseTimeline {
         notification.className = 'timeline-notification';
         notification.style.cssText = `
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             background: ${color};
             color: white;
             padding: 12px 20px;
@@ -6481,6 +6493,7 @@ export class MotionTimeline extends BaseTimeline {
             font-size: 14px;
             max-width: 300px;
             word-wrap: break-word;
+            animation: fadeIn 0.3s ease-out;
         `;
         notification.textContent = message;
 
@@ -6489,7 +6502,12 @@ export class MotionTimeline extends BaseTimeline {
         // 3초 후 자동 제거
         setTimeout(() => {
             if (notification.parentNode) {
-                notification.remove();
+                notification.style.animation = 'fadeOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
             }
         }, 3000);
     }

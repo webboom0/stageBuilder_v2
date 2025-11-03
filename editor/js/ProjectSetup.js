@@ -130,6 +130,54 @@ export class ProjectSetup {
     showNameContainer.appendChild(showNameInput);
     form.appendChild(showNameContainer);
 
+    // 장르 입력 필드
+    const genreContainer = document.createElement('div');
+    genreContainer.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    `;
+
+    const genreLabel = document.createElement('label');
+    genreLabel.textContent = '장르';
+    genreLabel.style.cssText = `
+      color: #fff;
+      font-weight: 500;
+      font-size: 14px;
+    `;
+
+    const genreInput = document.createElement('input');
+    genreInput.type = 'text';
+    genreInput.name = 'genre';
+    genreInput.placeholder = '예: 뮤지컬, 연극, 오페라';
+    genreInput.required = true;
+    // 수정 모드일 때 기존 값으로 미리 채우기
+    if (isEditMode && editor.project.genre) {
+      genreInput.value = editor.project.genre;
+    }
+    genreInput.style.cssText = `
+      padding: 12px 16px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      background: #3a3a3a;
+      color: #fff;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    `;
+
+    // 포커스 효과
+    genreInput.addEventListener('focus', () => {
+      genreInput.style.borderColor = '#007acc';
+    });
+
+    genreInput.addEventListener('blur', () => {
+      genreInput.style.borderColor = '#555';
+    });
+
+    genreContainer.appendChild(genreLabel);
+    genreContainer.appendChild(genreInput);
+    form.appendChild(genreContainer);
+
     // 공연기간 입력 필드 (시작날짜 + 마지막날짜)
     const periodContainer = document.createElement('div');
     periodContainer.style.cssText = `
@@ -226,7 +274,7 @@ export class ProjectSetup {
     `;
 
     const venueLabel = document.createElement('label');
-    venueLabel.textContent = '공연장소';
+    venueLabel.textContent = '공연장소/규모';
     venueLabel.style.cssText = `
       color: #fff;
       font-weight: 500;
@@ -236,7 +284,7 @@ export class ProjectSetup {
     const venueInput = document.createElement('input');
     venueInput.type = 'text';
     venueInput.name = 'venue';
-    venueInput.placeholder = '예: 예술의전당';
+    venueInput.placeholder = '예: 예술의전당/규모: 소/중/대 극장';
     venueInput.required = true;
     // 수정 모드일 때 기존 값으로 미리 채우기
     if (isEditMode && editor.project.venue) {
@@ -265,33 +313,32 @@ export class ProjectSetup {
     venueContainer.appendChild(venueInput);
     form.appendChild(venueContainer);
 
-    // 예상관객수 입력 필드 (숫자)
-    const audienceContainer = document.createElement('div');
-    audienceContainer.style.cssText = `
+    // 연출자/막 입력 필드
+    const directorContainer = document.createElement('div');
+    directorContainer.style.cssText = `
       display: flex;
       flex-direction: column;
       gap: 8px;
     `;
 
-    const audienceLabel = document.createElement('label');
-    audienceLabel.textContent = '예상관객수';
-    audienceLabel.style.cssText = `
+    const directorLabel = document.createElement('label');
+    directorLabel.textContent = '연출자/막';
+    directorLabel.style.cssText = `
       color: #fff;
       font-weight: 500;
       font-size: 14px;
     `;
 
-    const audienceInput = document.createElement('input');
-    audienceInput.type = 'number';
-    audienceInput.name = 'expectedAudience';
-    audienceInput.placeholder = '예: 1000';
-    audienceInput.min = '1';
-    audienceInput.required = true;
+    const directorInput = document.createElement('input');
+    directorInput.type = 'text';
+    directorInput.name = 'director';
+    directorInput.placeholder = '예: 홍길동/1막';
+    directorInput.required = true;
     // 수정 모드일 때 기존 값으로 미리 채우기
-    if (isEditMode && editor.project.expectedAudience) {
-      audienceInput.value = editor.project.expectedAudience;
+    if (isEditMode && editor.project.director) {
+      directorInput.value = editor.project.director;
     }
-    audienceInput.style.cssText = `
+    directorInput.style.cssText = `
       padding: 12px 16px;
       border: 1px solid #555;
       border-radius: 6px;
@@ -302,66 +349,18 @@ export class ProjectSetup {
     `;
 
     // 포커스 효과
-    audienceInput.addEventListener('focus', () => {
-      audienceInput.style.borderColor = '#007acc';
+    directorInput.addEventListener('focus', () => {
+      directorInput.style.borderColor = '#007acc';
     });
 
-    audienceInput.addEventListener('blur', () => {
-      audienceInput.style.borderColor = '#555';
+    directorInput.addEventListener('blur', () => {
+      directorInput.style.borderColor = '#555';
     });
 
-    audienceContainer.appendChild(audienceLabel);
-    audienceContainer.appendChild(audienceInput);
-    form.appendChild(audienceContainer);
+    directorContainer.appendChild(directorLabel);
+    directorContainer.appendChild(directorInput);
+    form.appendChild(directorContainer);
 
-    // 스태프규모 입력 필드 (숫자)
-    const staffContainer = document.createElement('div');
-    staffContainer.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    `;
-
-    const staffLabel = document.createElement('label');
-    staffLabel.textContent = '스태프규모';
-    staffLabel.style.cssText = `
-      color: #fff;
-      font-weight: 500;
-      font-size: 14px;
-    `;
-
-    const staffInput = document.createElement('input');
-    staffInput.type = 'number';
-    staffInput.name = 'staffScale';
-    staffInput.placeholder = '예: 50';
-    staffInput.min = '1';
-    staffInput.required = true;
-    // 수정 모드일 때 기존 값으로 미리 채우기
-    if (isEditMode && editor.project.staffScale) {
-      staffInput.value = editor.project.staffScale;
-    }
-    staffInput.style.cssText = `
-      padding: 12px 16px;
-      border: 1px solid #555;
-      border-radius: 6px;
-      background: #3a3a3a;
-      color: #fff;
-      font-size: 14px;
-      transition: border-color 0.3s;
-    `;
-
-    // 포커스 효과
-    staffInput.addEventListener('focus', () => {
-      staffInput.style.borderColor = '#007acc';
-    });
-
-    staffInput.addEventListener('blur', () => {
-      staffInput.style.borderColor = '#555';
-    });
-
-    staffContainer.appendChild(staffLabel);
-    staffContainer.appendChild(staffInput);
-    form.appendChild(staffContainer);
 
     // 버튼 컨테이너
     const buttonContainer = document.createElement('div');
@@ -441,12 +440,12 @@ export class ProjectSetup {
         
         const projectData = {
           showName: formData.get('showName'),
+          genre: formData.get('genre'),
           startDate: startDate,
           endDate: endDate,
           showPeriod: `${startDate} ~ ${endDate}`, // 기존 호환성을 위한 필드
           venue: formData.get('venue'),
-          expectedAudience: parseInt(formData.get('expectedAudience')) || 0,
-          staffScale: parseInt(formData.get('staffScale')) || 0,
+          director: formData.get('director'),
           createdAt: new Date().toISOString(),
           lastModified: new Date().toISOString()
         };
@@ -454,23 +453,20 @@ export class ProjectSetup {
         console.log('📝 수집된 폼 데이터:', projectData);
 
         // 필수 필드 검증
-        const requiredFields = ['showName', 'startDate', 'endDate', 'venue', 'expectedAudience', 'staffScale'];
+        const requiredFields = ['showName', 'genre', 'startDate', 'endDate', 'venue', 'director'];
         const missingFields = requiredFields.filter(field => {
           const value = projectData[field];
-          if (field === 'expectedAudience' || field === 'staffScale') {
-            return !value || value <= 0;
-          }
           return !value || value.toString().trim() === '';
         });
         
         if (missingFields.length > 0) {
           const fieldLabels = {
             'showName': '공연명',
+            'genre': '장르',
             'startDate': '시작날짜',
             'endDate': '마지막날짜',
-            'venue': '공연장소',
-            'expectedAudience': '예상관객수',
-            'staffScale': '스태프규모'
+            'venue': '공연장소/규모',
+            'director': '연출자/막'
           };
           const missingLabels = missingFields.map(field => fieldLabels[field]).join(', ');
           alert(`다음 필드를 입력해주세요: ${missingLabels}`);
@@ -703,11 +699,11 @@ export class ProjectSetup {
 
     const projectFields = [
       { key: 'showName', label: '공연명', icon: '🎭' },
+      { key: 'genre', label: '장르', icon: '🎨' },
       { key: 'startDate', label: '시작날짜', icon: '📅' },
       { key: 'endDate', label: '마지막날짜', icon: '📅' },
-      { key: 'venue', label: '공연장소', icon: '🏛️' },
-      { key: 'expectedAudience', label: '예상관객수', icon: '👥' },
-      { key: 'staffScale', label: '스태프규모', icon: '👷' }
+      { key: 'venue', label: '공연장소/규모', icon: '🏛️' },
+      { key: 'director', label: '연출자/막', icon: '🎬' }
     ];
 
     projectFields.forEach(field => {
@@ -751,10 +747,6 @@ export class ProjectSetup {
           }
         }
         
-        // 숫자 형식 변환 (천 단위 구분자)
-        if (field.key === 'expectedAudience' || field.key === 'staffScale') {
-          displayValue = displayValue.toLocaleString() + '명';
-        }
         
         value.textContent = displayValue;
         value.style.cssText = `

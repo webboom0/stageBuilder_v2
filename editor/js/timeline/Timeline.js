@@ -602,8 +602,9 @@ class Timeline {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
-      top: 20px;
-      right: 20px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       background: ${color};
       color: white;
       padding: 12px 20px;
@@ -973,6 +974,117 @@ class Timeline {
 
         // 플레이헤드 위치 업데이트
         this.updatePlayheadPosition(percent * 100);
+      });
+
+      // 타임라인 눈금 우클릭 메뉴 추가
+      ruler.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+
+        // 기존 컨텍스트 메뉴 제거
+        const existingMenu = document.querySelector(".timeline-ruler-context-menu");
+        if (existingMenu) {
+          existingMenu.remove();
+        }
+
+        // 컨텍스트 메뉴 생성
+        const menu = document.createElement("div");
+        menu.className = "timeline-ruler-context-menu";
+        menu.style.position = "fixed";
+        menu.style.left = `${e.clientX}px`;
+        menu.style.top = `${e.clientY}px`;
+        menu.style.background = "#2a2a2a";
+        menu.style.border = "1px solid #444";
+        menu.style.borderRadius = "4px";
+        menu.style.padding = "4px 0";
+        menu.style.zIndex = "10000";
+        menu.style.minWidth = "180px";
+        menu.style.boxShadow = "0 4px 12px rgba(0,0,0,0.5)";
+
+        // 시간 이동 버튼
+        const moveBtn = document.createElement("button");
+        moveBtn.className = "timeline-context-menu-item";
+        moveBtn.innerHTML = `<i class="fa fa-crosshairs" style="margin-right: 8px; color: #007acc;"></i>시간 이동 (M)`;
+        moveBtn.style.cssText = `
+          width: 100%;
+          padding: 8px 12px;
+          background: none;
+          border: none;
+          color: #fff;
+          text-align: left;
+          cursor: pointer;
+          font-size: 13px;
+          display: flex;
+          align-items: center;
+        `;
+        
+        moveBtn.onmouseover = () => {
+          moveBtn.style.background = "#007acc";
+        };
+        moveBtn.onmouseout = () => {
+          moveBtn.style.background = "none";
+        };
+
+        moveBtn.onclick = (e) => {
+          e.stopPropagation(); // 이벤트 전파 중단
+          console.log("시간 이동 버튼 클릭됨");
+          
+          // 메뉴 먼저 제거
+          menu.remove();
+          
+          // KeyboardShortcuts의 showPlayheadMoveDialog 함수 호출
+          let keyboardShortcuts = null;
+          
+          // 방법 1: MotionTimeline의 keyboardShortcuts
+          if (this.timelines.motion && this.timelines.motion.keyboardShortcuts) {
+            keyboardShortcuts = this.timelines.motion.keyboardShortcuts;
+            console.log("MotionTimeline에서 KeyboardShortcuts 찾음");
+          } 
+          // 방법 2: window.motionTimeline
+          else if (window.motionTimeline && window.motionTimeline.keyboardShortcuts) {
+            keyboardShortcuts = window.motionTimeline.keyboardShortcuts;
+            console.log("window.motionTimeline에서 KeyboardShortcuts 찾음");
+          }
+          // 방법 3: editor
+          else if (this.editor.keyboardShortcuts && this.editor.keyboardShortcuts.showPlayheadMoveDialog) {
+            keyboardShortcuts = this.editor.keyboardShortcuts;
+            console.log("editor에서 KeyboardShortcuts 찾음");
+          } 
+          // 방법 4: window
+          else if (window.keyboardShortcuts && window.keyboardShortcuts.showPlayheadMoveDialog) {
+            keyboardShortcuts = window.keyboardShortcuts;
+            console.log("window에서 KeyboardShortcuts 찾음");
+          }
+          
+          if (keyboardShortcuts && keyboardShortcuts.showPlayheadMoveDialog) {
+            console.log("showPlayheadMoveDialog 호출");
+            // 약간의 지연을 두고 다이얼로그 열기 (이벤트 전파 방지)
+            setTimeout(() => {
+              keyboardShortcuts.showPlayheadMoveDialog();
+            }, 100);
+          } else {
+            console.error("KeyboardShortcuts를 찾을 수 없습니다.", {
+              motionTimeline: this.timelines.motion,
+              hasKeyboardShortcuts: this.timelines.motion?.keyboardShortcuts,
+              windowMotionTimeline: window.motionTimeline,
+              windowHasKeyboardShortcuts: window.motionTimeline?.keyboardShortcuts
+            });
+            alert("KeyboardShortcuts를 찾을 수 없습니다. 콘솔을 확인해주세요.");
+          }
+        };
+
+        menu.appendChild(moveBtn);
+        document.body.appendChild(menu);
+
+        // 메뉴 외부 클릭 시 닫기
+        const closeMenu = (e) => {
+          if (!menu.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener("click", closeMenu);
+          }
+        };
+        setTimeout(() => {
+          document.addEventListener("click", closeMenu);
+        }, 0);
       });
     }
 

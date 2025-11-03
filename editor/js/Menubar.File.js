@@ -147,13 +147,66 @@ function MenubarFile(editor) {
             await editor.fromJSON(file); // Blob으로 전달
           } else {
             // JSON 파일 처리
-            const json = JSON.parse(await file.text());
+            const fileText = await file.text();
+            const json = JSON.parse(fileText);
             console.log("Loading project:", json); // 불러오는 데이터 확인
+            
+            // JSON 내용에서 외부 파일 참조 확인
+            const hasExternalFiles = fileText.includes('"url":"blob:') || 
+                                   fileText.includes('.fbx') || 
+                                   fileText.includes('.obj') || 
+                                   fileText.includes('.glb') || 
+                                   fileText.includes('.gltf') || 
+                                   fileText.includes('.mp3') || 
+                                   fileText.includes('.mp4') || 
+                                   fileText.includes('.wav') || 
+                                   fileText.includes('.jpg') || 
+                                   fileText.includes('.png') || 
+                                   fileText.includes('.jpeg') ||
+                                   fileText.includes('files/');
+            
+            if (hasExternalFiles) {
+              // 외부 파일 참조가 있는 경우 미리 경고
+              console.warn("외부 파일 참조가 감지된 JSON 파일입니다.");
+            }
+            
             await editor.fromJSON(json);
           }
         } catch (error) {
           console.error("파일 로드 중 오류:", error);
-          alert("파일 로드 중 오류가 발생했습니다: " + error.message);
+          
+          // JSON 파일 로딩 시 외부 파일 관련 오류들을 감지해서 ZIP 파일 안내
+          const isExternalFileError = !file.name.endsWith('.zip') && 
+              (error.message.includes('files') || 
+               error.message.includes('asset') || 
+               error.message.includes('texture') ||
+               error.message.includes('model') ||
+               error.message.includes('audio') ||
+               error.message.includes('video') ||
+               error.message.includes('Cannot resolve') ||
+               error.message.includes('Failed to load') ||
+               error.message.includes('404') ||
+               error.message.includes('Not Found') ||
+               error.message.includes('blob:') ||
+               error.message.includes('.fbx') ||
+               error.message.includes('.obj') ||
+               error.message.includes('.glb') ||
+               error.message.includes('.mp3') ||
+               error.message.includes('.mp4') ||
+               error.message.includes('.jpg') ||
+               error.message.includes('.png') ||
+               error.message.includes('animations') ||
+               error.message.includes('Cannot read properties of undefined'));
+               
+          if (isExternalFileError) {
+            
+            alert("이 프로젝트는 외부 파일들(3D 모델, 텍스처, 오디오 등)을 포함하고 있습니다.\n\n" +
+                  "ZIP 파일로 내보낸 프로젝트를 열어주세요.\n" +
+                  "JSON 파일만으로는 외부 파일들을 불러올 수 없습니다.");
+          } else {
+            // 다른 일반적인 오류들
+            alert("파일 로드 중 오류가 발생했습니다: " + error.message);
+          }
         }
 
         editor.signals.editorCleared.remove(onEditorCleared);

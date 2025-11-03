@@ -22,6 +22,72 @@ function Loader(editor) {
     return object;
   }
 
+  // 🎯 자동 크기 조정 함수 (개선된 버전)
+  function autoScaleObject(object, targetSize = 30) {
+    try {
+      // 바운딩 박스 계산
+      const box = new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      
+      // 가장 큰 차원을 기준으로 스케일 계산
+      const maxDimension = Math.max(size.x, size.y, size.z);
+      
+      if (maxDimension > 0) {
+        // 객체 크기에 따른 적응적 목표 크기 설정
+        let adaptiveTargetSize = targetSize;
+        
+        // 매우 작은 객체 (1 단위 미만)
+        if (maxDimension < 1) {
+          adaptiveTargetSize = targetSize * 2; // 더 크게
+        }
+        // 매우 큰 객체 (1000 단위 이상)
+        else if (maxDimension > 1000) {
+          adaptiveTargetSize = targetSize * 0.8; // 조금 작게
+        }
+        // 중간 크기 객체 (100-1000 단위)
+        else if (maxDimension > 100) {
+          adaptiveTargetSize = targetSize * 0.9; // 약간 작게
+        }
+        
+        const scale = adaptiveTargetSize / maxDimension;
+        
+        // 스케일 적용
+        object.scale.setScalar(scale);
+        
+        // 중심점을 원점으로 이동 (무대 바닥에 맞춤)
+        const scaledCenter = center.clone().multiplyScalar(scale);
+        object.position.set(0, -scaledCenter.y + (size.y * scale * 0.5), 0);
+        
+        // 객체 정보 저장 (나중에 참조할 수 있도록)
+        object.userData.originalSize = {
+          x: size.x,
+          y: size.y,
+          z: size.z,
+          maxDimension: maxDimension
+        };
+        object.userData.autoScale = scale;
+        object.userData.adaptiveTargetSize = adaptiveTargetSize;
+        
+        // 🎯 현재 위치를 최소 Y 위치로 저장 (바닥 제한용)
+        object.userData.minYPosition = object.position.y;
+        
+        console.log(`🎯 자동 크기 조정: ${object.name || 'Unknown'}`);
+        console.log(`   원본 크기: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`);
+        console.log(`   최대 차원: ${maxDimension.toFixed(2)}`);
+        console.log(`   목표 크기: ${adaptiveTargetSize.toFixed(2)}`);
+        console.log(`   적용된 스케일: ${scale.toFixed(3)}`);
+        console.log(`   조정된 크기: ${(size.x * scale).toFixed(2)} x ${(size.y * scale).toFixed(2)} x ${(size.z * scale).toFixed(2)}`);
+        console.log(`   위치 조정: Y=${object.position.y.toFixed(2)} (바닥 맞춤)`);
+      }
+      
+      return object;
+    } catch (error) {
+      console.warn("🎯 자동 크기 조정 실패:", error);
+      return object;
+    }
+  }
+
   // 파일명에서 이름 추출
   function getFileNameFromPath(path) {
     return path.split("/").pop().split(".").shift();
@@ -75,6 +141,52 @@ function Loader(editor) {
     const filename = file.name;
     const extension = filename.split(".").pop().toLowerCase();
 
+    // 🎯 파일 형식 제한 검증
+    const allowedExtensions = {
+      // 3D 객체 파일 (obj, fbx만 허용)
+      '3d': ['obj', 'fbx'],
+      // 이미지 파일 (png만 허용)
+      'image': ['png'],
+      // 영상 파일 (mp4만 허용) - 현재 미구현
+      'video': ['mp4'],
+      // 음악 파일 (mp3만 허용) - 현재 미구현
+      'audio': ['mp3']
+    };
+
+    // 모든 허용된 확장자를 하나의 배열로 합치기
+    const allAllowedExtensions = [
+      ...allowedExtensions['3d'],
+      ...allowedExtensions.image,
+      ...allowedExtensions.video,
+      ...allowedExtensions.audio,
+      // 기타 시스템 파일들
+      'zip', 'json'
+    ];
+
+    // 파일 형식 검증
+    if (!allAllowedExtensions.includes(extension)) {
+      let errorMessage = `지원되지 않는 파일 형식입니다: .${extension}\n\n`;
+      errorMessage += `허용되는 파일 형식:\n`;
+      errorMessage += `• 3D 객체: ${allowedExtensions['3d'].map(ext => '.' + ext).join(', ')}\n`;
+      errorMessage += `• 이미지: ${allowedExtensions.image.map(ext => '.' + ext).join(', ')}\n`;
+      errorMessage += `• 영상: ${allowedExtensions.video.map(ext => '.' + ext).join(', ')} (준비 중)\n`;
+      errorMessage += `• 음악: ${allowedExtensions.audio.map(ext => '.' + ext).join(', ')} (준비 중)`;
+      
+      alert(errorMessage);
+      return;
+    }
+
+    // 현재 미구현된 파일 형식에 대한 안내
+    if (allowedExtensions.video.includes(extension)) {
+      alert(`영상 파일(.${extension})은 아직 지원 준비 중입니다.`);
+      return;
+    }
+    
+    if (allowedExtensions.audio.includes(extension)) {
+      alert(`음악 파일(.${extension})은 아직 지원 준비 중입니다.`);
+      return;
+    }
+
     const reader = new FileReader();
     reader.addEventListener("progress", function (event) {
       const size =
@@ -87,7 +199,42 @@ function Loader(editor) {
     });
 
     switch (extension) {
-      case "3dm": {
+      // 🎯 허용되지 않는 3D 파일 형식들 (obj, fbx만 허용)
+      case "3dm":
+      case "3ds":
+      case "3mf":
+      case "amf":
+      case "dae":
+      case "drc":
+      case "glb":
+      case "gltf":
+      case "kmz":
+      case "md2":
+      case "pcd":
+      case "ply":
+      case "stl":
+      case "vtk":
+      case "vtp":
+      case "vtu":
+      case "wrl":
+      case "xyz": {
+        alert(`3D 파일은 .obj 또는 .fbx 형식만 지원됩니다.\n현재 파일: .${extension}`);
+        return;
+      }
+
+      // 🎯 허용되지 않는 이미지 파일 형식들 (png만 허용)
+      case "jpg":
+      case "jpeg":
+      case "gif":
+      case "bmp":
+      case "webp":
+      case "tiff":
+      case "tga": {
+        alert(`이미지 파일은 .png 형식만 지원됩니다.\n현재 파일: .${extension}`);
+        return;
+      }
+
+      case "3dm_old": {
         reader.addEventListener(
           "load",
           async function (event) {
@@ -253,10 +400,12 @@ function Loader(editor) {
 
             const loader = new FBXLoader(manager);
             const object = loader.parse(contents);
-            // 전체 객체의 크기를 0.1로 조절
-            object.scale.set(0.1, 0.1, 0.1);
-            //  이름 설정
+            
+            // 이름 설정
             object.name = getFileNameFromPath(file.name);
+
+            // 🎯 자동 크기 조정 (기존 고정 스케일 0.1 대신)
+            autoScaleObject(object, 30); // 목표 크기 30 단위 (더 작게)
 
             // 객체 처리
             processObject(object);
@@ -335,6 +484,9 @@ function Loader(editor) {
               const scene = result.scene;
               scene.name = filename;
 
+              // 🎯 자동 크기 조정
+              autoScaleObject(scene, 30); // 목표 크기 30 단위 (더 작게)
+
               scene.animations.push(...result.animations);
               editor.execute(new AddObjectCommand(editor, scene));
 
@@ -360,6 +512,9 @@ function Loader(editor) {
             loader.parse(contents, "", function (result) {
               const scene = result.scene;
               scene.name = filename;
+
+              // 🎯 자동 크기 조정
+              autoScaleObject(scene, 30); // 목표 크기 30 단위 (더 작게)
 
               scene.animations.push(...result.animations);
               editor.execute(new AddObjectCommand(editor, scene));
@@ -553,6 +708,9 @@ function Loader(editor) {
             const object = new OBJLoader().parse(contents);
             object.name = filename;
 
+            // 🎯 자동 크기 조정
+            autoScaleObject(object, 30); // 목표 크기 30 단위 (더 작게)
+
             // 객체 처리
             processObject(object);
 
@@ -613,6 +771,9 @@ function Loader(editor) {
               object.name = filename;
             }
 
+            // 🎯 자동 크기 조정
+            autoScaleObject(object, 30); // 목표 크기 30 단위 (더 작게)
+
             editor.execute(new AddObjectCommand(editor, object));
           },
           false,
@@ -638,6 +799,9 @@ function Loader(editor) {
             const mesh = new THREE.Mesh(geometry, material);
             mesh.name = filename;
 
+            // 🎯 자동 크기 조정
+            autoScaleObject(mesh, 50); // 목표 크기 50 단위
+
             editor.execute(new AddObjectCommand(editor, mesh));
           },
           false,
@@ -652,7 +816,51 @@ function Loader(editor) {
         break;
       }
 
+      case "png": {
+        reader.addEventListener(
+          "load",
+          function (event) {
+            const image = new Image();
+            image.onload = function () {
+              // 텍스처 생성
+              const texture = new THREE.Texture(image);
+              texture.needsUpdate = true;
+              
+              // 이미지 비율에 맞는 평면 지오메트리 생성
+              const aspectRatio = image.width / image.height;
+              const planeWidth = aspectRatio > 1 ? 10 : 10 * aspectRatio;
+              const planeHeight = aspectRatio > 1 ? 10 / aspectRatio : 10;
+              
+              const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+              const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+                side: THREE.DoubleSide
+              });
+              
+              const mesh = new THREE.Mesh(geometry, material);
+              mesh.name = filename;
+              
+              // 🎯 자동 크기 조정 및 바닥 위치 설정 적용
+              autoScaleObject(mesh);
+
+              editor.execute(new AddObjectCommand(editor, mesh));
+            };
+            image.src = event.target.result;
+          },
+          false,
+        );
+        reader.readAsDataURL(file);
+
+        break;
+      }
+
       case "svg": {
+        alert(`이미지 파일은 .png 형식만 지원됩니다.\n현재 파일: .${extension}`);
+        return;
+      }
+
+      case "svg_old": {
         reader.addEventListener(
           "load",
           async function (event) {

@@ -467,14 +467,16 @@ export class KeyboardShortcuts {
         };
         document.addEventListener('keydown', handleEscape);
 
-        // 외부 클릭으로 닫기
-        const closeOnOutsideClick = (e) => {
-            if (!dialogContainer.contains(e.target)) {
-                dialogContainer.remove();
-                document.removeEventListener('click', closeOnOutsideClick);
-            }
-        };
-        document.addEventListener('click', closeOnOutsideClick);
+        // 외부 클릭으로 닫기 (약간의 지연을 두고 등록하여 이벤트 전파 방지)
+        setTimeout(() => {
+            const closeOnOutsideClick = (e) => {
+                if (!dialogContainer.contains(e.target)) {
+                    dialogContainer.remove();
+                    document.removeEventListener('click', closeOnOutsideClick);
+                }
+            };
+            document.addEventListener('click', closeOnOutsideClick);
+        }, 200);
 
         // Enter 키로 이동
         const handleEnter = (e) => {

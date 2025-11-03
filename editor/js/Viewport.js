@@ -50,29 +50,29 @@ function Viewport(editor) {
   const grid1 = new THREE.GridHelper(200, 200);
   grid1.material.color.setHex(GRID_COLORS_LIGHT[0]);
   grid1.material.vertexColors = false;
-  // Z-fighting 완전 방지를 위한 강력한 설정
-  grid1.material.depthTest = false;
-  grid1.material.depthWrite = false;
+  // 🎯 정확한 깊이 렌더링을 위한 설정
+  grid1.material.depthTest = true;   // 깊이 테스트 활성화
+  grid1.material.depthWrite = false; // 깊이 쓰기는 비활성화 (투명도 때문에)
   grid1.renderOrder = -999;  // 가장 뒤에 렌더링
-  // 투명도 조정 - 더 진하게
-  grid1.material.opacity = 0.8;
+  // 투명도 조정 - 잘 보이도록
+  grid1.material.opacity = 0.8; // 투명도 낮춤 (더 진하게)
   grid1.material.transparent = true;
   grid.add(grid1);
 
   const grid2 = new THREE.GridHelper(60, 12);
   grid2.material.color.setHex(GRID_COLORS_LIGHT[1]);
   grid2.material.vertexColors = false;
-  // Z-fighting 완전 방지를 위한 강력한 설정
-  grid2.material.depthTest = false;
-  grid2.material.depthWrite = false;
+  // 🎯 정확한 깊이 렌더링을 위한 설정
+  grid2.material.depthTest = true;   // 깊이 테스트 활성화
+  grid2.material.depthWrite = false; // 깊이 쓰기는 비활성화 (투명도 때문에)
   grid2.renderOrder = -998;  // grid1보다 약간 앞에 렌더링
-  // 투명도 조정 - 더 진하게
-  grid2.material.opacity = 0.9;
+  // 투명도 조정 - 잘 보이도록
+  grid2.material.opacity = 0.9; // 투명도 낮춤 (더 진하게)
   grid2.material.transparent = true;
   grid.add(grid2);
 
-  // 그리드를 살짝 아래로 위치 조정 (Z-fighting 완전 방지)
-  grid.position.y = -0.01;
+  // 그리드를 무대 바닥보다 살짝 위로 맞춤
+  grid.position.y = -3.8; // 무대 바닥(-4.163)보다 조금 위
 
   // 가이드 라인 생성
   const guides = new THREE.Group();
@@ -87,7 +87,7 @@ function Viewport(editor) {
     linewidth: 2,
     opacity: 0.8,
     transparent: true,
-    depthTest: false,
+    depthTest: true,   // 🎯 깊이 테스트 활성화
     depthWrite: false
   });
   const xAxisLine = new THREE.Line(xAxisGeometry, xAxisMaterial);
@@ -104,7 +104,7 @@ function Viewport(editor) {
     linewidth: 2,
     opacity: 0.8,
     transparent: true,
-    depthTest: false,
+    depthTest: true,   // 🎯 깊이 테스트 활성화
     depthWrite: false
   });
   const zAxisLine = new THREE.Line(zAxisGeometry, zAxisMaterial);
@@ -118,7 +118,7 @@ function Viewport(editor) {
     side: THREE.DoubleSide,
     opacity: 0.9,
     transparent: true,
-    depthTest: false,
+    depthTest: true,   // 🎯 깊이 테스트 활성화
     depthWrite: false
   });
   const centerMarker = new THREE.Mesh(centerGeometry, centerMaterial);
@@ -151,7 +151,25 @@ function Viewport(editor) {
     if (editor.viewportShading !== "realistic") render();
   });
   transformControls.addEventListener("objectChange", function () {
-    signals.objectChanged.dispatch(transformControls.object);
+    const object = transformControls.object;
+    
+    // 🎯 객체별 개별 바닥 제한 (불러온 위치 기준)
+    if (object && object.userData && typeof object.userData.minYPosition === 'number') {
+      const minYPosition = object.userData.minYPosition;
+      if (object.position.y < minYPosition) {
+        object.position.y = minYPosition;
+        console.log(`🎯 객체 "${object.name || 'Unknown'}"가 초기 위치(Y=${minYPosition.toFixed(2)}) 아래로 이동하는 것을 방지했습니다.`);
+      }
+    } else {
+      // userData.minYPosition이 없는 기존 객체들을 위한 기본 제한 (그리드 레벨)
+      const defaultFloorLevel = -3.8;
+      if (object && object.position.y < defaultFloorLevel) {
+        object.position.y = defaultFloorLevel;
+        console.log(`🎯 객체 "${object.name || 'Unknown'}"가 기본 바닥 레벨 아래로 이동하는 것을 방지했습니다.`);
+      }
+    }
+    
+    signals.objectChanged.dispatch(object);
   });
   transformControls.addEventListener("mouseDown", function () {
     const object = transformControls.object;

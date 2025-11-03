@@ -185,7 +185,7 @@ function VideoEdit(editor) {
             */
             /* fbx 기준*/
             // object.position.set(228.340, -153.989, 764.44);
-            object.position.set(228.340, -125.909, 764.44); // object.scale.set(0.6, 0.6, 0.5)일때
+            object.position.set(228.340, -125.909, 764.44); // 원래 위치로 복원
 
             object.rotation.set(
               -Math.PI / 2, // -90도
@@ -290,9 +290,14 @@ function VideoEdit(editor) {
         });
 
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.position.set(-2.975, -4.163, 0.0);
+        floor.position.set(-2.975, -4.163, 0.0); // 원래 위치로 복원
         floor.scale.set(1.564, 6.779, 1.0);
         floor.name = "_Floor";
+        
+        // 🎯 그리드가 바닥을 뚫고 보이도록 설정
+        floor.renderOrder = -500; // 그리드(-999, -998)보다는 높지만 일반 객체(0)보다는 낮게
+        floor.material.depthWrite = true; // 깊이 쓰기 활성화
+        
         // floor.userData.isBackground = true;
         // floor.userData.notSelectable = true;
         // floor.userData.notEditable = true;
