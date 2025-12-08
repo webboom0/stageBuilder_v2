@@ -200,7 +200,7 @@ function VideoEdit(editor) {
             }
           } else if (stageType === "arena") {
             // 아레나 무대의 위치/회전/스케일 (필요에 따라 조정)
-            object.position.set(-543.945, 255.784, 610.685);
+            object.position.set(-543.945, 260.784, 610.685);
             object.rotation.set(-90 * Math.PI / 180, 0, 0);
             object.scale.set(0.094, 0.094, 0.180);
 
@@ -399,15 +399,15 @@ function VideoEdit(editor) {
         floorGeometry = new THREE.CircleGeometry(80, 64); // 반지름 80, 세그먼트 64
         floor = new THREE.Mesh(floorGeometry, floorMaterial);
         floor.rotation.x = -Math.PI / 2; // 바닥이 수평이 되도록 회전
-        floor.position.set(0, -4.163, 0);
+        floor.position.set(0, 0.163, 0);
         floor.scale.set(1, 1, 1);
       } else {
         // 프로시너엄: 사각형 바닥 (기본)
         console.log("Creating rectangular floor for proscenium");
         floorGeometry = new THREE.BoxGeometry(147.446, 1, 111.747);
         floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.position.set(-2.975, -4.163, 0.0);
-        floor.scale.set(1.564, 6.779, 1.0);
+        floor.position.set(-2.975, 0.163, 0.0);
+        floor.scale.set(1.564, 0, 1.0);
       }
 
       floor.name = "_Floor";

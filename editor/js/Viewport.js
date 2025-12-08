@@ -71,8 +71,8 @@ function Viewport(editor) {
   grid2.material.transparent = true;
   grid.add(grid2);
 
-  // 그리드를 무대 바닥보다 살짝 위로 맞춤
-  grid.position.y = -3.8; // 무대 바닥(-4.163)보다 조금 위
+  // 그리드를 무대 바닥 높이로 맞춤
+  grid.position.y = 0.163 // 무대 바닥 높이
 
   // 가이드 라인 생성
   const guides = new THREE.Group();
@@ -82,8 +82,8 @@ function Viewport(editor) {
     new THREE.Vector3(-100, 0, 0),
     new THREE.Vector3(100, 0, 0)
   ]);
-  const xAxisMaterial = new THREE.LineBasicMaterial({ 
-    color: 0xff0000, 
+  const xAxisMaterial = new THREE.LineBasicMaterial({
+    color: 0xff0000,
     linewidth: 2,
     opacity: 0.8,
     transparent: true,
@@ -99,8 +99,8 @@ function Viewport(editor) {
     new THREE.Vector3(0, 0, -100),
     new THREE.Vector3(0, 0, 100)
   ]);
-  const zAxisMaterial = new THREE.LineBasicMaterial({ 
-    color: 0x0000ff, 
+  const zAxisMaterial = new THREE.LineBasicMaterial({
+    color: 0x0000ff,
     linewidth: 2,
     opacity: 0.8,
     transparent: true,
@@ -113,8 +113,8 @@ function Viewport(editor) {
 
   // 중심점 마커 (노란색) - 항상 보이도록 설정
   const centerGeometry = new THREE.RingGeometry(0.5, 1, 8);
-  const centerMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0xffff00, 
+  const centerMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffff00,
     side: THREE.DoubleSide,
     opacity: 0.9,
     transparent: true,
@@ -126,6 +126,9 @@ function Viewport(editor) {
   centerMarker.position.y = 0.02; // 그리드보다 살짝 더 위
   centerMarker.renderOrder = -994;
   guides.add(centerMarker);
+
+  // 가이드를 무대 바닥 높이로 맞춤
+  guides.position.y = -0.163; // 무대 바닥 높이
 
   // 가이드 그룹을 sceneHelpers에 추가
   sceneHelpers.add(guides);
@@ -152,7 +155,7 @@ function Viewport(editor) {
   });
   transformControls.addEventListener("objectChange", function () {
     const object = transformControls.object;
-    
+
     // 🎯 객체별 개별 바닥 제한 (불러온 위치 기준)
     if (object && object.userData && typeof object.userData.minYPosition === 'number') {
       const minYPosition = object.userData.minYPosition;
@@ -168,7 +171,7 @@ function Viewport(editor) {
         console.log(`🎯 객체 "${object.name || 'Unknown'}"가 기본 바닥 레벨 아래로 이동하는 것을 방지했습니다.`);
       }
     }
-    
+
     signals.objectChanged.dispatch(object);
   });
   transformControls.addEventListener("mouseDown", function () {
@@ -382,7 +385,7 @@ function Viewport(editor) {
     // body 스크롤 방지 및 클래스 추가
     document.body.style.overflow = 'hidden';
     document.body.classList.add('full-mode');
-    
+
     isFullscreen = true;
 
     // 전체화면 알림 표시
@@ -399,7 +402,7 @@ function Viewport(editor) {
 
     // ESC 키로 전체화면 종료 가능하도록 이벤트 리스너 추가
     document.addEventListener('keydown', onEscapeKey);
-    
+
     // 윈도우 크기 변경 이벤트 리스너 추가
     window.addEventListener('resize', onFullscreenResize);
   }
@@ -423,7 +426,7 @@ function Viewport(editor) {
     // body 스크롤 복원 및 클래스 제거
     document.body.style.overflow = '';
     document.body.classList.remove('full-mode');
-    
+
     isFullscreen = false;
 
     // 전체화면 종료 알림 표시
