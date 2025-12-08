@@ -147,97 +147,78 @@ function SidebarScene(editor) {
   container.add(outliner);
   container.add(new UIBreak());
 
-  // background
+  // stage (무대 선택)
 
-  const backgroundRow = new UIRow();
+  const stageRow = new UIRow();
+  stageRow.setClass("stage-selector");
 
-  const backgroundType = new UISelect()
-    .setOptions({
-      None: "",
-      Color: "Color",
-      Texture: "Texture",
-      Equirectangular: "Equirect",
-    })
-    .setWidth("150px");
-  backgroundType.onChange(function () {
-    onBackgroundChanged();
-    refreshBackgroundUI();
-  });
+  const stageLabel = new UIText("무대").setClass("Label");
+  stageRow.add(stageLabel);
+  stageRow.add(new UIBreak());
 
-  backgroundRow.add(
-    new UIText(strings.getKey("sidebar/scene/background")).setClass("Label")
-  );
-  backgroundRow.add(backgroundType);
+  // 버튼 컨테이너
+  const stageButtonsContainer = document.createElement('div');
+  stageButtonsContainer.className = 'stage-buttons-container';
 
-  const backgroundColor = new UIColor()
-    .setValue("#000000")
-    .setMarginLeft("8px")
-    .onInput(onBackgroundChanged);
-  backgroundRow.add(backgroundColor);
+  // 프로시너엄 버튼
+  const prosceniumButton = document.createElement('button');
+  prosceniumButton.className = 'stage-button active';
+  prosceniumButton.dataset.stage = 'proscenium';
+  prosceniumButton.innerHTML = `
+    <i class="ri-building-2-line"></i>
+    <span>프로시너엄</span>
+  `;
 
-  const backgroundTexture = new UITexture(editor)
-    .setMarginLeft("8px")
-    .onChange(onBackgroundChanged);
-  backgroundTexture.setDisplay("none");
-  backgroundRow.add(backgroundTexture);
+  // 아레나 버튼
+  const arenaButton = document.createElement('button');
+  arenaButton.className = 'stage-button';
+  arenaButton.dataset.stage = 'arena';
+  arenaButton.innerHTML = `
+    <i class="ri-community-line"></i>
+    <span>아레나</span>
+  `;
 
-  const backgroundEquirectangularTexture = new UITexture(editor)
-    .setMarginLeft("8px")
-    .onChange(onBackgroundChanged);
-  backgroundEquirectangularTexture.setDisplay("none");
-  backgroundRow.add(backgroundEquirectangularTexture);
+  stageButtonsContainer.appendChild(prosceniumButton);
+  stageButtonsContainer.appendChild(arenaButton);
 
-  container.add(backgroundRow);
+  stageRow.dom.appendChild(stageButtonsContainer);
+  container.add(stageRow);
 
-  const backgroundEquirectRow = new UIRow();
-  backgroundEquirectRow.setDisplay("none");
-  backgroundEquirectRow.setMarginLeft("120px");
+  // 버튼 클릭 이벤트
+  function onStageButtonClick(e) {
+    const button = e.currentTarget;
+    const selectedStage = button.dataset.stage;
 
-  const backgroundBlurriness = new UINumber(0)
-    .setWidth("40px")
-    .setRange(0, 1)
-    .onChange(onBackgroundChanged);
-  backgroundEquirectRow.add(backgroundBlurriness);
+    // 활성화 상태 변경
+    prosceniumButton.classList.toggle('active', selectedStage === 'proscenium');
+    arenaButton.classList.toggle('active', selectedStage === 'arena');
 
-  const backgroundIntensity = new UINumber(1)
-    .setWidth("40px")
-    .setRange(0, Infinity)
-    .onChange(onBackgroundChanged);
-  backgroundEquirectRow.add(backgroundIntensity);
-
-  const backgroundRotation = new UINumber(0)
-    .setWidth("40px")
-    .setRange(-180, 180)
-    .setStep(10)
-    .setNudge(0.1)
-    .setUnit("°")
-    .onChange(onBackgroundChanged);
-  backgroundEquirectRow.add(backgroundRotation);
-
-  container.add(backgroundEquirectRow);
-
-  function onBackgroundChanged() {
-    signals.sceneBackgroundChanged.dispatch(
-      backgroundType.getValue(),
-      backgroundColor.getHexValue(),
-      backgroundTexture.getValue(),
-      backgroundEquirectangularTexture.getValue(),
-      backgroundBlurriness.getValue(),
-      backgroundIntensity.getValue(),
-      backgroundRotation.getValue()
-    );
+    // 무대 변경
+    onStageChanged(selectedStage);
   }
 
-  function refreshBackgroundUI() {
-    const type = backgroundType.getValue();
+  prosceniumButton.addEventListener('click', onStageButtonClick);
+  arenaButton.addEventListener('click', onStageButtonClick);
 
-    backgroundType.setWidth(type === "None" ? "150px" : "110px");
-    backgroundColor.setDisplay(type === "Color" ? "" : "none");
-    backgroundTexture.setDisplay(type === "Texture" ? "" : "none");
-    backgroundEquirectangularTexture.setDisplay(
-      type === "Equirectangular" ? "" : "none"
-    );
-    backgroundEquirectRow.setDisplay(type === "Equirectangular" ? "" : "none");
+  function onStageChanged(selectedStage) {
+    const stageFiles = {
+      proscenium: "../files/stage/background.fbx",
+      arena: "../files/stage/arena_stage.fbx",
+    };
+
+    const stageFile = stageFiles[selectedStage];
+
+    // VideoEdit의 background 객체를 통해 무대 변경
+    if (editor.videoEdit && editor.videoEdit.background) {
+      editor.videoEdit.background.changeStage(selectedStage, stageFile);
+      editor.scene.userData.stageType = selectedStage;
+    }
+  }
+
+  // 무대 타입 업데이트 함수 (refreshUI에서 사용)
+  function updateStageButtons(stageType) {
+    prosceniumButton.classList.toggle('active', stageType === 'proscenium');
+    arenaButton.classList.toggle('active', stageType === 'arena');
   }
 
   // environment
@@ -404,28 +385,9 @@ function SidebarScene(editor) {
       outliner.setValue(editor.selected.id);
     }
 
-    if (scene.background) {
-      if (scene.background.isColor) {
-        backgroundType.setValue("Color");
-        backgroundColor.setHexValue(scene.background.getHex());
-      } else if (scene.background.isTexture) {
-        if (
-          scene.background.mapping === THREE.EquirectangularReflectionMapping
-        ) {
-          backgroundType.setValue("Equirectangular");
-          backgroundEquirectangularTexture.setValue(scene.background);
-          backgroundBlurriness.setValue(scene.backgroundBlurriness);
-          backgroundIntensity.setValue(scene.backgroundIntensity);
-        } else {
-          backgroundType.setValue("Texture");
-          backgroundTexture.setValue(scene.background);
-        }
-      }
-    } else {
-      backgroundType.setValue("None");
-      backgroundTexture.setValue(null);
-      backgroundEquirectangularTexture.setValue(null);
-    }
+    // 무대 타입 설정
+    const currentStageType = scene.userData.stageType || "proscenium";
+    updateStageButtons(currentStageType);
 
     if (scene.environment) {
       if (
@@ -462,7 +424,6 @@ function SidebarScene(editor) {
       fogType.setValue("None");
     }
 
-    refreshBackgroundUI();
     refreshEnvironmentUI();
     refreshFogUI();
   }
@@ -535,13 +496,6 @@ function SidebarScene(editor) {
       outliner.setValue(object.id);
     } else {
       outliner.setValue(null);
-    }
-  });
-
-  signals.sceneBackgroundChanged.add(function () {
-    if (environmentType.getValue() === "Background") {
-      onEnvironmentChanged();
-      refreshEnvironmentUI();
     }
   });
 

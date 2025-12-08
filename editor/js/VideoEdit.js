@@ -149,12 +149,97 @@ function VideoEdit(editor) {
         editor.scene.add(this.stageGroup);
       }
     },
-    create: function () {
+    changeStage: function (stageType, stageFile) {
+      console.log(`Changing stage to: ${stageType}, file: ${stageFile}`);
+
+      // loading 모달 표시
+      const modal = document.getElementById("loading-modal");
+      if (modal) modal.style.display = "flex";
+
+      // 기존 배경 제거
+      const existingBackground = this.stageGroup.children.find(
+        (child) => child.name === "_Background",
+      );
+      if (existingBackground) {
+        this.stageGroup.remove(existingBackground);
+        // 메모리 정리
+        existingBackground.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach((mat) => mat.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+      }
+
+      // 새로운 무대 로드
+      const loader = new FBXLoader();
+      loader.load(
+        stageFile,
+        (object) => {
+          object.name = "_Background";
+
+          // 무대 타입에 따른 위치/회전/스케일 설정
+          if (stageType === "proscenium") {
+            object.position.set(228.340, -125.909, 764.44);
+            object.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+            object.scale.set(0.6, 0.6, 0.4);
+
+            // 프로시너엄 무대로 변경 시 카메라 위치 설정 (정면 뷰)
+            if (editor.camera) {
+              editor.camera.position.set(0.000, 11.660, 284.553);
+              editor.camera.rotation.set(0, 0, 0);
+              // 화각 설정
+              if (editor.camera.fov !== undefined) {
+                editor.camera.fov = 50.00;
+                editor.camera.updateProjectionMatrix();
+              }
+            }
+          } else if (stageType === "arena") {
+            // 아레나 무대의 위치/회전/스케일 (필요에 따라 조정)
+            object.position.set(-543.945, 255.784, 610.685);
+            object.rotation.set(-90 * Math.PI / 180, 0, 0);
+            object.scale.set(0.094, 0.094, 0.180);
+
+            // 아레나 무대로 변경 시 카메라 위치 설정
+            if (editor.camera) {
+              editor.camera.position.set(0.000, 126.461, 262.92);
+              editor.camera.rotation.set(
+                -26.57 * Math.PI / 180,
+                0.00 * Math.PI / 180,
+                0.00 * Math.PI / 180
+              );
+            }
+          }
+
+          this.stageGroup.add(object);
+
+          // scene userData에 현재 무대 타입 저장
+          editor.scene.userData.stageType = stageType;
+          editor.signals.sceneGraphChanged.dispatch();
+
+          console.log(`Stage changed to ${stageType}`);
+
+          // loading 모달 숨김
+          if (modal) modal.style.display = "none";
+        },
+        undefined,
+        (error) => {
+          console.error(`Error loading ${stageType} stage:`, error);
+          alert(`무대 로드 중 오류가 발생했습니다: ${error.message}`);
+          if (modal) modal.style.display = "none";
+        }
+      );
+    },
+    create: function (stageFile = "../files/stage/background.fbx") {
       console.log("background");
 
       const loader = new FBXLoader();
       loader.load(
-        "../files/background.fbx",
+        stageFile,
         (object) => {
           if (!editor.scene || !editor.scene.children) {
             console.log("Scene or children not initialized yet");
@@ -217,15 +302,20 @@ function VideoEdit(editor) {
             this.stageGroup.add(object);
             // editor.scene.add(object);
 
-            // === 카메라 위치 설정 예시 ===
+            // scene userData에 현재 무대 타입 저장 (없으면 기본값)
+            if (!editor.scene.userData.stageType) {
+              editor.scene.userData.stageType = "proscenium";
+            }
+
+            // === 프로시너엄 무대 카메라 위치 설정 (정면 뷰) ===
             if (editor.camera) {
-              editor.camera.position.set(-22.492, 70, 500); // 원하는 위치로 변경
-              editor.camera.lookAt(0, 0, 0); // 원하는 타겟으로 변경
-              editor.camera.rotation.set(
-                -11 * Math.PI / 180,
-                -3 * Math.PI / 180,
-                0
-              );
+              editor.camera.position.set(0.000, 11.660, 284.553);
+              editor.camera.rotation.set(0, 0, 0);
+              // 화각 설정
+              if (editor.camera.fov !== undefined) {
+                editor.camera.fov = 50.00;
+                editor.camera.updateProjectionMatrix();
+              }
             }
           }
 
@@ -293,11 +383,11 @@ function VideoEdit(editor) {
         floor.position.set(-2.975, -4.163, 0.0); // 원래 위치로 복원
         floor.scale.set(1.564, 6.779, 1.0);
         floor.name = "_Floor";
-        
+
         // 🎯 그리드가 바닥을 뚫고 보이도록 설정
         floor.renderOrder = -500; // 그리드(-999, -998)보다는 높지만 일반 객체(0)보다는 낮게
         floor.material.depthWrite = true; // 깊이 쓰기 활성화
-        
+
         // floor.userData.isBackground = true;
         // floor.userData.notSelectable = true;
         // floor.userData.notEditable = true;
@@ -322,11 +412,61 @@ function VideoEdit(editor) {
   console.log(editor.scene.userData.hasBackground);
   // 새 파일일 경우에만 Background 생성
   if (!editor.scene.userData.hasBackground) {
-    console.log("background호출");
+    console.log("새 파일 - 기본 프로시너엄 무대 생성");
     background.init();
+    // 기본값으로 프로시너엄 무대 설정
+    editor.scene.userData.stageType = "proscenium";
     background.create();
     background.createFloor();
+  } else {
+    // 기존 파일 로드 시
+    console.log("기존 파일 로드 중...");
+    background.init();
+
+    // stageType이 없으면 기본값 설정
+    if (!editor.scene.userData.stageType) {
+      console.log("stageType 없음 - 기본값 proscenium 설정");
+      editor.scene.userData.stageType = "proscenium";
+    }
+
+    console.log("저장된 무대 타입:", editor.scene.userData.stageType);
+
+    // Stage 그룹에 _Background가 이미 있는지 확인
+    const existingBackground = background.stageGroup?.children.find(
+      (child) => child.name === "_Background"
+    );
+
+    if (!existingBackground) {
+      console.log("무대 모델이 없음 - 저장된 타입으로 무대 로드:", editor.scene.userData.stageType);
+
+      // 저장된 무대 타입에 맞는 파일 경로 설정
+      const stageFiles = {
+        proscenium: "../files/stage/background.fbx",
+        arena: "../files/stage/arena_stage.fbx"
+      };
+
+      const stageFile = stageFiles[editor.scene.userData.stageType] || stageFiles.proscenium;
+
+      // 무대 생성
+      background.create(stageFile);
+      background.createFloor();
+    } else {
+      console.log("무대 모델이 이미 로드되어 있음");
+      // 바닥만 없으면 생성
+      const existingFloor = background.stageGroup?.children.find(
+        (child) => child.name === "_Floor"
+      );
+      if (!existingFloor) {
+        background.createFloor();
+      }
+    }
   }
+
+  // background 객체를 editor에 저장하여 Sidebar.Scene에서 접근 가능하도록 함
+  editor.videoEdit = {
+    background: background
+  };
+
   return container;
 }
 

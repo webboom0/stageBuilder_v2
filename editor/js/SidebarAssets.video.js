@@ -73,7 +73,7 @@ export function createVideoPanel(editor) {
         return;
       }
 
-      
+
 
       // 파일 선택 다이얼로그 열기
       fileInput.click();
@@ -265,11 +265,11 @@ export function createVideoPanel(editor) {
           name: "video3",
           displayName: "Video 3",
           filename: "video3.mp4"
-        },{
-          path: "../files/video/su_test.mp4",
-          name: "su_test",
-          displayName: "su_test",
-          filename: "su_test.mp4"
+        }, {
+          path: "../files/video/video4.mp4",
+          name: "video4",
+          displayName: "video4",
+          filename: "video4.mp4"
         }
       ];
 
