@@ -160,13 +160,13 @@ function SidebarScene(editor) {
   const stageButtonsContainer = document.createElement('div');
   stageButtonsContainer.className = 'stage-buttons-container';
 
-  // 프로시너엄 버튼
+  // 프로시니엄 버튼
   const prosceniumButton = document.createElement('button');
   prosceniumButton.className = 'stage-button active';
   prosceniumButton.dataset.stage = 'proscenium';
   prosceniumButton.innerHTML = `
     <i class="ri-building-2-line"></i>
-    <span>프로시너엄</span>
+    <span>프로시니엄</span>
   `;
 
   // 아레나 버튼

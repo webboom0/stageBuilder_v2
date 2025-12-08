@@ -188,7 +188,7 @@ function VideoEdit(editor) {
             object.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
             object.scale.set(0.6, 0.6, 0.4);
 
-            // 프로시너엄 무대로 변경 시 카메라 위치 설정 (정면 뷰)
+            // 프로시니엄 무대로 변경 시 카메라 위치 설정 (정면 뷰)
             if (editor.camera) {
               editor.camera.position.set(0.000, 11.660, 284.553);
               editor.camera.rotation.set(0, 0, 0);
@@ -219,6 +219,10 @@ function VideoEdit(editor) {
 
           // scene userData에 현재 무대 타입 저장
           editor.scene.userData.stageType = stageType;
+
+          // 무대 타입에 맞는 바닥 생성
+          this.createFloor(stageType);
+
           editor.signals.sceneGraphChanged.dispatch();
 
           console.log(`Stage changed to ${stageType}`);
@@ -307,7 +311,7 @@ function VideoEdit(editor) {
               editor.scene.userData.stageType = "proscenium";
             }
 
-            // === 프로시너엄 무대 카메라 위치 설정 (정면 뷰) ===
+            // === 프로시니엄 무대 카메라 위치 설정 (정면 뷰) ===
             if (editor.camera) {
               editor.camera.position.set(0.000, 11.660, 284.553);
               editor.camera.rotation.set(0, 0, 0);
@@ -360,44 +364,61 @@ function VideoEdit(editor) {
         },
       );
     },
-    createFloor: function () {
-      console.log("createFloor");
-      // 바닥 객체 생성
+    createFloor: function (stageType) {
+      console.log("createFloor for stage type:", stageType);
+
+      // 기존 바닥 제거
       const existingFloor = this.stageGroup.children.find(
         (child) => child.name === "_Floor",
       );
-
-      if (!existingFloor) {
-        const floorGeometry = new THREE.BoxGeometry(147.446, 1, 111.747);
-        const floorMaterial = new THREE.MeshStandardMaterial({
-          color: 0x808080,
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 1,
-          envMapIntensity: 1.0,
-          roughness: 0.5,
-          metalness: 0.0,
-        });
-
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.position.set(-2.975, -4.163, 0.0); // 원래 위치로 복원
-        floor.scale.set(1.564, 6.779, 1.0);
-        floor.name = "_Floor";
-
-        // 🎯 그리드가 바닥을 뚫고 보이도록 설정
-        floor.renderOrder = -500; // 그리드(-999, -998)보다는 높지만 일반 객체(0)보다는 낮게
-        floor.material.depthWrite = true; // 깊이 쓰기 활성화
-
-        // floor.userData.isBackground = true;
-        // floor.userData.notSelectable = true;
-        // floor.userData.notEditable = true;
-        floor.raycast = () => null;
-
-        this.stageGroup.add(floor);
-        // editor.scene.add(floor);
-      } else {
-        console.log("Floor already exists");
+      if (existingFloor) {
+        this.stageGroup.remove(existingFloor);
+        if (existingFloor.geometry) existingFloor.geometry.dispose();
+        if (existingFloor.material) existingFloor.material.dispose();
       }
+
+      // 현재 무대 타입 확인
+      const currentStageType = stageType || editor.scene.userData.stageType || "proscenium";
+
+      let floorGeometry;
+      let floor;
+
+      const floorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x808080,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 1,
+        envMapIntensity: 1.0,
+        roughness: 0.5,
+        metalness: 0.0,
+      });
+
+      if (currentStageType === "arena") {
+        // 아레나: 원형 바닥
+        console.log("Creating circular floor for arena");
+        floorGeometry = new THREE.CircleGeometry(80, 64); // 반지름 80, 세그먼트 64
+        floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2; // 바닥이 수평이 되도록 회전
+        floor.position.set(0, -4.163, 0);
+        floor.scale.set(1, 1, 1);
+      } else {
+        // 프로시너엄: 사각형 바닥 (기본)
+        console.log("Creating rectangular floor for proscenium");
+        floorGeometry = new THREE.BoxGeometry(147.446, 1, 111.747);
+        floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.position.set(-2.975, -4.163, 0.0);
+        floor.scale.set(1.564, 6.779, 1.0);
+      }
+
+      floor.name = "_Floor";
+
+      // 🎯 그리드가 바닥을 뚫고 보이도록 설정
+      floor.renderOrder = -500;
+      floor.material.depthWrite = true;
+      floor.raycast = () => null;
+
+      this.stageGroup.add(floor);
+      console.log("Floor created successfully for", currentStageType);
     },
     onObjectSelected: function (selected) {
       if (
@@ -412,12 +433,12 @@ function VideoEdit(editor) {
   console.log(editor.scene.userData.hasBackground);
   // 새 파일일 경우에만 Background 생성
   if (!editor.scene.userData.hasBackground) {
-    console.log("새 파일 - 기본 프로시너엄 무대 생성");
+    console.log("새 파일 - 기본 프로시니엄 무대 생성");
     background.init();
-    // 기본값으로 프로시너엄 무대 설정
+    // 기본값으로 프로시니엄 무대 설정
     editor.scene.userData.stageType = "proscenium";
     background.create();
-    background.createFloor();
+    background.createFloor("proscenium");
   } else {
     // 기존 파일 로드 시
     console.log("기존 파일 로드 중...");
@@ -449,7 +470,7 @@ function VideoEdit(editor) {
 
       // 무대 생성
       background.create(stageFile);
-      background.createFloor();
+      background.createFloor(editor.scene.userData.stageType);
     } else {
       console.log("무대 모델이 이미 로드되어 있음");
       // 바닥만 없으면 생성
@@ -457,7 +478,7 @@ function VideoEdit(editor) {
         (child) => child.name === "_Floor"
       );
       if (!existingFloor) {
-        background.createFloor();
+        background.createFloor(editor.scene.userData.stageType);
       }
     }
   }

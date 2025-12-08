@@ -20,13 +20,11 @@ function MenubarView(editor) {
 	// Helpers
 
 	const states = {
-
-		gridHelper: true,
-		guideHelper: true,
-		cameraHelpers: true,
-		lightHelpers: true,
-		skeletonHelpers: true
-
+		gridHelper: false,
+		guideHelper: false,
+		cameraHelpers: false,
+		lightHelpers: false,
+		skeletonHelpers: false
 	};
 
 	// === 도우미 메뉴 (2단계) ===
@@ -308,6 +306,9 @@ function MenubarView(editor) {
 	}
 
 	//
+
+	// 초기 도우미 상태 적용
+	signals.showHelpersChanged.dispatch(states);
 
 	return container;
 
