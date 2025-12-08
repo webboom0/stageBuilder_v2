@@ -71,8 +71,8 @@ function Viewport(editor) {
   grid2.material.transparent = true;
   grid.add(grid2);
 
-  // 그리드를 무대 바닥 높이로 맞춤
-  grid.position.y = 0.163 // 무대 바닥 높이
+  // 초기 상태: 그리드 숨김
+  grid.visible = false;
 
   // 가이드 라인 생성
   const guides = new THREE.Group();
@@ -127,8 +127,8 @@ function Viewport(editor) {
   centerMarker.renderOrder = -994;
   guides.add(centerMarker);
 
-  // 가이드를 무대 바닥 높이로 맞춤
-  guides.position.y = -0.163; // 무대 바닥 높이
+  // 초기 상태: 가이드 숨김
+  guides.visible = false;
 
   // 가이드 그룹을 sceneHelpers에 추가
   sceneHelpers.add(guides);

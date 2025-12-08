@@ -307,11 +307,6 @@ function MenubarView(editor) {
 
 	//
 
-	// 초기 도우미 상태 적용 (Viewport 초기화 후 적용되도록 약간 지연)
-	setTimeout(function () {
-		signals.showHelpersChanged.dispatch(states);
-	}, 100);
-
 	return container;
 
 }

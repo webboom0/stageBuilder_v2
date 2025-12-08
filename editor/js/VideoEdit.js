@@ -223,6 +223,40 @@ function VideoEdit(editor) {
           // 무대 타입에 맞는 바닥 생성
           this.createFloor(stageType);
 
+          // 비디오 배경 다시 생성 (비디오가 로드되어 있을 때만)
+          if (editor.videoBackground && editor.videoBackground.currentVideoPath) {
+            try {
+              console.log("🎬 무대 변경으로 인한 비디오 배경 재생성");
+              const currentVideoPath = editor.videoBackground.currentVideoPath;
+              const wasPlaying = editor.videoBackground.isPlaying;
+
+              // 기존 비디오 배경 제거
+              editor.videoBackground.removeVideoBackground();
+
+              // 새로운 무대 타입으로 비디오 배경 생성
+              editor.videoBackground.createVideoBackground(this.stageGroup);
+
+              // 비디오 다시 로드
+              const loadSuccess = editor.videoBackground.loadVideo(currentVideoPath);
+
+              // 재생 중이었고 로드에 성공했다면 다시 재생
+              if (wasPlaying && loadSuccess) {
+                setTimeout(() => {
+                  try {
+                    if (editor.videoBackground && editor.videoBackground.videoElement) {
+                      editor.videoBackground.playVideo();
+                    }
+                  } catch (playError) {
+                    console.warn("비디오 재생 중 오류:", playError);
+                  }
+                }, 1000);
+              }
+            } catch (videoError) {
+              console.warn("비디오 배경 재생성 중 오류:", videoError);
+              // 오류가 발생해도 조용히 처리
+            }
+          }
+
           editor.signals.sceneGraphChanged.dispatch();
 
           console.log(`Stage changed to ${stageType}`);
@@ -402,12 +436,12 @@ function VideoEdit(editor) {
         floor.position.set(0, 0.163, 0);
         floor.scale.set(1, 1, 1);
       } else {
-        // 프로시너엄: 사각형 바닥 (기본)
+        // 프로시니엄: 사각형 바닥 (기본)
         console.log("Creating rectangular floor for proscenium");
         floorGeometry = new THREE.BoxGeometry(147.446, 1, 111.747);
         floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.position.set(-2.975, 0.163, 0.0);
-        floor.scale.set(1.564, 0, 1.0);
+        floor.position.set(-2.975, -4.163, 0.0);
+        floor.scale.set(1.564, 6.779, 1.0);
       }
 
       floor.name = "_Floor";

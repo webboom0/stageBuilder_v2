@@ -11,8 +11,8 @@ export class VideoBackground {
     this.isPlaying = false;
     this.currentVideoPath = null;
   }
-  
-  
+
+
 
   // 비디오 배경 생성
   createVideoBackground(stageGroup) {
@@ -44,14 +44,41 @@ export class VideoBackground {
         side: THREE.DoubleSide
       });
 
-      // 비디오 메시 생성 (적절한 크기와 위치)
-      const geometry = new THREE.PlaneGeometry(1, 1); // 기본 크기
-      this.videoMesh = new THREE.Mesh(geometry, this.videoMaterial);
-      this.videoMesh.name = '_VideoBackground';
+      // 현재 무대 타입 확인
+      const stageType = this.editor.scene?.userData?.stageType || 'proscenium';
+      console.log("🎬 현재 무대 타입:", stageType);
 
-      this.videoMesh.position.set(8.243, 65.273, -74.039);
-      this.videoMesh.scale.set(374.724, 125.114, 1.000);
-      this.videoMesh.rotation.set(0, 0, 0); // 0.00° 회전
+      let geometry;
+
+      if (stageType === 'arena') {
+        // 아레나: 원통형 스크린
+        console.log("🎬 아레나 원통형 스크린 생성");
+        geometry = new THREE.CylinderGeometry(
+          80,    // 상단 반지름
+          80,    // 하단 반지름
+          60,    // 높이
+          32,    // 세그먼트 (부드러운 원통)
+          1,     // 높이 세그먼트
+          true   // 열린 원통 (양쪽 뚫림)
+        );
+
+        this.videoMesh = new THREE.Mesh(geometry, this.videoMaterial);
+        this.videoMesh.name = '_VideoBackground';
+        this.videoMesh.position.set(0, 100, 0); // 중앙, 위로 올림
+        this.videoMesh.rotation.set(0, Math.PI, 0); // 180도 회전하여 경계선을 뒤로
+        this.videoMesh.scale.set(1, 1, 1);
+
+      } else {
+        // 프로시니엄: 사각형 평면 스크린
+        console.log("🎬 프로시니엄 사각형 스크린 생성");
+        geometry = new THREE.PlaneGeometry(1, 1);
+
+        this.videoMesh = new THREE.Mesh(geometry, this.videoMaterial);
+        this.videoMesh.name = '_VideoBackground';
+        this.videoMesh.position.set(8.243, 65.273, -74.039);
+        this.videoMesh.scale.set(374.724, 125.114, 1.000);
+        this.videoMesh.rotation.set(0, 0, 0);
+      }
 
       // 스테이지 그룹에 추가
       if (stageGroup) {
@@ -105,7 +132,7 @@ export class VideoBackground {
       // 비디오 로드 에러 처리
       this.videoElement.addEventListener('error', (error) => {
         console.error("❌ 비디오 로드 실패:", error);
-        alert("비디오 파일을 로드할 수 없습니다: " + videoPath);
+        // alert("비디오 파일을 로드할 수 없습니다: " + videoPath);
       });
 
       return true;
