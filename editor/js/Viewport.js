@@ -71,8 +71,9 @@ function Viewport(editor) {
   grid2.material.transparent = true;
   grid.add(grid2);
 
-  // 초기 상태: 그리드 숨김
+  // 초기 상태: 그리드 숨김, 프로시너엄 바닥 높이로 설정
   grid.visible = false;
+  grid.position.y = 1.5; // 프로시너엄 바닥보다 높게 설정
 
   // 가이드 라인 생성
   const guides = new THREE.Group();
@@ -123,12 +124,13 @@ function Viewport(editor) {
   });
   const centerMarker = new THREE.Mesh(centerGeometry, centerMaterial);
   centerMarker.rotation.x = -Math.PI / 2; // 바닥에 평행하게
-  centerMarker.position.y = 0.02; // 그리드보다 살짝 더 위
+  centerMarker.position.y = 2; // 그리드보다 살짝 더 위
   centerMarker.renderOrder = -994;
   guides.add(centerMarker);
 
-  // 초기 상태: 가이드 숨김
+  // 초기 상태: 가이드 숨김, 프로시너엄 바닥 높이로 설정
   guides.visible = false;
+  guides.position.y = 1.5; // 프로시너엄 바닥보다 높게 설정
 
   // 가이드 그룹을 sceneHelpers에 추가
   sceneHelpers.add(guides);

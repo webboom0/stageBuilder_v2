@@ -190,7 +190,7 @@ function VideoEdit(editor) {
 
             // 프로시니엄 무대로 변경 시 카메라 위치 설정 (정면 뷰)
             if (editor.camera) {
-              editor.camera.position.set(0.000, 11.660, 284.553);
+              editor.camera.position.set(0.000, 46.380, 288.37);
               editor.camera.rotation.set(0, 0, 0);
               // 화각 설정
               if (editor.camera.fov !== undefined) {
@@ -347,7 +347,7 @@ function VideoEdit(editor) {
 
             // === 프로시니엄 무대 카메라 위치 설정 (정면 뷰) ===
             if (editor.camera) {
-              editor.camera.position.set(0.000, 11.660, 284.553);
+              editor.camera.position.set(0.000, 46.380, 288.37);
               editor.camera.rotation.set(0, 0, 0);
               // 화각 설정
               if (editor.camera.fov !== undefined) {
@@ -440,8 +440,9 @@ function VideoEdit(editor) {
         console.log("Creating rectangular floor for proscenium");
         floorGeometry = new THREE.BoxGeometry(147.446, 1, 111.747);
         floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.position.set(-2.975, -4.163, 0.0);
-        floor.scale.set(1.564, 6.779, 1.0);
+        floor.position.set(74, -4.163, 0.0);
+        floor.scale.set(5.5, 6.779, 3.0);
+
       }
 
       floor.name = "_Floor";

@@ -1016,7 +1016,7 @@ class Timeline {
           display: flex;
           align-items: center;
         `;
-        
+
         moveBtn.onmouseover = () => {
           moveBtn.style.background = "#007acc";
         };
@@ -1027,18 +1027,18 @@ class Timeline {
         moveBtn.onclick = (e) => {
           e.stopPropagation(); // 이벤트 전파 중단
           console.log("시간 이동 버튼 클릭됨");
-          
+
           // 메뉴 먼저 제거
           menu.remove();
-          
+
           // KeyboardShortcuts의 showPlayheadMoveDialog 함수 호출
           let keyboardShortcuts = null;
-          
+
           // 방법 1: MotionTimeline의 keyboardShortcuts
           if (this.timelines.motion && this.timelines.motion.keyboardShortcuts) {
             keyboardShortcuts = this.timelines.motion.keyboardShortcuts;
             console.log("MotionTimeline에서 KeyboardShortcuts 찾음");
-          } 
+          }
           // 방법 2: window.motionTimeline
           else if (window.motionTimeline && window.motionTimeline.keyboardShortcuts) {
             keyboardShortcuts = window.motionTimeline.keyboardShortcuts;
@@ -1048,13 +1048,13 @@ class Timeline {
           else if (this.editor.keyboardShortcuts && this.editor.keyboardShortcuts.showPlayheadMoveDialog) {
             keyboardShortcuts = this.editor.keyboardShortcuts;
             console.log("editor에서 KeyboardShortcuts 찾음");
-          } 
+          }
           // 방법 4: window
           else if (window.keyboardShortcuts && window.keyboardShortcuts.showPlayheadMoveDialog) {
             keyboardShortcuts = window.keyboardShortcuts;
             console.log("window에서 KeyboardShortcuts 찾음");
           }
-          
+
           if (keyboardShortcuts && keyboardShortcuts.showPlayheadMoveDialog) {
             console.log("showPlayheadMoveDialog 호출");
             // 약간의 지연을 두고 다이얼로그 열기 (이벤트 전파 방지)
@@ -1090,6 +1090,18 @@ class Timeline {
 
     // 키보드 단축키 이벤트
     document.addEventListener("keydown", (e) => {
+      // 프로젝트 설정 팝업이 열려있을 때는 단축키 무시
+      const projectSetupPopup = document.querySelector('.project-setup-overlay');
+      if (projectSetupPopup) return;
+
+      // 입력 필드에 포커스가 있을 때는 단축키 무시
+      const target = e.target;
+      const isInputField = target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable;
+
+      if (isInputField) return;
+
       // 스페이스바로 재생/일시정지 토글
       if (e.code === "Space") {
         e.preventDefault(); // 기본 스크롤 동작 방지

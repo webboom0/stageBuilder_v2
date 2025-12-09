@@ -86,6 +86,10 @@ export class KeyboardShortcuts {
     handleKeyDown(e) {
         if (!this.isEnabled) return;
 
+        // 프로젝트 설정 팝업이 열려있을 때는 단축키 무시
+        const projectSetupPopup = document.querySelector('.project-setup-overlay');
+        if (projectSetupPopup) return;
+
         // 입력 필드에 포커스가 있으면 단축키 비활성화
         const activeElement = document.activeElement;
         if (this.isInputField(activeElement)) {
@@ -137,44 +141,44 @@ export class KeyboardShortcuts {
     // 입력 필드인지 확인하는 헬퍼 함수
     isInputField(element) {
         if (!element) return false;
-        
+
         const inputTypes = [
             'input', 'textarea', 'select', 'contenteditable'
         ];
-        
+
         // input, textarea, select 요소 확인
         if (inputTypes.includes(element.tagName.toLowerCase())) {
             return true;
         }
-        
+
         // contenteditable 속성 확인
         if (element.contentEditable === 'true') {
             return true;
         }
-        
+
         // CodeMirror 에디터 확인
         if (element.closest('.CodeMirror')) {
             return true;
         }
-        
+
         // 특정 클래스나 ID를 가진 입력 필드 확인
         const inputClasses = ['input', 'textarea', 'form-control', 'ui-input', 'totalSeconds', 'seconds'];
         const inputIds = ['seconds', 'search', 'command', 'totalSeconds'];
-        
+
         if (inputClasses.some(cls => element.classList.contains(cls))) {
             return true;
         }
-        
+
         if (inputIds.some(id => element.id === id)) {
             return true;
         }
-        
+
         // 부모 요소에서 입력 필드 관련 클래스 확인
         const parentWithInputClass = element.closest('.input, .textarea, .form-control, .ui-input');
         if (parentWithInputClass) {
             return true;
         }
-        
+
         return false;
     }
 
@@ -293,44 +297,44 @@ export class KeyboardShortcuts {
         this.motionTimeline.stop();
     }
 
-	// 히스토리 관련 메서드들은 Editor.js에서 전역으로 처리됨
-	// Ctrl+Z: 되돌리기, Ctrl+Shift+Z: 다시하기
+    // 히스토리 관련 메서드들은 Editor.js에서 전역으로 처리됨
+    // Ctrl+Z: 되돌리기, Ctrl+Shift+Z: 다시하기
 
-	// // KeyZ 액션 처리 (Ctrl+Z vs Ctrl+Shift+Z)
-	// handleKeyZAction(shiftKey) {
-	// 	console.log("🎯 handleKeyZAction 호출됨:", { shiftKey });
-	// 	if (shiftKey) {
-	// 		console.log("🎯 Ctrl+Shift+Z 감지 - 에디터 히스토리 되돌리기");
-	// 		this.editorUndo();
-	// 	} else {
-	// 		console.log("🎯 Ctrl+Z 감지 - 통합 히스토리 되돌리기");
-	// 		this.undo();
-	// 	}
-	// }
+    // // KeyZ 액션 처리 (Ctrl+Z vs Ctrl+Shift+Z)
+    // handleKeyZAction(shiftKey) {
+    // 	console.log("🎯 handleKeyZAction 호출됨:", { shiftKey });
+    // 	if (shiftKey) {
+    // 		console.log("🎯 Ctrl+Shift+Z 감지 - 에디터 히스토리 되돌리기");
+    // 		this.editorUndo();
+    // 	} else {
+    // 		console.log("🎯 Ctrl+Z 감지 - 통합 히스토리 되돌리기");
+    // 		this.undo();
+    // 	}
+    // }
 
-	// 에디터 히스토리 되돌리기 (Editor Undo)
-	// editorUndo() {
-	// 	console.log("KeyboardShortcuts - 에디터 히스토리 되돌리기");
-		
-	// 	if (this.motionTimeline.editor && this.motionTimeline.editor.history) {
-	// 		try {
-	// 			const result = this.motionTimeline.editor.history.undo();
-	// 			if (result) {
-	// 				console.log("에디터 되돌리기 성공:", result.name);
-	// 			this.showSuccess(`✓ 에디터 되돌리기: ${result.name}`);
-	// 			} else {
-	// 				console.log("에디터 되돌리기할 명령이 없습니다.");
-	// 				this.showWarning("에디터 되돌리기할 명령이 없습니다.");
-	// 			}
-	// 		} catch (error) {
-	// 			console.error("에디터 되돌리기 중 오류:", error);
-	// 			this.showWarning("에디터 되돌리기 중 오류가 발생했습니다.");
-	// 		}
-	// 	} else {
-	// 		console.warn("에디터 히스토리 시스템을 찾을 수 없습니다.");
-	// 		this.showWarning("에디터 히스토리 시스템을 찾을 수 없습니다.");
-	// 	}
-	// }
+    // 에디터 히스토리 되돌리기 (Editor Undo)
+    // editorUndo() {
+    // 	console.log("KeyboardShortcuts - 에디터 히스토리 되돌리기");
+
+    // 	if (this.motionTimeline.editor && this.motionTimeline.editor.history) {
+    // 		try {
+    // 			const result = this.motionTimeline.editor.history.undo();
+    // 			if (result) {
+    // 				console.log("에디터 되돌리기 성공:", result.name);
+    // 			this.showSuccess(`✓ 에디터 되돌리기: ${result.name}`);
+    // 			} else {
+    // 				console.log("에디터 되돌리기할 명령이 없습니다.");
+    // 				this.showWarning("에디터 되돌리기할 명령이 없습니다.");
+    // 			}
+    // 		} catch (error) {
+    // 			console.error("에디터 되돌리기 중 오류:", error);
+    // 			this.showWarning("에디터 되돌리기 중 오류가 발생했습니다.");
+    // 		}
+    // 	} else {
+    // 		console.warn("에디터 히스토리 시스템을 찾을 수 없습니다.");
+    // 		this.showWarning("에디터 히스토리 시스템을 찾을 수 없습니다.");
+    // 	}
+    // }
 
     // Playhead 이동 다이얼로그 표시
     showPlayheadMoveDialog() {

@@ -81,6 +81,9 @@ function MenubarView(editor) {
 	}).toggleClass('toggle-on', states.skeletonHelpers);
 	helperSubmenu.add(option);
 
+	// 초기 상태 적용 (모든 도우미 숨김)
+	signals.showHelpersChanged.dispatch(states);
+
 	options.add(new UIHorizontalRule());
 
 	// === 카메라 메뉴 (2단계) ===

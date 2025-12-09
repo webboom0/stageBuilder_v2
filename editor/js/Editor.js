@@ -98,7 +98,7 @@ function Editor() {
 
     // 타임라인
     timelineChanged: new Signal(),
-    
+
     // MotionTimeline Command 요청 시그널들
     addKeyframeRequested: new Signal(),
     removeKeyframeRequested: new Signal(),
@@ -437,12 +437,14 @@ Editor.prototype = {
           helper = new THREE.HemisphereLightHelper(object, 1);
         } else if (object.isSkinnedMesh) {
           helper = new THREE.SkeletonHelper(object.skeleton.bones[0]);
+          helper.visible = false; // 초기에는 골격 도우미 숨김
         } else if (
           object.isBone === true &&
           object.parent &&
           object.parent.isBone !== true
         ) {
           helper = new THREE.SkeletonHelper(object);
+          helper.visible = false; // 초기에는 골격 도우미 숨김
         } else {
           // no helper for this object type
           return;
@@ -932,12 +934,12 @@ Editor.prototype = {
 
       this.history.fromJSON(projectData.history);
       this.scripts = projectData.scripts;
-      
+
       // 사용자 프로젝트 정보 복원 (공연명, 공연기간, 공연장소 등)
       if (projectData.userProject) {
         this.project = projectData.userProject;
         console.log("사용자 프로젝트 정보 복원됨:", this.project);
-        
+
         // 프로젝트 로드 완료 이벤트 발생
         const event = new CustomEvent('projectLoadComplete', {
           detail: { projectData: this.project, editor: this }
