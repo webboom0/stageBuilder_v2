@@ -299,7 +299,7 @@ export class LightTimeline extends BaseTimeline {
       <option value="">조명 선택</option>
       <option value="SpotLight">SpotLight</option>
       <option value="PointLight">PointLight</option>
-      <option value="DirectionalLight">DirectionalLight</option>
+      <option value="DirectionalLight" hidden>DirectionalLight</option>
     `;
     trackInfo.appendChild(trackNameSelect);
 
@@ -398,7 +398,7 @@ export class LightTimeline extends BaseTimeline {
       this.removeExistingLight(lightId);
 
       if (!newType) {
-        this.placeLightObjOnly(lightId, row, col);
+        // 조명 선택 해제 시 스테이지에 아무것도 남기지 않음 (플레이스홀더 obj도 추가하지 않음)
         this.editor.signals.sceneGraphChanged.dispatch();
         return;
       }
@@ -422,8 +422,8 @@ export class LightTimeline extends BaseTimeline {
       // 클립 생성 (SpotLight와 DirectionalLight는 조명과 타겟을 별도 클립으로 분리)
       if (newType === "SpotLight" || newType === "DirectionalLight") {
         console.log(`🔄 SpotLight/DirectionalLight 클립 생성:`, lightId);
-        this.createLightClip(track, lightName, false); // 조명 클립
-        this.createTargetTrack(lightId, lightName); // 타겟 트랙 추가
+        this.createLightClip(track, lightName, true); // 조명 클립, hasTarget=true → 위쪽 트랙 키프레임 추가 시 light+target 동시 추가
+        this.createTargetTrack(lightId, lightName); // 타겟 트랙 추가 (키프레임 추가 버튼은 위쪽 트랙에만 있음)
       } else {
         console.log(`🔄 PointLight 클립 생성:`, lightId);
         this.createLightClip(track, lightName, false); // 조명 클립만
@@ -842,33 +842,26 @@ export class LightTimeline extends BaseTimeline {
     targetTrackName.style.color = "#f66"; // 타겟은 빨간색으로 표시
     targetTrackInfo.appendChild(targetTrackName);
 
-    // 타겟 트랙 컨트롤
+    // 타겟 트랙 컨트롤 (키프레임 추가 버튼은 위쪽 light 트랙에만 있음, 여기서는 빈 컨트롤 또는 숨김)
     const targetTrackControls = document.createElement("div");
     targetTrackControls.className = "track-controls";
 
-    // 타겟 키프레임 추가 버튼
-    const targetAddBtn = document.createElement("button");
-    targetAddBtn.className = "add-keyframe-btn";
-    targetAddBtn.title = "Add Target Keyframe";
-    targetAddBtn.textContent = "+";
-    // targetAddBtn.style.backgroundColor = "#f66"; // 타겟 버튼도 빨간색
-
-    // 타겟 이전/다음 키프레임 버튼 (숨김 처리)
+    // 타겟 이전/다음 키프레임 버튼 (숨김 유지)
     const targetPrevBtn = document.createElement("button");
     targetPrevBtn.className = "prev-keyframe-btn";
     targetPrevBtn.title = "Previous Target Keyframe";
     targetPrevBtn.innerHTML = '<i class="fa fa-angle-left"></i>';
-    targetPrevBtn.style.display = "none"; // 숨김 처리
+    targetPrevBtn.style.display = "none";
 
     const targetNextBtn = document.createElement("button");
     targetNextBtn.className = "next-keyframe-btn";
     targetNextBtn.title = "Next Target Keyframe";
     targetNextBtn.innerHTML = '<i class="fa fa-angle-right"></i>';
-    targetNextBtn.style.display = "none"; // 숨김 처리
+    targetNextBtn.style.display = "none";
 
     targetTrackControls.appendChild(targetPrevBtn);
     targetTrackControls.appendChild(targetNextBtn);
-    targetTrackControls.appendChild(targetAddBtn);
+    // 키프레임 추가는 위쪽 light 트랙 버튼으로만 수행 → light + target 동시 추가
 
     // 타겟 트랙 헤더 조립
     targetTrackHeader.appendChild(targetTrackInfo);
@@ -916,13 +909,9 @@ export class LightTimeline extends BaseTimeline {
     // 타겟 트랙을 tracks에 추가
     this.tracks.set(`${lightId}_Target`, targetTrack);
 
-    // 타겟 트랙 요소에 이벤트 리스너 추가
+    // 타겟 트랙 요소에 이벤트 리스너 추가 (키프레임 추가는 위쪽 light 트랙 버튼으로만)
     targetTrackElement.addEventListener("click", (e) => {
-      // 키프레임 추가 버튼 이벤트는 별도로 처리됨
-      if (e.target.classList.contains("add-keyframe-btn")) {
-        // 이벤트는 아래에서 처리되므로 여기서는 아무것도 하지 않음
-        return;
-      } else if (
+      if (
         e.target.classList.contains("prev-keyframe-btn") ||
         e.target.closest(".prev-keyframe-btn")
       ) {
@@ -932,66 +921,6 @@ export class LightTimeline extends BaseTimeline {
         e.target.closest(".next-keyframe-btn")
       ) {
         this.moveToAdjacentKeyframe(targetTrackElement, "next");
-      }
-    });
-
-    // 타겟 키프레임 추가 버튼 이벤트
-    targetAddBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-
-      const currentTime = this.currentTime;
-      const targetId = `${lightId}_Target`;
-      const targetObject = this.editor.scene.getObjectByName(targetId);
-
-      if (targetObject) {
-        console.log("타겟 키프레임 추가:", { targetId, currentTime });
-
-        // 타겟 트랙이 TimelineData에 있는지 확인
-        const targetTrackData = this.timelineData.getTrackById(targetId, "position");
-        console.log(`🔍 타겟 트랙 확인: ${targetId} position`, {
-          found: !!targetTrackData,
-          trackData: targetTrackData,
-          keyframeCount: targetTrackData ? targetTrackData.getKeyframeCount() : 0
-        });
-
-        if (!targetTrackData) {
-          console.warn(`❌ 타겟 트랙이 TimelineData에 없음: ${targetId} position`);
-
-          // 직접 트랙을 생성해보기
-          console.log(`🔄 직접 트랙 생성 시도: ${targetId} position`);
-          if (!this.timelineData.tracksById.has(targetId)) {
-            this.timelineData.tracksById.set(targetId, new Map());
-          }
-          const directTrackData = new TrackData();
-          this.timelineData.tracksById.get(targetId).set("position", directTrackData);
-
-          // 직접 생성 후 확인
-          const directResult = this.timelineData.getTrackById(targetId, "position");
-          console.log(`🔍 직접 트랙 생성 결과: ${targetId} position`, {
-            found: !!directResult,
-            trackData: directResult
-          });
-
-          if (!directResult) {
-            console.error(`❌ 직접 트랙 생성도 실패: ${targetId} position`);
-            return;
-          }
-        }
-
-        // 타겟 position 키프레임 추가
-        const targetValue = targetObject.position.clone();
-        this.addKeyframeForProperty(targetId, "position", currentTime, targetValue);
-
-        // 타겟 키프레임 추가 후 상태 확인
-        const updatedTargetTrackData = this.timelineData.getTrackById(targetId, "position");
-        if (updatedTargetTrackData) {
-          console.log(`✅ 타겟 키프레임 추가 완료:`, {
-            targetId,
-            keyframeCount: updatedTargetTrackData.getKeyframeCount(),
-            times: Array.from(updatedTargetTrackData.times.slice(0, updatedTargetTrackData.keyframeCount)),
-            currentTime
-          });
-        }
       }
     });
 
@@ -5439,6 +5368,93 @@ export class LightTimeline extends BaseTimeline {
     console.log("=== 키프레임 삭제 완료 ===");
   }
 
+  // SpotLight/DirectionalLight: 같은 시간의 반대 트랙 키프레임 UI 찾기 (시간 허용 오차)
+  findPartnerKeyframeElements(track, originalTime, isTargetTrack) {
+    const tol = 0.02;
+    const baseId = track.objectId.includes('_Target') ? track.objectId.replace(/_Target$/, '') : track.objectId;
+    const partnerTrack = isTargetTrack ? this.tracks.get(baseId) : this.tracks.get(baseId + '_Target');
+    if (!partnerTrack || !partnerTrack.sprite) return [];
+    const list = [];
+    partnerTrack.sprite.querySelectorAll('.keyframe').forEach(el => {
+      const t = parseFloat(el.dataset.time);
+      if (t !== t) return;
+      if (Math.abs(t - originalTime) < tol) list.push(el);
+    });
+    return list;
+  }
+
+  // SpotLight/DirectionalLight: 키프레임 이동 시 반대 트랙도 같은 시간으로 이동
+  syncMovePartnerKeyframes(lightIdBase, originalTime, finalTime, track) {
+    const targetId = lightIdBase + '_Target';
+    if (!this.tracks.has(targetId)) return;
+    const totalDuration = this.options.totalSeconds || 180;
+    const newPercent = (finalTime / totalDuration) * 100;
+
+    if (track.objectId.includes('_Target')) {
+      const lightProps = Object.keys(LIGHT_PROPERTIES.SpotLight || {});
+      lightProps.forEach(prop => {
+        const trackId = `${lightIdBase}_${prop}`;
+        const trackData = this.timelineData.tracksById.get(trackId)?.get(prop);
+        if (trackData) {
+          const idx = trackData.findKeyframeIndex(originalTime);
+          if (idx !== -1) trackData.updateKeyframeTime(idx, finalTime);
+        }
+      });
+      const partnerEls = this.findPartnerKeyframeElements(track, originalTime, true);
+      partnerEls.forEach(el => {
+        el.style.left = `${newPercent}%`;
+        el.dataset.time = finalTime.toFixed(2);
+      });
+    } else {
+      // 조명 트랙에서 드래그한 경우: 같은 시간의 모든 조명 속성 트랙 + 타겟 트랙 시간 이동 (재생 시 수정된 타임라인 반영)
+      const lightProps = Object.keys(LIGHT_PROPERTIES.SpotLight || {});
+      lightProps.forEach(prop => {
+        const trackId = `${lightIdBase}_${prop}`;
+        const trackData = this.timelineData.tracksById.get(trackId)?.get(prop);
+        if (trackData) {
+          const idx = trackData.findKeyframeIndex(originalTime);
+          if (idx !== -1) trackData.updateKeyframeTime(idx, finalTime);
+        }
+      });
+      const targetTrackData = this.timelineData.tracksById.get(targetId)?.get('position');
+      if (targetTrackData) {
+        const idx = targetTrackData.findKeyframeIndex(originalTime);
+        if (idx !== -1) targetTrackData.updateKeyframeTime(idx, finalTime);
+      }
+      const partnerEls = this.findPartnerKeyframeElements(track, originalTime, false);
+      partnerEls.forEach(el => {
+        el.style.left = `${newPercent}%`;
+        el.dataset.time = finalTime.toFixed(2);
+      });
+    }
+  }
+
+  // SpotLight/DirectionalLight: 키프레임 삭제 시 반대 트랙 같은 시간 키프레임도 삭제
+  syncDeletePartnerKeyframes(lightIdBase, originalTime, track) {
+    const targetId = lightIdBase + '_Target';
+    if (!this.tracks.has(targetId)) return;
+
+    if (track.objectId.includes('_Target')) {
+      const lightProps = Object.keys(LIGHT_PROPERTIES.SpotLight || {});
+      lightProps.forEach(prop => {
+        const trackId = `${lightIdBase}_${prop}`;
+        const trackData = this.timelineData.tracksById.get(trackId)?.get(prop);
+        if (trackData) {
+          trackData.removeKeyframe(originalTime) || trackData.removeKeyframe(parseFloat(originalTime.toFixed(2)));
+        }
+      });
+      const partnerEls = this.findPartnerKeyframeElements(track, originalTime, true);
+      partnerEls.forEach(el => el.remove());
+    } else {
+      const trackData = this.timelineData.tracksById.get(targetId)?.get('position');
+      if (trackData) {
+        trackData.removeKeyframe(originalTime) || trackData.removeKeyframe(parseFloat(originalTime.toFixed(2)));
+      }
+      const partnerEls = this.findPartnerKeyframeElements(track, originalTime, false);
+      partnerEls.forEach(el => el.remove());
+    }
+  }
+
   // 키프레임을 드래그 가능하게 만드는 메서드 (MotionTimeline과 동일한 기능)
   makeKeyframeDraggable(keyframeElement, track, time, property) {
     let isDragging = false;
@@ -5597,6 +5613,10 @@ export class LightTimeline extends BaseTimeline {
             } else {
               console.error("일부 속성의 키프레임 삭제에 실패했습니다");
             }
+
+            // SpotLight/DirectionalLight: 반대 트랙 같은 시간 키프레임도 삭제 + UI 제거
+            const lightIdBase = track.objectId.includes('_Target') ? track.objectId.replace(/_Target$/, '') : track.objectId;
+            this.syncDeletePartnerKeyframes(lightIdBase, originalTime, track);
           }
 
           // UI에서 키프레임 제거
@@ -5640,6 +5660,10 @@ export class LightTimeline extends BaseTimeline {
                 // 키프레임 시간 업데이트
                 if (trackData.updateKeyframeTime(keyframeIndex, finalTime)) {
                   console.log("✅ TimelineData 키프레임 시간 업데이트 성공!");
+
+                  // SpotLight/DirectionalLight: 반대 트랙 같은 시간 키프레임도 함께 이동
+                  const lightIdBase = track.objectId.includes('_Target') ? track.objectId.replace(/_Target$/, '') : track.objectId;
+                  this.syncMovePartnerKeyframes(lightIdBase, originalTime, finalTime, track);
 
                   // TimelineData 업데이트
                   this.timelineData.dirty = true;
