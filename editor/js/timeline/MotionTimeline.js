@@ -1987,9 +1987,9 @@ export class MotionTimeline extends BaseTimeline {
             //     initialLeft: sprite.dataset.initialLeft
             // });
         } else if (object && object.animations && object.animations.length > 0) {
-            // FBX 애니메이션이 있는 경우 기본 스프라이트 생성
-            const animationDuration = object.animations[0]?.duration || 5;
-            const totalFrames = Math.floor(animationDuration * this.options.framesPerSecond);
+            // FBX 애니메이션이 있는 경우에도 트랙 길이는 10초로 고정
+            const clipDuration = 20;
+            const totalFrames = Math.floor(clipDuration * this.options.framesPerSecond);
 
             // 현재 playhead 위치 가져오기
             const currentTime = this.currentTime || 0;
@@ -1997,7 +1997,7 @@ export class MotionTimeline extends BaseTimeline {
 
             sprite = document.createElement("div");
             sprite.className = "animation-sprite selected";
-            sprite.dataset.duration = animationDuration;
+            sprite.dataset.duration = clipDuration.toString();
             sprite.innerHTML = `
                 <div class="sprite-handle left"></div>
                 <div class="sprite-content">
@@ -2016,18 +2016,22 @@ export class MotionTimeline extends BaseTimeline {
             sprite.style.left = `${adjustedLeft}%`;
             sprite.dataset.initialLeft = adjustedLeft.toString();
         } else {
-            // FBX 애니메이션이 없는 경우 기본 스프라이트 생성
+            // FBX 애니메이션이 없는 경우 기본 스프라이트 생성 (10초 길이)
+            const clipDuration = 10;
+            const totalSeconds = this.options.totalSeconds || 180;
+            const spriteWidth = (clipDuration / totalSeconds) * 100;
+
             // 현재 playhead 위치 가져오기
             const currentTime = this.currentTime || 0;
-            const currentPercent = (currentTime / this.options.totalSeconds) * 100;
+            const currentPercent = (currentTime / totalSeconds) * 100;
 
             sprite = document.createElement("div");
             sprite.className = "animation-sprite selected";
-            sprite.dataset.duration = "5"; // 기본 5초
-            sprite.style.width = "20%"; // 기본 20% 너비
+            sprite.dataset.duration = clipDuration.toString();
+            sprite.style.width = `${spriteWidth}%`;
 
             // 클립이 타임라인 끝을 벗어나지 않도록 위치 조정
-            const maxLeft = 100 - 20; // 20% 너비
+            const maxLeft = 100 - spriteWidth;
             const adjustedLeft = Math.max(0, Math.min(maxLeft, currentPercent));
             sprite.style.left = `${adjustedLeft}%`;
             sprite.dataset.initialLeft = adjustedLeft.toString();

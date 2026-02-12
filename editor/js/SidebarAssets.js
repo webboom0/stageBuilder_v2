@@ -31,15 +31,19 @@ function SidebarAssets(editor) {
   // Video 패널 추가
   const videoPanel = createVideoPanel(editor);
 
-  // 비디오+오디오를 한 패널에서 탭으로 전환 (왼쪽 사이드바처럼)
+  // Motion + 비디오 + 오디오를 한 패널에서 탭으로 전환 (Motion이 첫 번째)
   const mediaTabbedWrapper = document.createElement('div');
   mediaTabbedWrapper.className = 'TabbedPanel media-tabbed-panel';
 
   const mediaTabsDiv = document.createElement('div');
   mediaTabsDiv.className = 'Tabs';
 
+  const tabMotion = document.createElement('div');
+  tabMotion.className = 'Tab selected';
+  tabMotion.id = 'media-tab-motion';
+  tabMotion.textContent = 'Motion';
   const tabVideo = document.createElement('div');
-  tabVideo.className = 'Tab selected';
+  tabVideo.className = 'Tab';
   tabVideo.id = 'media-tab-video';
   tabVideo.textContent = 'Video';
   const tabAudio = document.createElement('div');
@@ -47,15 +51,21 @@ function SidebarAssets(editor) {
   tabAudio.id = 'media-tab-audio';
   tabAudio.textContent = 'Audio';
 
+  mediaTabsDiv.appendChild(tabMotion);
   mediaTabsDiv.appendChild(tabVideo);
   mediaTabsDiv.appendChild(tabAudio);
 
   const mediaPanelsDiv = document.createElement('div');
   mediaPanelsDiv.className = 'Panels';
 
+  const motionPanelWrap = document.createElement('div');
+  motionPanelWrap.id = 'media-panel-motion';
+  motionPanelWrap.style.display = '';
+  motionPanelWrap.appendChild(motionPanel);
+
   const videoPanelWrap = document.createElement('div');
   videoPanelWrap.id = 'media-panel-video';
-  videoPanelWrap.style.display = '';
+  videoPanelWrap.style.display = 'none';
   videoPanelWrap.appendChild(videoPanel);
 
   const audioPanelWrap = document.createElement('div');
@@ -63,6 +73,7 @@ function SidebarAssets(editor) {
   audioPanelWrap.style.display = 'none';
   audioPanelWrap.appendChild(audioPanel);
 
+  mediaPanelsDiv.appendChild(motionPanelWrap);
   mediaPanelsDiv.appendChild(videoPanelWrap);
   mediaPanelsDiv.appendChild(audioPanelWrap);
 
@@ -70,12 +81,17 @@ function SidebarAssets(editor) {
   mediaTabbedWrapper.appendChild(mediaPanelsDiv);
 
   function selectMediaTab(id) {
+    const isMotion = id === 'media-tab-motion';
     const isVideo = id === 'media-tab-video';
+    const isAudio = id === 'media-tab-audio';
+    tabMotion.classList.toggle('selected', isMotion);
     tabVideo.classList.toggle('selected', isVideo);
-    tabAudio.classList.toggle('selected', !isVideo);
+    tabAudio.classList.toggle('selected', isAudio);
+    motionPanelWrap.style.display = isMotion ? '' : 'none';
     videoPanelWrap.style.display = isVideo ? '' : 'none';
-    audioPanelWrap.style.display = isVideo ? 'none' : '';
+    audioPanelWrap.style.display = isAudio ? '' : 'none';
   }
+  tabMotion.addEventListener('click', () => selectMediaTab('media-tab-motion'));
   tabVideo.addEventListener('click', () => selectMediaTab('media-tab-video'));
   tabAudio.addEventListener('click', () => selectMediaTab('media-tab-audio'));
 
@@ -336,21 +352,17 @@ function SidebarAssets(editor) {
 
 
 
-  // 모션 패널을 floatPanel로 생성
-  const motionFloatPanel = createPanel('Motion', motionPanel);
-
-  // Mesh 패널을 floatPanel로 생성 
+  // Mesh 패널을 floatPanel로 생성
   const meshFloatPanel = createPanel('Mesh', meshPanel);
 
-    // 비디오+오디오 탭 패널을 floatPanel로 생성 (한 패널에 탭으로 전환)
-  const mediaFloatPanel = createPanel('미디어', mediaTabbedWrapper);
+  // Motion + Video + Audio 탭 패널을 floatPanel로 생성 (Motion 첫 번째)
+  const mediaFloatPanel = createPanel('Assets', mediaTabbedWrapper);
 
-  // sidebar-assets 컨테이너에 미디어 + Motion + Mesh 패널 추가
+  // sidebar-assets 컨테이너에 Assets(탭: Motion/Video/Audio) + Mesh 패널 추가
   const sidebarAssetsContainer = document.querySelector('#sidebar-assets');
   if (sidebarAssetsContainer) {
-    sidebarAssetsContainer.appendChild(meshFloatPanel);
-    sidebarAssetsContainer.appendChild(motionFloatPanel);
     sidebarAssetsContainer.appendChild(mediaFloatPanel);
+    sidebarAssetsContainer.appendChild(meshFloatPanel);
   }
 
   return container;
