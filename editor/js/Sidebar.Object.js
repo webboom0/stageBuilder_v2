@@ -112,6 +112,8 @@ function SidebarObject(editor) {
   objectUUIDRow.add(objectUUID);
   objectUUIDRow.add(objectUUIDRenew);
 
+  // UUID 행 숨김 (표시하지 않음)
+  objectUUIDRow.setDisplay("none");
   container.add(objectUUIDRow);
 
   // name

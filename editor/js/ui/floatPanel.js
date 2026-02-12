@@ -6,14 +6,35 @@ function createPanel(title, contentDom) {
     const header = document.createElement('div');
     header.className = 'panel-header';
     header.textContent = title;
+    const bttuonGroup = document.createElement('div');
+    bttuonGroup.className = 'button-group';
+    bttuonGroup.style.display = 'flex';
+    bttuonGroup.style.justifyContent = 'flex-end';
+    bttuonGroup.style.gap = '2px';
+    header.appendChild(bttuonGroup);
 
     const undockBtn = document.createElement('button');
     undockBtn.textContent = '⧉'; // undock 아이콘
     undockBtn.style.float = 'right';
-    header.appendChild(undockBtn);
+    undockBtn.title = '분리/도킹';
+    bttuonGroup.appendChild(undockBtn);
+
+    const collapseBtn = document.createElement('button');
+    collapseBtn.textContent = '−'; // 접기
+    collapseBtn.style.float = 'right';
+    collapseBtn.style.marginRight = '4px';
+    collapseBtn.title = '패널 접기/펼치기';
+    bttuonGroup.appendChild(collapseBtn);
 
     panel.appendChild(header);
     panel.appendChild(contentDom);
+
+    let collapsed = false;
+    collapseBtn.onclick = () => {
+        collapsed = !collapsed;
+        contentDom.style.display = collapsed ? 'none' : '';
+        collapseBtn.textContent = collapsed ? '+' : '−';
+    };
 
     // 플로팅 상태 관리
     let floating = null;

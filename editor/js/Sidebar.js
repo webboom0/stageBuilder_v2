@@ -4,6 +4,7 @@ import { SidebarScene } from "./Sidebar.Scene.js";
 import { SidebarProperties } from "./Sidebar.Properties.js";
 import { SidebarProject } from "./Sidebar.Project.js";
 import { SidebarPanelScene } from "./Sidebar.PanelScene.js";
+import { SidebarStageSelector } from "./Sidebar.StageSelector.js";
 import { SidebarSettings } from "./Sidebar.Settings.js";
 import { SidebarLight } from "./Sidebar.Light.js";
 import { SidebarAssets } from "./SidebarAssets.js";
@@ -44,14 +45,16 @@ function Sidebar(editor) {
   // sidebarPropertiesResizeObserver.observe(container.tabsDiv.dom);
 
 
-  // const scenePanel = createPanel('Scene', new SidebarScene(editor).dom);
-  // const lightPanel = createPanel('Light', new SidebarLight(editor).dom);
   const scenePanel = createPanel('Scene', new SidebarPanelScene(editor).dom);
+  scenePanel.classList.add('floating-panel-scene-fixed');
+  scenePanel.style.overflow = 'auto';
+
+  const stagePanel = createPanel('무대', new SidebarStageSelector(editor).dom);
   const propertiesPanel = createPanel('Properties', new SidebarProperties(editor).dom);
 
   const sidebarContainer = document.querySelector('#sidebar');
   sidebarContainer.appendChild(scenePanel);
-  // sidebarContainer.appendChild(lightPanel);
+  sidebarContainer.appendChild(stagePanel);
   sidebarContainer.appendChild(propertiesPanel);
   
   // SidebarAssets를 sidebar-assets 컨테이너에 추가

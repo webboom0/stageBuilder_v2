@@ -1654,6 +1654,14 @@ select:hover {
   flex-shrink: 0;
 }
 
+/* 씬 패널 높이 50px 고정 (초기 로드부터 적용) */
+#sidebar .floating-panel-scene-fixed {
+  height: 130px !important;
+  min-height: 130px !important;
+  max-height: 130px !important;
+  flex-grow: 0 !important;
+}
+
 /* .floating-panel .Outliner {
   height: 150px;
 } */

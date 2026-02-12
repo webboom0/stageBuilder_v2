@@ -4,6 +4,9 @@ import { createAudioPanel } from './SidebarAssets.audio.js';
 import { createMotionPanel } from './SidebarAssets.motion.js';
 import { createVideoPanel } from './SidebarAssets.video.js';
 import { createMeshPanel } from './SidebarAssets.mesh.js';
+import { SidebarSceneMotion } from './Sidebar.SceneMotion.js';
+import { SidebarSceneAudio } from './Sidebar.SceneAudio.js';
+import { SidebarSceneMesh } from './Sidebar.SceneMesh.js';
 
 function SidebarAssets(editor) {
   const container = new UIDiv();
@@ -307,7 +310,7 @@ function SidebarAssets(editor) {
       }
 
     /* 미디어 탭 패널 (비디오/오디오) - 탭 버튼을 칸으로 균등 분할 */
-    .media-tabbed-panel .Tabs {
+    .media-tabbed-panel .Tabs, .list-tabbed-panel .Tabs {
       display: flex !important;
       width: 100%;
     }
@@ -352,17 +355,71 @@ function SidebarAssets(editor) {
 
 
 
-  // Mesh 패널을 floatPanel로 생성
+  // Mesh 패널을 floatPanel로 생성 (직육면체, 원통 등 추가 버튼)
   const meshFloatPanel = createPanel('Mesh', meshPanel);
 
   // Motion + Video + Audio 탭 패널을 floatPanel로 생성 (Motion 첫 번째)
   const mediaFloatPanel = createPanel('Assets', mediaTabbedWrapper);
 
-  // sidebar-assets 컨테이너에 Assets(탭: Motion/Video/Audio) + Mesh 패널 추가
+  // Motion / Audio 탭으로 씬 목록 패널 (Motion 목록 + Audio 목록)
+  const listTabbedWrapper = document.createElement('div');
+  listTabbedWrapper.className = 'TabbedPanel list-tabbed-panel';
+
+  const listTabsDiv = document.createElement('div');
+  listTabsDiv.className = 'Tabs';
+
+  const listTabMotion = document.createElement('div');
+  listTabMotion.className = 'Tab selected';
+  listTabMotion.id = 'list-tab-motion';
+  listTabMotion.textContent = 'Motion';
+  const listTabAudio = document.createElement('div');
+  listTabAudio.className = 'Tab';
+  listTabAudio.id = 'list-tab-audio';
+  listTabAudio.textContent = 'Audio';
+
+  listTabsDiv.appendChild(listTabMotion);
+  listTabsDiv.appendChild(listTabAudio);
+
+  const listPanelsDiv = document.createElement('div');
+  listPanelsDiv.className = 'Panels';
+
+  const motionListWrap = document.createElement('div');
+  motionListWrap.id = 'list-panel-motion';
+  motionListWrap.style.display = '';
+  motionListWrap.appendChild(new SidebarSceneMotion(editor).dom);
+
+  const audioListWrap = document.createElement('div');
+  audioListWrap.id = 'list-panel-audio';
+  audioListWrap.style.display = 'none';
+  audioListWrap.appendChild(new SidebarSceneAudio(editor).dom);
+
+  listPanelsDiv.appendChild(motionListWrap);
+  listPanelsDiv.appendChild(audioListWrap);
+
+  listTabbedWrapper.appendChild(listTabsDiv);
+  listTabbedWrapper.appendChild(listPanelsDiv);
+
+  function selectListTab(id) {
+    const isMotion = id === 'list-tab-motion';
+    const isAudio = id === 'list-tab-audio';
+    listTabMotion.classList.toggle('selected', isMotion);
+    listTabAudio.classList.toggle('selected', isAudio);
+    motionListWrap.style.display = isMotion ? '' : 'none';
+    audioListWrap.style.display = isAudio ? '' : 'none';
+  }
+  listTabMotion.addEventListener('click', () => selectListTab('list-tab-motion'));
+  listTabAudio.addEventListener('click', () => selectListTab('list-tab-audio'));
+
+  const motionAudioListPanel = createPanel('Motion / Audio 목록', listTabbedWrapper);
+  const meshScenePanel = createPanel('Mesh 목록', new SidebarSceneMesh(editor).dom);
+
+  // sidebar-assets 컨테이너에 순서: Assets → Motion/Audio(탭: Motion, Audio) → Mesh(버튼) → Mesh 목록(씬 목록)
   const sidebarAssetsContainer = document.querySelector('#sidebar-assets');
   if (sidebarAssetsContainer) {
     sidebarAssetsContainer.appendChild(mediaFloatPanel);
+    sidebarAssetsContainer.appendChild(motionAudioListPanel);
     sidebarAssetsContainer.appendChild(meshFloatPanel);
+    sidebarAssetsContainer.appendChild(meshScenePanel);
   }
 
   return container;

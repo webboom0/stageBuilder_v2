@@ -147,80 +147,6 @@ function SidebarScene(editor) {
   container.add(outliner);
   container.add(new UIBreak());
 
-  // stage (무대 선택)
-
-  const stageRow = new UIRow();
-  stageRow.setClass("stage-selector");
-
-  const stageLabel = new UIText("무대").setClass("Label");
-  stageRow.add(stageLabel);
-  stageRow.add(new UIBreak());
-
-  // 버튼 컨테이너
-  const stageButtonsContainer = document.createElement('div');
-  stageButtonsContainer.className = 'stage-buttons-container';
-
-  // 프로시니엄 버튼
-  const prosceniumButton = document.createElement('button');
-  prosceniumButton.className = 'stage-button active';
-  prosceniumButton.dataset.stage = 'proscenium';
-  prosceniumButton.innerHTML = `
-    <i class="ri-building-2-line"></i>
-    <span>프로시니엄</span>
-  `;
-
-  // 아레나 버튼
-  const arenaButton = document.createElement('button');
-  arenaButton.className = 'stage-button';
-  arenaButton.dataset.stage = 'arena';
-  arenaButton.innerHTML = `
-    <i class="ri-community-line"></i>
-    <span>아레나</span>
-  `;
-
-  stageButtonsContainer.appendChild(prosceniumButton);
-  stageButtonsContainer.appendChild(arenaButton);
-
-  stageRow.dom.appendChild(stageButtonsContainer);
-  container.add(stageRow);
-
-  // 버튼 클릭 이벤트
-  function onStageButtonClick(e) {
-    const button = e.currentTarget;
-    const selectedStage = button.dataset.stage;
-
-    // 활성화 상태 변경
-    prosceniumButton.classList.toggle('active', selectedStage === 'proscenium');
-    arenaButton.classList.toggle('active', selectedStage === 'arena');
-
-    // 무대 변경
-    onStageChanged(selectedStage);
-  }
-
-  prosceniumButton.addEventListener('click', onStageButtonClick);
-  arenaButton.addEventListener('click', onStageButtonClick);
-
-  function onStageChanged(selectedStage) {
-    const stageFiles = {
-      proscenium: "../files/stage/background.fbx",
-      arena: "../files/stage/arena_stage.fbx",
-    };
-
-    const stageFile = stageFiles[selectedStage];
-
-    // VideoEdit의 background 객체를 통해 무대 변경
-    if (editor.videoEdit && editor.videoEdit.background) {
-      editor.videoEdit.background.changeStage(selectedStage, stageFile);
-      editor.scene.userData.stageType = selectedStage;
-    }
-  }
-
-  // 무대 타입 업데이트 함수 (refreshUI에서 사용)
-  function updateStageButtons(stageType) {
-    prosceniumButton.classList.toggle('active', stageType === 'proscenium');
-    arenaButton.classList.toggle('active', stageType === 'arena');
-  }
-
   // environment
 
   const environmentRow = new UIRow();
@@ -384,10 +310,6 @@ function SidebarScene(editor) {
     if (editor.selected !== null) {
       outliner.setValue(editor.selected.id);
     }
-
-    // 무대 타입 설정
-    const currentStageType = scene.userData.stageType || "proscenium";
-    updateStageButtons(currentStageType);
 
     if (scene.environment) {
       if (

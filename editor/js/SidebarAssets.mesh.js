@@ -28,6 +28,7 @@ export function createMeshPanel(editor) {
     const halfHeight = 10;
     mesh.position.y = DEFAULT_FLOOR_LEVEL + halfHeight;
     mesh.userData.minYPosition = mesh.position.y;
+    mesh.userData.source = 'mesh';
     editor.execute(new AddObjectCommand(editor, mesh));
   });
   buttonsContainer.appendChild(boxBtn.dom);
@@ -53,6 +54,7 @@ export function createMeshPanel(editor) {
     const halfHeight = 6;
     mesh.position.y = DEFAULT_FLOOR_LEVEL + halfHeight;
     mesh.userData.minYPosition = mesh.position.y;
+    mesh.userData.source = 'mesh';
     editor.execute(new AddObjectCommand(editor, mesh));
   });
   buttonsContainer.appendChild(cylinderBtn.dom);

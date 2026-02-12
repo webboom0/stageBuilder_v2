@@ -1152,6 +1152,7 @@ export class AudioTimeline extends BaseTimeline {
 
             // Scene에 오디오 객체 추가
             this.editor.scene.add(audioObject);
+            this.editor.signals.sceneGraphChanged.dispatch();
             console.log("오디오 객체 생성됨:", audioObject);
 
             // addTrack 호출 시 필요한 모든 정보를 전달
@@ -1732,6 +1733,7 @@ export class AudioTimeline extends BaseTimeline {
 
           // Scene에 오디오 객체 추가
           this.editor.scene.add(audioObject);
+          this.editor.signals.sceneGraphChanged.dispatch();
           console.log("오디오 객체 생성됨:", audioObject);
 
           // 오디오 트랙 생성

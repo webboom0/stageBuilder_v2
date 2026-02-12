@@ -410,6 +410,9 @@ function Loader(editor) {
             // 객체 처리
             processObject(object);
 
+            // 왼쪽 Scene 패널에서 Motion 패널로 구분 표시
+            object.userData.source = 'motion';
+
             editor.execute(new AddObjectCommand(editor, object));
           },
           false,
@@ -713,6 +716,9 @@ function Loader(editor) {
 
             // 객체 처리
             processObject(object);
+
+            // 왼쪽 Scene 패널에서 Motion 패널로 구분 표시
+            object.userData.source = 'motion';
 
             editor.execute(new AddObjectCommand(editor, object));
           },
