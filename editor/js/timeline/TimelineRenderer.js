@@ -77,6 +77,7 @@ class TimelineRenderer {
           </div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="render-mute-btn" type="button" title="렌더링 중 오디오 음소거" style="display: none; background: #444; border: none; color: white; padding: 8px 12px; border-radius: 4px; cursor: pointer;"><i class="fas fa-volume-up"></i> 소리</button>
           <button id="start-render-btn" style="background: #4CAF50; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;"><i class="fas fa-play"></i> 렌더링 시작</button>
           <button id="download-video-btn" style="background: #2196F3; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; display: none;"> 비디오 다운로드</button>
           <button id="close-render-popup" style="background: #666; border: none; color: white; padding: 8px 12px; border-radius: 4px; cursor: pointer;">닫기</button>
@@ -516,6 +517,18 @@ class TimelineRenderer {
       this.downloadVideo();
     });
 
+    // 🎬 렌더링 중 오디오 음소거 버튼
+    const muteBtn = popup.querySelector('#render-mute-btn');
+    if (muteBtn) {
+      muteBtn.addEventListener('click', () => {
+        this._renderMuted = !this._renderMuted;
+        if (this._renderAudioResult && this._renderAudioResult.setMuted) {
+          this._renderAudioResult.setMuted(this._renderMuted);
+        }
+        muteBtn.title = this._renderMuted ? '소리 켜기' : '렌더링 중 오디오 음소거';
+        muteBtn.innerHTML = this._renderMuted ? '<i class="fas fa-volume-mute"></i> 음소거' : '<i class="fas fa-volume-up"></i> 소리';
+      });
+    }
 
     // 🎬 해상도 변경 이벤트
     const resolutionSelect = popup.querySelector('#resolution-select');
@@ -2531,6 +2544,24 @@ class TimelineRenderer {
         console.log("✅ 렌더링 캔버스 메모리 정리 완료");
       }
 
+      // 렌더링 중 오디오 정지 및 참조 정리
+      if (this._renderAudioResult) {
+        try {
+          if (this._renderAudioResult.source) {
+            this._renderAudioResult.source.stop();
+          }
+        } catch (e) {
+          // 이미 정지된 경우 등 무시
+        }
+        this._renderAudioResult = null;
+      }
+      if (this._renderAudioContext && this._renderAudioContext.state !== 'closed') {
+        this._renderAudioContext.close().catch(() => {});
+        this._renderAudioContext = null;
+      }
+      const renderMuteBtn = document.getElementById('render-mute-btn');
+      if (renderMuteBtn) renderMuteBtn.style.display = 'none';
+
       // 14. 추가 메모리 정리
       // DOM 요소들의 이벤트 리스너 정리
       const renderElements = document.querySelectorAll('#render-canvas, #start-render-btn, #download-video-btn, #close-render-popup');
@@ -2564,6 +2595,34 @@ class TimelineRenderer {
       console.log("🎬 비디오 렌더링 시작...");
 
       const { resolution, fps, duration, progressFill, progressText, videoProgressFill, videoProgressText } = renderOptions;
+
+      // 사용자 제스처 직후에 AudioContext 생성·resume (렌더링 중 오디오 재생 허용)
+      if (!this._renderAudioContext || this._renderAudioContext.state === 'closed') {
+        this._renderAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      this._renderAudioContext.resume().catch(() => {});
+
+      // 렌더링 중 오디오 재생 (비동기, 위에서 resume된 컨텍스트 전달)
+      this._renderAudioResult = null;
+      this._renderMuted = false;
+      (async () => {
+        try {
+          const result = await this.getMixedAudioStream(duration, this._renderAudioContext);
+          if (result) {
+            this._renderAudioResult = result;
+            result.startPlayback();
+            const muteBtn = document.getElementById('render-mute-btn');
+            if (muteBtn) {
+              muteBtn.style.display = '';
+              muteBtn.title = '렌더링 중 오디오 음소거';
+              muteBtn.innerHTML = '<i class="fas fa-volume-up"></i> 소리';
+            }
+            console.log("🎵 렌더링 중 오디오 재생 시작");
+          }
+        } catch (e) {
+          console.warn("⚠️ 렌더링 중 오디오 재생 실패:", e);
+        }
+      })();
 
       // 해상도 파싱
       const [width, height] = resolution.split('x').map(Number);
@@ -2830,6 +2889,105 @@ class TimelineRenderer {
     }
   }
 
+  /**
+   * 씬의 오디오 객체들을 타임라인에 맞춰 믹싱한 뒤 MediaStream으로 반환.
+   * @param {number} durationSeconds - 출력 길이(초)
+   * @param {AudioContext} [reusedContext] - 사용자 제스처에서 이미 resume된 컨텍스트 (렌더 중 재생용)
+   * @returns {Promise<{ stream: MediaStream, startPlayback: function }|null>}
+   */
+  async getMixedAudioStream(durationSeconds, reusedContext) {
+    const scene = this.editor.scene;
+    const audioObjects = [];
+    scene.traverse((obj) => {
+      if (obj.userData && obj.userData.type === 'audio') audioObjects.push(obj);
+    });
+    if (audioObjects.length === 0) return null;
+
+    const sampleRate = 48000;
+    const numChannels = 2;
+    const length = Math.ceil(sampleRate * durationSeconds);
+    const offlineContext = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(numChannels, length, sampleRate);
+
+    const decodedCache = {};
+    for (const obj of audioObjects) {
+      const el = obj.userData.audioElement;
+      if (!el || !el.src) continue;
+      if (!decodedCache[el.src]) {
+        decodedCache[el.src] = fetch(el.src)
+          .then((r) => r.arrayBuffer())
+          .then((ab) => offlineContext.decodeAudioData(ab))
+          .catch((err) => {
+            console.warn('오디오 디코드 실패:', el.src, err);
+            return null;
+          });
+      }
+    }
+
+    const srcToBuffer = {};
+    for (const k of Object.keys(decodedCache)) {
+      srcToBuffer[k] = await decodedCache[k];
+    }
+
+    for (const obj of audioObjects) {
+      const ud = obj.userData;
+      const el = ud.audioElement;
+      if (!el || !el.src || !srcToBuffer[el.src]) continue;
+
+      const buffer = srcToBuffer[el.src];
+      const startTime = ud.startTime || 0;
+      const offset = ud.audioStartTime || 0;
+      const endTime = ud.audioEndTime != null ? ud.audioEndTime : el.duration;
+      const clipDuration = Math.min(ud.duration || 0, Math.max(0, endTime - offset));
+      if (clipDuration <= 0) continue;
+
+      const gainNode = offlineContext.createGain();
+      gainNode.gain.value = ud.mute ? 0 : (ud.volume != null ? ud.volume : 1);
+      const source = offlineContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gainNode);
+      gainNode.connect(offlineContext.destination);
+      source.start(startTime, offset, clipDuration);
+    }
+
+    const renderedBuffer = await offlineContext.startRendering();
+
+    const audioContext = reusedContext && reusedContext.state !== 'closed'
+      ? reusedContext
+      : new (window.AudioContext || window.webkitAudioContext)();
+    const destination = audioContext.createMediaStreamDestination();
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = 1;
+    const source = audioContext.createBufferSource();
+    source.buffer = renderedBuffer;
+    source.connect(gainNode);
+    gainNode.connect(destination);
+    gainNode.connect(audioContext.destination); // 스피커로 재생 (렌더링 중 들리도록)
+
+    return {
+      stream: destination.stream,
+      startPlayback: () => {
+        const play = () => {
+          try {
+            source.start(0);
+          } catch (e) {
+            console.warn('오디오 재생 시작 실패:', e);
+          }
+        };
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().then(play).catch((e) => console.warn('AudioContext resume 실패:', e));
+        } else {
+          play();
+        }
+      },
+      setMuted: (muted) => {
+        gainNode.gain.value = muted ? 0 : 1;
+      },
+      audioContext,
+      source,
+      gainNode
+    };
+  }
+
   // 🎬 WebM 비디오 생성
   async createWebMVideo(resolution, fps, duration) {
     try {
@@ -2841,8 +2999,17 @@ class TimelineRenderer {
 
       const [width, height] = resolution.split('x').map(Number);
       const totalFrames = this.renderedFrames.length;
+      const durationSeconds = totalFrames / fps;
 
-      console.log(`🎬 비디오 생성 정보: ${width}x${height}, ${fps} FPS, ${totalFrames} 프레임`);
+      let audioResult = null;
+      try {
+        audioResult = await this.getMixedAudioStream(durationSeconds);
+        if (audioResult) console.log("🎵 오디오 믹싱 완료, WebM에 포함됩니다.");
+      } catch (e) {
+        console.warn("⚠️ 오디오 믹싱 실패, 비디오만 포함:", e);
+      }
+
+      console.log(`🎬 비디오 생성 정보: ${width}x${height}, ${fps} FPS, ${totalFrames} 프레임${audioResult ? ', 오디오 포함' : ''}`);
 
       // 🎬 Timeline.js 방식: 임시 캔버스 생성하여 프레임들을 순차적으로 그리기
       const tempCanvas = document.createElement('canvas');
@@ -2862,14 +3029,22 @@ class TimelineRenderer {
 
         console.log("🎬 임시 캔버스 크기:", { width: img.width, height: img.height });
 
-        // Canvas Stream 생성
-        const stream = tempCanvas.captureStream(fps);
+        const videoStream = tempCanvas.captureStream(fps);
+        const hasAudio = audioResult && audioResult.stream.getAudioTracks().length > 0;
+        const stream = hasAudio
+          ? new MediaStream([...videoStream.getVideoTracks(), ...audioResult.stream.getAudioTracks()])
+          : videoStream;
 
-        // MediaRecorder 설정
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: 5000000 // 5 Mbps
-        });
+        const mimeType = hasAudio && MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+          ? 'video/webm;codecs=vp9,opus'
+          : 'video/webm;codecs=vp9';
+        const recorderOptions = {
+          mimeType,
+          videoBitsPerSecond: 5000000
+        };
+        if (hasAudio) recorderOptions.audioBitsPerSecond = 128000;
+
+        const mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
         const chunks = [];
 
@@ -2917,9 +3092,12 @@ class TimelineRenderer {
           }
         };
 
-        // 녹화 시작
+        // 녹화 시작 (오디오가 있으면 비디오와 동시에 재생 시작)
+        if (hasAudio && audioResult && audioResult.startPlayback) {
+          audioResult.startPlayback();
+        }
         mediaRecorder.start();
-        console.log("🎬 MediaRecorder 녹화 시작");
+        console.log("🎬 MediaRecorder 녹화 시작" + (hasAudio ? " (오디오 포함)" : ""));
 
         // 프레임들을 순차적으로 캔버스에 그리기
         let currentFrame = 0;

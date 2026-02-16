@@ -1432,6 +1432,26 @@ Editor.prototype = {
   toJSON: async function () {
     // scripts clean up
     console.log("Editor toJSON called"); // 디버깅용 로그
+
+    // 저장 시 렌더링 캐시(renderedFrames) 제외 — 프로젝트 용량 폭증 방지
+    if (window.timeline && window.timeline.timelineRenderer && window.timeline.timelineRenderer.renderedFrames) {
+      const tr = window.timeline.timelineRenderer;
+      if (tr.renderedFrames.length > 0) {
+        tr.renderedFrames.forEach((frame) => {
+          if (frame && frame.dataURL && frame.dataURL.startsWith("blob:")) {
+            try { URL.revokeObjectURL(frame.dataURL); } catch (e) {}
+          }
+        });
+        tr.renderedFrames.length = 0;
+        tr.renderedFrames = [];
+        console.log("저장 전 렌더링 프레임 캐시 비움 (프로젝트 용량 방지)");
+      }
+    }
+    if (window.timeline && Array.isArray(window.timeline.renderedFrames) && window.timeline.renderedFrames.length > 0) {
+      window.timeline.renderedFrames.length = 0;
+      window.timeline.renderedFrames = [];
+    }
+
     var scene = this.scene;
     var scripts = this.scripts;
 
