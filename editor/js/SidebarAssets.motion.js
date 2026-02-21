@@ -1006,7 +1006,14 @@ export function createMotionPanel(editor) {
           name: "Overhead Squat",
           displayName: "Overhead Squat",
           filename: "Overhead Squat.fbx"
-        }
+        },
+        {
+          path: "../files/fbx/Jazz Dancing.fbx",
+          name: "Jazz Dancing",
+          displayName: "Jazz Dancing",
+          filename: "Jazz Dancing.fbx"
+        },
+        
       ];
     }
   }
