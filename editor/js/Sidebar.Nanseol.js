@@ -102,7 +102,7 @@ const resolveAssetUrl = (relativePath) => {
 const NANSEOL_MOTION_PRESET_PATH = resolveAssetUrl("../files/motion/temp2.json");
 // 난설 캐릭터
 const NANSEOL_1_FBX_PATH = resolveAssetUrl("../files/fbx/1.fbx");
-const NANSEOL_2_FBX_PATH = resolveAssetUrl("../files/fbx/2.fbx");
+const NANSEOL_2_FBX_PATH = resolveAssetUrl("../files/fbx/Character2.fbx");
 
 function SidebarNanseol(editor) {
   const container = new UIPanel();
