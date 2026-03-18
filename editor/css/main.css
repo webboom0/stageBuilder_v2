@@ -385,7 +385,7 @@ select:hover {
   display: flex;
   overflow: auto;
   position: relative;
-  z-index: 1;
+  z-index: 10;
   /* max-height: 50vh; */
 }
 
