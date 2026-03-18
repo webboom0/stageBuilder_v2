@@ -309,6 +309,21 @@
     // THREE를 전역으로 설정
     window.THREE = THREE;
 
+    // 대용량 에셋(FBX 등) 외부 호스팅 베이스 URL
+    // - GitHub Pages는 Git LFS 파일을 직접 서빙하지 못하는 경우가 많음
+    // - 아래 값이 있으면 `../files/...` 상대경로 대신 여기로부터 로드되도록(예: 난설 1.fbx/2.fbx) 구성 가능
+    // 설정 방법:
+    // 1) 쿼리: ?assetBase=https://<host>/<root>/  (URL 인코딩 필요)
+    // 2) 콘솔/코드: localStorage.STAGEBUILDER_ASSET_BASE_URL = "https://<host>/<root>/"
+    //    이후 새로고침
+    try {
+      const params = new URLSearchParams(location.search);
+      const fromQuery = params.get("assetBase");
+      const fromStorage = localStorage.getItem("STAGEBUILDER_ASSET_BASE_URL");
+      window.STAGEBUILDER_ASSET_BASE_URL = fromQuery || fromStorage || window.STAGEBUILDER_ASSET_BASE_URL || "";
+      if (fromQuery) localStorage.setItem("STAGEBUILDER_ASSET_BASE_URL", fromQuery);
+    } catch (e) {}
+
     let tabCounter = 0;
     const tabPanels = document.getElementById("tabPanels");
     const tabButtons = document.getElementById("tabButtons");

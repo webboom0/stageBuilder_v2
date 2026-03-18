@@ -81,10 +81,28 @@ const NANSEOL_BOX_PRESET = {
   visible: true,
 };
 
-const NANSEOL_MOTION_PRESET_PATH = "../files/motion/temp2.json";
+/**
+ * GitHub Pages는 Git LFS 대용량 바이너리를 그대로 서빙하지 못합니다.
+ * 난설 캐릭터(1.fbx/2.fbx)가 LFS 포인터로 커밋된 경우, Pages에서는 FBX 대신 포인터/HTML을 받아 파싱이 실패합니다.
+ *
+ * 해결: CORS 허용되는 외부 정적 호스팅(예: S3/Cloudflare R2 등)에 files/ 폴더를 올린 뒤
+ * window.STAGEBUILDER_ASSET_BASE_URL = "https://<host>/<root>/" 형태로 베이스 URL을 지정하세요.
+ */
+const STAGEBUILDER_ASSET_BASE_URL =
+  (typeof window !== "undefined" && window.STAGEBUILDER_ASSET_BASE_URL) || "";
+
+const resolveAssetUrl = (relativePath) => {
+  if (!STAGEBUILDER_ASSET_BASE_URL) return relativePath;
+  const base = String(STAGEBUILDER_ASSET_BASE_URL);
+  const baseWithSlash = base.endsWith("/") ? base : `${base}/`;
+  const normalized = String(relativePath).replace(/^\.\.\//, "");
+  return new URL(normalized, baseWithSlash).toString();
+};
+
+const NANSEOL_MOTION_PRESET_PATH = resolveAssetUrl("../files/motion/temp2.json");
 // 난설 캐릭터
-const NANSEOL_1_FBX_PATH = "../files/fbx/1.fbx";
-const NANSEOL_2_FBX_PATH = "../files/fbx/2.fbx";
+const NANSEOL_1_FBX_PATH = resolveAssetUrl("../files/fbx/1.fbx");
+const NANSEOL_2_FBX_PATH = resolveAssetUrl("../files/fbx/2.fbx");
 
 function SidebarNanseol(editor) {
   const container = new UIPanel();
@@ -414,10 +432,12 @@ function SidebarNanseol(editor) {
             const repo = segs[0];
             if (!owner || !repo) return [];
             const normalized = String(originalPath || "").replace(/^\.\.\//, "");
-            const raw = `https://raw.githubusercontent.com/${owner}/${repo}/main/${normalized}`;
+            // NOTE:
+            // - github.com/.../raw 는 302 + CORS로 막히는 경우가 많아 후보에서 제외
+            // - raw.githubusercontent.com 는 보통 CORS 허용(ACAO: *)이며 리다이렉트가 없음
+            const rawMain = `https://raw.githubusercontent.com/${owner}/${repo}/main/${normalized}`;
             const rawMaster = `https://raw.githubusercontent.com/${owner}/${repo}/master/${normalized}`;
-            const githubRaw = `https://github.com/${owner}/${repo}/raw/main/${normalized}?download=1`;
-            return [githubRaw, raw, rawMaster];
+            return [rawMain, rawMaster];
           } catch (e) {
             return [];
           }
