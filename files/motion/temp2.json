@@ -95,7 +95,7 @@
             { "time": 0, "position": null, "rotation": null, "scale": null },
             {
                 "time": 39.783164978027344,
-                "position": { "x": -258.3453063964844, "y": -0.010760859586298466, "z": 0, "interpolation": 0 },
+                "position": { "x": -184.192, "y": -0.010760859586298466, "z": 0, "interpolation": 0 },
                 "rotation": { "x": 0, "y": 2.1083576679229736, "z": 0, "interpolation": 0 },
                 "scale": { "x": 0.15059831738471985, "y": 0.15059831738471985, "z": 0.15059831738471985, "interpolation": 0 }
             },
