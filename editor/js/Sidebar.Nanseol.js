@@ -83,8 +83,8 @@ const NANSEOL_BOX_PRESET = {
 
 const NANSEOL_MOTION_PRESET_PATH = "../files/motion/temp2.json";
 // 난설 캐릭터
-const NANSEOL_1_FBX_PATH = "../files/fbx/Character1.fbx";
-const NANSEOL_2_FBX_PATH = "../files/fbx/Character2.fbx";
+const NANSEOL_1_FBX_PATH = "../files/fbx/1.fbx";
+const NANSEOL_2_FBX_PATH = "../files/fbx/2.fbx";
 
 function SidebarNanseol(editor) {
   const container = new UIPanel();
@@ -446,8 +446,8 @@ function SidebarNanseol(editor) {
         return captured;
       };
 
-      const target1 = await loadFbxAndCapture(NANSEOL_1_FBX_PATH, "Character1.fbx", "1");
-      const target2 = await loadFbxAndCapture(NANSEOL_2_FBX_PATH, "Character2.fbx", "2");
+      const target1 = await loadFbxAndCapture(NANSEOL_1_FBX_PATH, "1.fbx", "1");
+      const target2 = await loadFbxAndCapture(NANSEOL_2_FBX_PATH, "2.fbx", "2");
 
       if (!target1 || !target2) {
         const motionNames = [];
