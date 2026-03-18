@@ -25,6 +25,34 @@ const NANSEOL_LIGHT_PRESETS = [
     distance: 0,
     decay: 0,
   },
+  // 난설 무대 파란 조명 3개 (스샷 값 그대로)
+  {
+    key: "B_R",
+    name: "난설_조명_파랑_R",
+    position: new THREE.Vector3(186.286, 116.551, -68.595),
+    intensity: 5.08,
+    color: 0x0000ff,
+    distance: 0,
+    decay: 0.46,
+  },
+  {
+    key: "B_C",
+    name: "난설_조명_파랑_C",
+    position: new THREE.Vector3(4.252, 148.069, -57.775),
+    intensity: 8.38,
+    color: 0x0000ff,
+    distance: 0,
+    decay: 0.46,
+  },
+  {
+    key: "B_L",
+    name: "난설_조명_파랑_L",
+    position: new THREE.Vector3(-172.465, 111.718, -45.042),
+    intensity: 5.08,
+    color: 0x0000ff,
+    distance: 0,
+    decay: 0.46,
+  },
   // {
   //   key: "F",
   //   name: "난설_조명_F",
@@ -43,7 +71,7 @@ const NANSEOL_LIGHT_PRESETS = [
  */
 const NANSEOL_FRONT_SPOT_PRESETS = [
   { name: "난설_조명_앞_L", position: [-76.096, 66.489, 223.147], target: [0, 2, 30], intensity: 4.66, distance: 381.16, angle: 0.965, penumbra: 0.3 },
-  { name: "난설_조명_앞_C", position: [1.890, 56.744, 225.001], target: [0, 2, 30], intensity: 4.66, distance: 381.16, angle: 0.965, penumbra: 0.3 },
+  { name: "난설_조명_앞_C", position: [1.890, 56.744, 225.001], target: [0, 2, 30], intensity: -3.08, distance: 381.16, angle: 0.965, penumbra: 0.3 },
   { name: "난설_조명_앞_R", position: [86.550, 65.051, 218.534], target: [0, 2, 30], intensity: 4.66, distance: 381.16, angle: 0.965, penumbra: 0.3 },
 ];
 
