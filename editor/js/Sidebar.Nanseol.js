@@ -102,7 +102,9 @@ const resolveAssetUrl = (relativePath) => {
 const NANSEOL_MOTION_PRESET_PATH = resolveAssetUrl("../files/motion/temp2.json");
 // 난설 캐릭터
 const NANSEOL_1_FBX_PATH = resolveAssetUrl("../files/fbx/1.fbx");
-const NANSEOL_2_FBX_PATH = resolveAssetUrl("../files/fbx/Character2.fbx");
+// 2.fbx만 대용량이라 Cloudflare R2에서 직접 로드
+const NANSEOL_2_FBX_PATH =
+  "https://pub-019b03564766487b9a9d6b42f6f23b8c.r2.dev/stagebuilder/2.fbx";
 
 function SidebarNanseol(editor) {
   const container = new UIPanel();

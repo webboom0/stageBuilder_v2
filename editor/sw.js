@@ -22,6 +22,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // 외부(크로스 오리진) 리소스는 캐시 로직에서 제외
+  // - CORS 실패/리다이렉트/opaque 응답 등으로 cache.put 단계에서 문제를 만들 수 있음
+  // - 특히 대용량 FBX 등을 외부 호스팅(R2 등)에서 받을 때는 네트워크로만 처리
+  try {
+    const url = new URL(request.url);
+    if (url.origin !== self.location.origin) {
+      event.respondWith(
+        fetch(request).catch(() => new Response("Network error", { status: 502 })),
+      );
+      return;
+    }
+  } catch (e) {}
+
   // 비디오 파일이나 Range 요청인 경우 네트워크에서 직접 로드
   if (
     request.url.includes("/files/video.mp4") ||
@@ -55,7 +68,10 @@ self.addEventListener("fetch", (event) => {
       })
       .catch(() => {
         // 네트워크 요청 실패 시 캐시에서 응답 시도
-        return caches.match(request);
+        // caches.match가 없으면 undefined가 되어 respondWith가 터질 수 있어, 항상 Response를 반환
+        return caches.match(request).then((cached) => {
+          return cached || new Response("Offline", { status: 504 });
+        });
       }),
   );
 });
