@@ -379,10 +379,77 @@ function SidebarNanseol(editor) {
 
         const before = new Set(getMotionObjects().map((o) => o.uuid));
 
-        const blob = await fetch(path).then((r) => {
+        const isProbablyFbxBlob = async (blob) => {
+          if (!blob || typeof blob.size !== "number" || blob.size < 32) return false;
+          const headBuf = await blob.slice(0, 128).arrayBuffer();
+          const headText = new TextDecoder("utf-8", { fatal: false }).decode(headBuf);
+          // Binary FBX: "Kaydara FBX Binary  \0" (starts with "Kaydara FBX Binary")
+          if (headText.startsWith("Kaydara FBX Binary")) return true;
+          // ASCII FBX: first non-empty line contains "; FBX"
+          const firstNonEmpty = headText.split(/\r?\n/).map((s) => s.trim()).find((s) => s.length > 0) || "";
+          if (firstNonEmpty.startsWith("; FBX")) return true;
+          return false;
+        };
+
+        const looksLikeHtmlOrLfsPointer = async (blob) => {
+          if (!blob || typeof blob.size !== "number" || blob.size < 16) return true;
+          const headBuf = await blob.slice(0, 256).arrayBuffer();
+          const headText = new TextDecoder("utf-8", { fatal: false }).decode(headBuf).trimStart();
+          if (headText.startsWith("<!DOCTYPE html") || headText.startsWith("<html") || headText.startsWith("<head")) return true;
+          if (headText.startsWith("version https://git-lfs.github.com/spec/v1")) return true;
+          return false;
+        };
+
+        const fetchBlob = async (url) => {
+          const r = await fetch(url, { cache: "no-store" });
           if (!r.ok) throw new Error(`${fileName} fetch 실패: ${r.status}`);
-          return r.blob();
-        });
+          return await r.blob();
+        };
+
+        const buildGithubRawFallbacks = (originalPath) => {
+          try {
+            if (!location?.hostname?.endsWith("github.io")) return [];
+            const owner = location.hostname.split(".")[0];
+            const segs = location.pathname.split("/").filter(Boolean);
+            const repo = segs[0];
+            if (!owner || !repo) return [];
+            const normalized = String(originalPath || "").replace(/^\.\.\//, "");
+            const raw = `https://raw.githubusercontent.com/${owner}/${repo}/main/${normalized}`;
+            const rawMaster = `https://raw.githubusercontent.com/${owner}/${repo}/master/${normalized}`;
+            const githubRaw = `https://github.com/${owner}/${repo}/raw/main/${normalized}?download=1`;
+            return [githubRaw, raw, rawMaster];
+          } catch (e) {
+            return [];
+          }
+        };
+
+        let blob = null;
+        let lastErr = null;
+        const candidates = [path, ...buildGithubRawFallbacks(path)];
+        for (const url of candidates) {
+          try {
+            const b = await fetchBlob(url);
+            // GitHub Pages에서 404 HTML/ LFS 포인터가 0KB~수백 bytes로 들어오는 케이스 방어
+            if (await isProbablyFbxBlob(b)) {
+              blob = b;
+              break;
+            }
+            // 명확히 FBX가 아니면 다음 후보로 시도
+            if (await looksLikeHtmlOrLfsPointer(b)) {
+              lastErr = new Error(
+                `${fileName} 응답이 FBX가 아닙니다 (HTML/ Git LFS 포인터로 보임). GitHub Pages에서는 LFS 파일이 서빙되지 않거나 경로가 잘못되면 이런 현상이 납니다.`
+              );
+              continue;
+            }
+            // 알 수 없는 바이너리면 그대로 시도(일부 FBX 변종 대응)
+            blob = b;
+            break;
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        if (!blob) throw lastErr || new Error(`${fileName} 로드 실패`);
+
         const file = new File([blob], fileName, { type: "application/octet-stream" });
         const dt = new DataTransfer();
         dt.items.add(file);

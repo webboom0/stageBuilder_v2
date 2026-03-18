@@ -51,7 +51,7 @@ function Sidebar(editor) {
   scenePanel.style.overflow = 'auto';
 
   const stagePanel = createPanel('무대', new SidebarStageSelector(editor).dom);
-  const nanseolPanel = createPanel('난설', new SidebarNanseol(editor).dom);
+  const nanseolPanel = createPanel('극무대', new SidebarNanseol(editor).dom);
   const propertiesPanel = createPanel('Properties', new SidebarProperties(editor).dom);
 
   const sidebarContainer = document.querySelector('#sidebar');
