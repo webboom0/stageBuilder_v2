@@ -910,15 +910,21 @@ export class MotionTimeline extends BaseTimeline {
 
             }
 
-            // 🎬 visible 속성 처리 - precomputedData에서 직접 가져오기
-            const visibleTrack = trackData.get('visible');
-            if (visibleTrack) {
-                const isVisible = visibleTrack.getValueAtTime(currentTime);
-                object.visible = isVisible;
-                console.log(`🎬 객체 ${objectUuid} 가시성 설정:`, isVisible);
+            // 🎬 visible 속성 처리
+            // - 원래 동작: 플레이 시간이 트랙(클립) 밖이면 오브젝트는 안 보여야 함
+            // - 애니메이션 유무와 무관하게 일관되게 처리
+            if (!isInActiveClip) {
+                object.visible = false;
             } else {
-                // visible 트랙이 없으면 기본적으로 보이게 설정
-                object.visible = true;
+                const visibleTrack = trackData.get('visible');
+                if (visibleTrack) {
+                    const isVisible = visibleTrack.getValueAtTime(currentTime);
+                    object.visible = isVisible;
+                    console.log(`🎬 객체 ${objectUuid} 가시성 설정:`, isVisible);
+                } else {
+                    // visible 트랙이 없으면 클립 안에서는 기본 표시
+                    object.visible = true;
+                }
             }
 
             // 부모 객체들도 보이게 설정
@@ -948,7 +954,8 @@ export class MotionTimeline extends BaseTimeline {
             }
         });
 
-        // FBX 애니메이션 업데이트 (클립 범위에 있을 때만) - 렌더링 시에도 작동하도록 isPlaying 조건 제거
+        // FBX 애니메이션 업데이트 (클립 범위에 있을 때만)
+        // - visible은 위 로직에서 통일 처리하므로 여기서는 건드리지 않음
         this.mixers.forEach((mixer, uuid) => {
             const object = this.editor.scene.getObjectByProperty('uuid', uuid);
             if (!object) return;
@@ -980,10 +987,7 @@ export class MotionTimeline extends BaseTimeline {
             if (isInActiveClip && object.animations && object.animations.length > 0) {
                 // FBX 애니메이션도 클립 상대 시간으로 설정
                 mixer.setTime(clipRelativeTime);
-                object.visible = true;
                 console.log(`🎬 MotionTimeline FBX 애니메이션 시간 설정: ${object.name || object.uuid} - 상대시간: ${clipRelativeTime}`);
-            } else {
-                object.visible = false;
             }
         });
     }
