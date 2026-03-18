@@ -2340,7 +2340,17 @@ class TimelineRenderer {
         object.position.copy(value);
         console.log(`🎬 position 적용: ${object.name}`, value[0]);
       } else if (property === 'rotation' && value instanceof THREE.Vector3) {
-        object.rotation.set(value.x, value.y, value.z);
+        // MotionTimeline 옵션으로 회전 축 제한 지원
+        const rotationAxisLock = this.editor?.motionTimeline?.options?.rotationAxisLock;
+        if (rotationAxisLock === 'y') {
+          const base = object.userData?.motionRotationBase || object.userData?.motionRotationOffset;
+          const bx = base?.x ?? 0;
+          const by = base?.y ?? 0;
+          const bz = base?.z ?? 0;
+          object.rotation.set(bx, by + value.y, bz);
+        } else {
+          object.rotation.set(value.x, value.y, value.z);
+        }
         console.log(`🎬 rotation 적용: ${object.name}`, value);
       } else if (property === 'scale' && value instanceof THREE.Vector3) {
         object.scale.copy(value);

@@ -1669,23 +1669,26 @@ Editor.prototype = {
               });
             }
           }
-          // 작은 children들을 하나의 배열로 모음
-          const smallChildren = childrenFiles
-            .filter(item => item.fileName === null)
-            .map(item => item.data);
-          // 큰 children들은 개별 파일로 저장
+          // 큰 child → 분리 파일, 작은 child → 인덱스별 inlineChildSlots (순서 유지, 조명 등 누락 방지)
+          const inlineChildSlots = {};
+          childrenFiles.forEach(({ index, fileName, data }) => {
+            if (!fileName) inlineChildSlots[String(index)] = data;
+          });
           const largeChildrenFiles = childrenFiles
             .filter(item => item.fileName !== null)
             .map(item => item.fileName);
           if (largeChildrenFiles.length > 0) {
             childrenFile = {
-              smallChildren: smallChildren,
-              largeChildrenFiles: largeChildrenFiles,
+              inlineChildSlots,
+              largeChildrenFiles,
               childrenFiles: childrenFiles
             };
-            console.log(`children 데이터 분리 완료: ${smallChildren.length}개 작은 children, ${largeChildrenFiles.length}개 큰 children 파일`);
-            // sceneData에 children 참조만 추가
-            sceneData.object.children = smallChildren;
+            console.log(
+              `children 데이터 분리: inline ${Object.keys(inlineChildSlots).length}개, 큰 파일 ${largeChildrenFiles.length}개`
+            );
+            sceneData.object.children = [];
+            sceneData.object.inlineChildSlots = inlineChildSlots;
+            sceneData.object.sceneChildCount = originalChildren.length;
             sceneData.object.largeChildrenFiles = largeChildrenFiles;
           } else {
             // 모든 children이 작은 경우
@@ -1705,12 +1708,14 @@ Editor.prototype = {
             });
           }
           childrenFile = {
-            smallChildren: [],
+            inlineChildSlots: {},
             largeChildrenFiles: childrenFiles.map(item => item.fileName),
             childrenFiles: childrenFiles
           };
           console.log("오류로 인한 모든 children 개별 파일 저장:", childrenFiles.length, "개 파일");
           sceneData.object.children = [];
+          sceneData.object.inlineChildSlots = {};
+          sceneData.object.sceneChildCount = childrenFiles.length;
           sceneData.object.largeChildrenFiles = childrenFiles.map(item => item.fileName);
         }
       } else {
@@ -1865,6 +1870,18 @@ Editor.prototype = {
           const originalChildren = this.scene.children;
           const childrenFiles = [];
           const failedChildren = [];
+          const baseLargeChildrenFiles = baseData.scene.object.largeChildrenFiles;
+
+          // baseData가 참조하는 파일명을 인덱스별로 매핑 (파일명은 toJSON 단계에서 생성됨)
+          // 예: scene_child_1773802709466_3.json -> index 3
+          const indexToFileName = new Map();
+          baseLargeChildrenFiles.forEach((fileName) => {
+            if (typeof fileName !== 'string') return;
+            const match = fileName.match(/scene_child_\d+_(\d+)\.json$/);
+            if (!match) return;
+            const index = parseInt(match[1], 10);
+            if (!Number.isNaN(index)) indexToFileName.set(index, fileName);
+          });
 
           for (let i = 0; i < originalChildren.length; i++) {
             try {
@@ -1872,7 +1889,9 @@ Editor.prototype = {
               const childSize = JSON.stringify(childData).length;
 
               if (childSize > 100000) { // 100KB 이상이면 개별 파일로 저장
-                const fileName = `scene_child_${Date.now()}_${i}.json`;
+                // ⚠️ 중요: baseData가 참조하는 파일명과 ZIP에 넣는 splitFiles 키가 같아야
+                // 열기(loadFromProjectZip → mergeSplitData)에서 children 복원이 정상 동작함.
+                const fileName = indexToFileName.get(i) || `scene_child_${Date.now()}_${i}.json`;
                 childrenFiles.push({
                   index: i,
                   fileName: fileName,
@@ -1890,7 +1909,7 @@ Editor.prototype = {
               console.warn(`개별 children 생성 중 child ${i} 처리 실패:`, childError);
               failedChildren.push(i);
               // 실패한 child는 개별 파일로 저장
-              const fileName = `scene_child_${Date.now()}_${i}.json`;
+              const fileName = indexToFileName.get(i) || `scene_child_${Date.now()}_${i}.json`;
               childrenFiles.push({
                 index: i,
                 fileName: fileName,

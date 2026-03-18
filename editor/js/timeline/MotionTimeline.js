@@ -675,8 +675,13 @@ export class MotionTimeline extends BaseTimeline {
         }
 
         const position = new THREE.Vector3(object.position.x, object.position.y, object.position.z);
-        const rotation = new THREE.Vector3(object.rotation.x, object.rotation.y, object.rotation.z);
+        let rotation = new THREE.Vector3(object.rotation.x, object.rotation.y, object.rotation.z);
         const scale = new THREE.Vector3(object.scale.x, object.scale.y, object.scale.z);
+
+        // rotationAxisLock 옵션이 있으면 해당 축만 저장
+        if (this.options && this.options.rotationAxisLock === 'y') {
+            rotation = new THREE.Vector3(0, rotation.y, 0);
+        }
 
         console.log("현재 객체 속성:", { position, rotation, scale });
 
@@ -815,6 +820,10 @@ export class MotionTimeline extends BaseTimeline {
             case "position":
                 return new THREE.Vector3(object.position.x, object.position.y, object.position.z);
             case "rotation":
+                // rotationAxisLock 옵션이 있으면 해당 축만 키프레임으로 저장
+                if (this.options && this.options.rotationAxisLock === 'y') {
+                    return new THREE.Vector3(0, object.rotation.y, 0);
+                }
                 return new THREE.Vector3(object.rotation.x, object.rotation.y, object.rotation.z);
             case "scale":
                 return new THREE.Vector3(object.scale.x, object.scale.y, object.scale.z);
@@ -1579,11 +1588,29 @@ export class MotionTimeline extends BaseTimeline {
                 );
                 break;
             case "rotation":
-                object.rotation.set(
-                    this.lerp(prevKeyframe.value.x, nextKeyframe.value.x, alpha),
-                    this.lerp(prevKeyframe.value.y, nextKeyframe.value.y, alpha),
-                    this.lerp(prevKeyframe.value.z, nextKeyframe.value.z, alpha)
-                );
+                if (this.options && this.options.rotationAxisLock === 'y') {
+                    // ✅ Y만 키프레임으로 쓰되, "몸통만 비틀기" 옵션이면 스켈레톤에 분배 적용
+                    if (object.userData?.motionTwist?.enabled) {
+                        const y = this.lerp(prevKeyframe.value.y, nextKeyframe.value.y, alpha);
+                        this.applyTwistRotation(object, y);
+                    } else {
+                        const base = object.userData?.motionRotationBase || object.userData?.motionRotationOffset;
+                        const bx = base?.x ?? 0;
+                        const by = base?.y ?? 0;
+                        const bz = base?.z ?? 0;
+                        object.rotation.set(
+                            bx,
+                            by + this.lerp(prevKeyframe.value.y, nextKeyframe.value.y, alpha),
+                            bz
+                        );
+                    }
+                } else {
+                    object.rotation.set(
+                        this.lerp(prevKeyframe.value.x, nextKeyframe.value.x, alpha),
+                        this.lerp(prevKeyframe.value.y, nextKeyframe.value.y, alpha),
+                        this.lerp(prevKeyframe.value.z, nextKeyframe.value.z, alpha)
+                    );
+                }
                 break;
             case "scale":
                 object.scale.set(
@@ -1603,7 +1630,19 @@ export class MotionTimeline extends BaseTimeline {
                 object.position.set(value.x, value.y, value.z);
                 break;
             case "rotation":
-                object.rotation.set(value.x, value.y, value.z);
+                if (this.options && this.options.rotationAxisLock === 'y') {
+                    if (object.userData?.motionTwist?.enabled) {
+                        this.applyTwistRotation(object, value.y);
+                    } else {
+                        const base = object.userData?.motionRotationBase || object.userData?.motionRotationOffset;
+                        const bx = base?.x ?? 0;
+                        const by = base?.y ?? 0;
+                        const bz = base?.z ?? 0;
+                        object.rotation.set(bx, by + value.y, bz);
+                    }
+                } else {
+                    object.rotation.set(value.x, value.y, value.z);
+                }
                 break;
             case "scale":
                 object.scale.set(value.x, value.y, value.z);
@@ -3653,12 +3692,135 @@ export class MotionTimeline extends BaseTimeline {
                 object.position.copy(value);
                 break;
             case 'rotation':
-                object.rotation.set(value.x, value.y, value.z);
+                // rotationAxisLock 옵션이 있으면 해당 축만 적용
+                if (this.options && this.options.rotationAxisLock === 'y') {
+                    if (object.userData?.motionTwist?.enabled) {
+                        this.applyTwistRotation(object, value.y);
+                    } else {
+                        const base = object.userData?.motionRotationBase || object.userData?.motionRotationOffset;
+                        const bx = base?.x ?? 0;
+                        const by = base?.y ?? 0;
+                        const bz = base?.z ?? 0;
+                        object.rotation.set(bx, by + value.y, bz);
+                    }
+                } else {
+                    object.rotation.set(value.x, value.y, value.z);
+                }
                 break;
             case 'scale':
                 object.scale.copy(value);
                 break;
         }
+    }
+
+    /**
+     * "발쪽/머리쪽은 고정 + 몸통만 회전"을 위해 스켈레톤 Spine 체인에 Y회전을 분배 적용.
+     * 사용: object.userData.motionTwist = { enabled: true }
+     * - 키프레임은 rotation.y 한 값만 사용 (rad)
+     */
+    applyTwistRotation(object, yRadians) {
+        try {
+            const base = object.userData?.motionRotationBase || object.userData?.motionRotationOffset;
+            const bx = base?.x ?? 0;
+            const by = base?.y ?? 0;
+            const bz = base?.z ?? 0;
+
+            // 오브젝트 자체 회전은 "베이스"만 유지 (키프레임 y는 스켈레톤에만 적용)
+            object.rotation.set(bx, by, bz);
+
+            const skinned = this.findSkinnedMesh(object);
+            if (!skinned || !skinned.skeleton || !Array.isArray(skinned.skeleton.bones)) return;
+
+            const chain = this.findSpineChain(skinned.skeleton.bones);
+            if (!chain || chain.length < 3) return;
+
+            // endpoints(hip/head)는 0, 중간만 크게: sin(πt) 가중치
+            const twistBones = chain.slice(1, -1);
+            if (twistBones.length === 0) return;
+
+            this.ensureTwistRestPose(skinned, chain);
+
+            const axis = new THREE.Vector3(0, 1, 0);
+            for (let i = 0; i < chain.length; i++) {
+                const bone = chain[i];
+                const restQ = skinned.userData._motionTwistRest?.get(bone.uuid);
+                if (!restQ) continue;
+
+                let w = 0;
+                if (i > 0 && i < chain.length - 1) {
+                    const t = i / (chain.length - 1);
+                    w = Math.sin(Math.PI * t); // 0 at ends, 1 at mid
+                }
+
+                const qTwist = new THREE.Quaternion().setFromAxisAngle(axis, yRadians * w);
+                bone.quaternion.copy(restQ).multiply(qTwist);
+            }
+
+            // helper 업데이트 (Spot/Dir helpers 등)
+            if (this.editor.signals?.objectChanged) {
+                this.editor.signals.objectChanged.dispatch(object, { fromTimeline: true });
+            }
+        } catch (e) {
+            console.warn("applyTwistRotation 실패:", e);
+        }
+    }
+
+    findSkinnedMesh(object) {
+        if (!object) return null;
+        if (object.isSkinnedMesh) return object;
+        let found = null;
+        object.traverse((child) => {
+            if (!found && child && child.isSkinnedMesh) found = child;
+        });
+        return found;
+    }
+
+    findSpineChain(bones) {
+        const byName = new Map();
+        bones.forEach((b) => {
+            if (!b || !b.name) return;
+            byName.set(String(b.name).toLowerCase(), b);
+        });
+
+        const pick = (candidates) => {
+            for (const n of candidates) {
+                const b = byName.get(n.toLowerCase());
+                if (b) return b;
+            }
+            // 부분일치도 허용
+            for (const b of bones) {
+                const name = String(b?.name || "").toLowerCase();
+                if (candidates.some((n) => name.includes(n.toLowerCase()))) return b;
+            }
+            return null;
+        };
+
+        const hips = pick(["hips", "mixamorighips"]);
+        const head = pick(["head", "mixamorighead"]);
+        if (!hips || !head) return null;
+
+        // head → hips로 부모 타고 올라가며 체인 구성
+        const chain = [];
+        let cur = head;
+        while (cur) {
+            chain.push(cur);
+            if (cur === hips) break;
+            cur = cur.parent;
+        }
+        if (chain[chain.length - 1] !== hips) return null;
+        return chain.reverse(); // hips ... head
+    }
+
+    ensureTwistRestPose(skinned, chain) {
+        if (!skinned.userData) skinned.userData = {};
+        if (!skinned.userData._motionTwistRest) {
+            skinned.userData._motionTwistRest = new Map();
+        }
+        const map = skinned.userData._motionTwistRest;
+        chain.forEach((bone) => {
+            if (!bone) return;
+            if (!map.has(bone.uuid)) map.set(bone.uuid, bone.quaternion.clone());
+        });
     }
 
     updateUI() {
@@ -5089,6 +5251,12 @@ export class MotionTimeline extends BaseTimeline {
     isValidObjectForMotionTrack(object) {
         if (!object) return false;
 
+        // 🔧 Loader.js에서 FBX/OBJ로 로드된 객체는 source로 구분됨
+        // (FBX의 경우 object.name이 확장자 없이 설정되므로 이름 기반 판별이 실패할 수 있음)
+        if (object.userData && object.userData.source === 'motion') {
+            return true;
+        }
+
         // 🔧 객체 이름으로 FBX/OBJ 파일인지 확인
         const objectName = object.name.toLowerCase();
         if (objectName.endsWith('.fbx') || objectName.endsWith('.obj')) {
@@ -6320,8 +6488,13 @@ export class MotionTimeline extends BaseTimeline {
         }
 
         const position = new THREE.Vector3(object.position.x, object.position.y, object.position.z);
-        const rotation = new THREE.Vector3(object.rotation.x, object.rotation.y, object.rotation.z);
+        let rotation = new THREE.Vector3(object.rotation.x, object.rotation.y, object.rotation.z);
         const scale = new THREE.Vector3(object.scale.x, object.scale.y, object.scale.z);
+
+        // rotationAxisLock 옵션이 있으면 해당 축만 저장
+        if (this.options && this.options.rotationAxisLock === 'y') {
+            rotation = new THREE.Vector3(0, rotation.y, 0);
+        }
 
         // console.log("키프레임 수정 - 모든 속성 업데이트:", { position, rotation, scale });
 

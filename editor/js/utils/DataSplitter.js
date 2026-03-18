@@ -362,72 +362,67 @@ export class DataSplitter {
 
     if (mergedData.scene && mergedData.scene.object && mergedData.scene.object.largeChildrenFiles && Array.isArray(mergedData.scene.object.largeChildrenFiles)) {
       console.log("개별 children 파일들 복원 중:", mergedData.scene.object.largeChildrenFiles);
-      console.log("기존 children 배열:", mergedData.scene.object.children);
+      const obj = mergedData.scene.object;
+      const largeList = obj.largeChildrenFiles;
+      const inlineSlots = obj.inlineChildSlots;
 
-      // 기존 children 배열이 없으면 빈 배열로 초기화
-      if (!mergedData.scene.object.children) {
-        mergedData.scene.object.children = [];
+      let allChildren;
+
+      if (inlineSlots && typeof inlineSlots === 'object') {
+        let maxI = -1;
+        largeList.forEach((fn) => {
+          const m = String(fn).match(/scene_child_\d+_(\d+)\.json/);
+          if (m) maxI = Math.max(maxI, parseInt(m[1], 10));
+        });
+        Object.keys(inlineSlots).forEach((k) => {
+          const n = parseInt(k, 10);
+          if (!Number.isNaN(n)) maxI = Math.max(maxI, n);
+        });
+        const N = typeof obj.sceneChildCount === 'number' && obj.sceneChildCount > 0
+          ? obj.sceneChildCount
+          : maxI + 1;
+        allChildren = new Array(N).fill(null);
+        Object.entries(inlineSlots).forEach(([k, data]) => {
+          const i = parseInt(k, 10);
+          if (!Number.isNaN(i) && i >= 0 && i < N) allChildren[i] = data;
+        });
+        console.log(`inlineChildSlots 복원: N=${N}`);
+      } else {
+        if (!obj.children) obj.children = [];
+        allChildren = [...obj.children];
+        console.log("레거시 병합(작은 children 연속 배열):", allChildren.length);
       }
 
-      // 개별 children 파일들을 올바른 순서로 병합
-      const allChildren = [...mergedData.scene.object.children]; // 기존 작은 children들
-      console.log("초기 allChildren 배열:", allChildren.length, "개");
-
-      for (const fileName of mergedData.scene.object.largeChildrenFiles) {
-        console.log(`파일 처리 중: ${fileName}`);
-
-        // 파일명에서 인덱스 추출 (scene_child_timestamp_index.json)
-        const match = fileName.match(/scene_child_\d+_(\d+)\.json/);
+      for (const fileName of largeList) {
+        const match = String(fileName).match(/scene_child_\d+_(\d+)\.json/);
         if (match) {
-          const index = parseInt(match[1]);
-          console.log(`인덱스 추출: ${index}`);
-
-          // 정확한 파일명으로 먼저 찾기
+          const index = parseInt(match[1], 10);
           let foundFile = splitFiles[fileName];
-
-          // 정확한 파일명이 없으면 인덱스로 매칭
           if (!foundFile) {
-            console.log(`정확한 파일명을 찾을 수 없음, 인덱스 ${index}로 매칭 시도`);
-            const matchingFiles = Object.keys(splitFiles).filter(key => {
+            const matchingFiles = Object.keys(splitFiles).filter((key) => {
               const keyMatch = key.match(/scene_child_\d+_(\d+)\.json/);
-              return keyMatch && parseInt(keyMatch[1]) === index;
+              return keyMatch && parseInt(keyMatch[1], 10) === index;
             });
-
-            if (matchingFiles.length > 0) {
-              foundFile = splitFiles[matchingFiles[0]];
-              console.log(`인덱스 ${index}로 매칭된 파일: ${matchingFiles[0]}`);
-            }
+            if (matchingFiles.length > 0) foundFile = splitFiles[matchingFiles[0]];
           }
-
           if (foundFile) {
-            // 인덱스 위치에 삽입 (배열 크기를 늘려서)
-            while (allChildren.length <= index) {
-              allChildren.push(null);
-            }
+            while (allChildren.length <= index) allChildren.push(null);
             allChildren[index] = foundFile;
-            console.log(`인덱스 ${index}에 children 데이터 삽입 완료`);
           } else {
-            console.warn(`인덱스 ${index}에 해당하는 파일을 찾을 수 없음`);
+            console.warn(`인덱스 ${index} 파일 없음: ${fileName}`);
           }
-        } else {
-          // 인덱스를 추출할 수 없는 경우 배열 끝에 추가
-          console.log("인덱스 추출 실패, 배열 끝에 추가");
-          if (splitFiles[fileName]) {
-            allChildren.push(splitFiles[fileName]);
-          } else {
-            console.warn(`파일을 찾을 수 없음: ${fileName}`);
-          }
+        } else if (splitFiles[fileName]) {
+          allChildren.push(splitFiles[fileName]);
         }
       }
 
-      console.log("병합 후 allChildren 배열:", allChildren.length, "개");
-      console.log("null 값 개수:", allChildren.filter(child => child === null).length);
-
-      // null 값 제거
-      mergedData.scene.object.children = allChildren.filter(child => child !== null);
-      console.log("최종 children 배열:", mergedData.scene.object.children.length, "개");
+      const nulls = allChildren.filter((c) => c === null).length;
+      if (nulls > 0) console.warn(`children 병합 후 빈 슬롯 ${nulls}개`);
+      mergedData.scene.object.children = allChildren.filter((c) => c !== null);
       delete mergedData.scene.object.largeChildrenFiles;
-      console.log("개별 children 파일들 복원 완료");
+      delete mergedData.scene.object.inlineChildSlots;
+      delete mergedData.scene.object.sceneChildCount;
+      console.log("최종 children:", mergedData.scene.object.children.length);
     }
 
     // 6. 씬 데이터의 geometry 파일들 병합
