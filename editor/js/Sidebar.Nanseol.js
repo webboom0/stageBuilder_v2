@@ -138,6 +138,89 @@ function SidebarNanseol(editor) {
   const container = new UIPanel();
   container.setBorderTop("0");
 
+  const showLoadingModal = (message = "난설 로딩 중...") => {
+    // 중복 생성 방지
+    const existing = document.getElementById("nanseol-loading-modal");
+    if (existing) {
+      const msgEl = existing.querySelector(".nanseol-loading-message");
+      if (msgEl) msgEl.textContent = message;
+      return () => existing.remove();
+    }
+
+    const overlay = document.createElement("div");
+    overlay.id = "nanseol-loading-modal";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.zIndex = "999999";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.background = "rgba(0, 0, 0, 0.55)";
+    overlay.style.backdropFilter = "blur(2px)";
+
+    const card = document.createElement("div");
+    card.style.minWidth = "260px";
+    card.style.maxWidth = "420px";
+    card.style.padding = "18px 16px";
+    card.style.borderRadius = "10px";
+    card.style.background = "#111";
+    card.style.border = "1px solid rgba(255,255,255,0.12)";
+    card.style.boxShadow = "0 12px 30px rgba(0,0,0,0.5)";
+    card.style.color = "#fff";
+    card.style.fontFamily = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.gap = "12px";
+    row.style.alignItems = "center";
+
+    const spinner = document.createElement("div");
+    spinner.style.width = "18px";
+    spinner.style.height = "18px";
+    spinner.style.borderRadius = "50%";
+    spinner.style.border = "2px solid rgba(255,255,255,0.25)";
+    spinner.style.borderTopColor = "#fff";
+    spinner.style.animation = "nanseol-spin 0.9s linear infinite";
+
+    const msg = document.createElement("div");
+    msg.className = "nanseol-loading-message";
+    msg.textContent = message;
+    msg.style.fontSize = "14px";
+    msg.style.lineHeight = "1.4";
+
+    row.appendChild(spinner);
+    row.appendChild(msg);
+    card.appendChild(row);
+    overlay.appendChild(card);
+
+    // keyframes는 1회만 주입
+    if (!document.getElementById("nanseol-loading-style")) {
+      const style = document.createElement("style");
+      style.id = "nanseol-loading-style";
+      style.textContent = `
+@keyframes nanseol-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `.trim();
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(overlay);
+    return () => overlay.remove();
+  };
+
+  const waitForMotionTimelineReady = async (timeoutMs = 30000) => {
+    const startedAt = Date.now();
+    const pollMs = 100;
+    while (Date.now() - startedAt < timeoutMs) {
+      const mt = editor.motionTimeline;
+      // 트랙/클립이 반영되어 UI 생성이 시작되었는지 정도만 확인
+      if (mt && mt.timelineData && mt.timelineData.tracks && mt.timelineData.tracks.size > 0) {
+        return true;
+      }
+      await new Promise((r) => setTimeout(r, pollMs));
+    }
+    return false;
+  };
+
   const row = new UIRow();
   row.setClass("nanseol-panel-row");
 
@@ -155,6 +238,7 @@ function SidebarNanseol(editor) {
     "조명 3개 적용 + nanseol.mp3 오디오 타임라인에 추가";
 
   btn.addEventListener("click", async () => {
+    const hideLoading = showLoadingModal("난설 모션 타임라인 로딩 중...");
     // 난설 카메라 프리셋 적용 (이미지 값)
     try {
       const cam = editor.viewportCamera || editor.camera;
@@ -665,8 +749,29 @@ function SidebarNanseol(editor) {
           }, 200);
         }
       }
+
+      // 모션타임라인 UI/데이터 반영이 끝날 때까지 로딩 유지
+      try {
+        const ready = await waitForMotionTimelineReady(30000);
+        if (!ready) {
+          console.warn("[난설] 모션 타임라인 준비 대기 시간 초과");
+        }
+        // ✅ 난설 로딩 완료 시점: 아무것도 선택되지 않게 + 타임라인 0초 화면을 스테이지에 반영
+        try {
+          if (typeof editor.deselect === "function") editor.deselect();
+          if (editor.scene?.userData?.timeline) editor.scene.userData.timeline.currentSeconds = 0;
+          if (editor.motionTimeline && typeof editor.motionTimeline.updateAnimation === "function") {
+            editor.motionTimeline.updateAnimation(0);
+          }
+        } catch (e) {
+          console.warn("[난설] 로딩 완료 후 초기 화면 세팅 실패:", e);
+        }
+      } finally {
+        hideLoading();
+      }
     } catch (e) {
       console.warn("[난설] 모션 프리셋 적용 실패:", e);
+      hideLoading();
     }
   });
 
