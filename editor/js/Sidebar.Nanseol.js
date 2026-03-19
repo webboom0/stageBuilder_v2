@@ -93,7 +93,7 @@ const NANSEOL_NAMOO_PRESETS = [
   { position: [125.389, 2.038, 5.365] },
   { position: [94.683, 2.038, -48.961] },
   { position: [117.945, 2.038, 66.096] },
-  { position: [112.234, 2.038, 104.146] },
+  { position: [117.787, 2.038, 104.146] },
   { position: [18.120, 2.038, -48.961] },
 ];
 
@@ -103,7 +103,7 @@ const NANSEOL_NAMOO_SCALE = 0.137;
 /** 난설용 직육면체(Box) — 이미지 기준 위치·스케일 */
 const NANSEOL_BOX_PRESET = {
   name: "Box",
-  position: [0, 6.2, 18.223],
+  position: [-5.020, 6.2, 18.223],
   rotation: [0, 0, 0],
   scale: [89.254, 8.306, 20],
   visible: true,
@@ -131,8 +131,8 @@ const NANSEOL_MOTION_PRESET_PATH = resolveAssetUrl("../files/motion/temp2.json")
 // 난설 캐릭터
 const NANSEOL_1_FBX_PATH = resolveAssetUrl("../files/fbx/1.fbx");
 // 2.fbx만 대용량이라 Cloudflare R2에서 직접 로드
-const NANSEOL_2_FBX_PATH =
-  "https://pub-019b03564766487b9a9d6b42f6f23b8c.r2.dev/stagebuilder/2.fbx";
+const NANSEOL_2_FBX_PATH ="https://pub-019b03564766487b9a9d6b42f6f23b8c.r2.dev/stagebuilder/2.fbx";
+// const NANSEOL_2_FBX_PATH =resolveAssetUrl("../files/fbx/2.fbx"); //로컬용
 
 function SidebarNanseol(editor) {
   const container = new UIPanel();
