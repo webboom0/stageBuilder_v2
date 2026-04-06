@@ -22,6 +22,38 @@ function Loader(editor) {
     return object;
   }
 
+  // 🎨 FBX/메쉬 틴트(재질 색상) 적용
+  function applyTintToObject(object, hexColor) {
+    if (!object || hexColor === undefined || hexColor === null) return;
+
+    const applyToMaterial = (mat) => {
+      if (!mat) return;
+      if (mat.color && typeof mat.color.setHex === "function") {
+        mat.color.setHex(hexColor);
+        mat.needsUpdate = true;
+      }
+    };
+
+    object.traverse((child) => {
+      if (!child || child.isMesh !== true) return;
+
+      const material = child.material;
+      if (Array.isArray(material)) {
+        material.forEach(applyToMaterial);
+      } else {
+        applyToMaterial(material);
+      }
+    });
+  }
+
+  function ensureTintableMotionObject(object) {
+    if (!object) return;
+    if (!object.userData) object.userData = {};
+    object.userData.tintable = true;
+    if (object.userData.tintColor === undefined) object.userData.tintColor = 0x000000; // red default
+    applyTintToObject(object, object.userData.tintColor);
+  }
+
   // 🎯 자동 크기 조정 함수 (개선된 버전)
   function autoScaleObject(object, targetSize = 30) {
     try {
@@ -413,6 +445,9 @@ function Loader(editor) {
             // 왼쪽 Scene 패널에서 Motion 패널로 구분 표시
             object.userData.source = 'motion';
 
+            // 🎨 모션 객체는 모두 틴트 가능 + 기본 틴트(흰색) 적용
+            ensureTintableMotionObject(object);
+
             editor.execute(new AddObjectCommand(editor, object));
           },
           false,
@@ -719,6 +754,9 @@ function Loader(editor) {
 
             // 왼쪽 Scene 패널에서 Motion 패널로 구분 표시
             object.userData.source = 'motion';
+
+            // 🎨 모션 객체는 모두 틴트 가능 + 기본 틴트(흰색) 적용
+            ensureTintableMotionObject(object);
 
             editor.execute(new AddObjectCommand(editor, object));
           },
@@ -1180,6 +1218,9 @@ function Loader(editor) {
 
           const loader = new FBXLoader(manager);
           const object = loader.parse(file.buffer);
+
+          // 🎨 ZIP 내 FBX(모션 객체)도 틴트 가능 + 기본 틴트(흰색) 적용
+          ensureTintableMotionObject(object);
 
           editor.execute(new AddObjectCommand(editor, object));
 

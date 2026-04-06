@@ -30,6 +30,15 @@ function SidebarObject(editor) {
 
   const signals = editor.signals;
 
+  const getTintRoot = (object) => {
+    let o = object;
+    while (o) {
+      if (o.userData && o.userData.tintable === true) return o;
+      o = o.parent;
+    }
+    return null;
+  };
+
   const container = new UIPanel();
   container.setBorderTop("0");
   container.setPaddingTop("20px");
@@ -333,6 +342,16 @@ function SidebarObject(editor) {
   objectMaterialColorRow.add(objectMaterialColor);
 
   container.add(objectMaterialColorRow);
+
+  // tint color (auto-applied on load for specific assets)
+
+  const objectTintColorRow = new UIRow();
+  const objectTintColor = new UIColor().onInput(update);
+
+  objectTintColorRow.add(new UIText("틴트 색상").setClass("Label"));
+  objectTintColorRow.add(objectTintColor);
+
+  container.add(objectTintColorRow);
 
   // ground color
 
@@ -730,6 +749,40 @@ function SidebarObject(editor) {
         // ignore; some objects/materials don't support color
       }
 
+      // tint color (stored in userData.tintColor and applied to all mesh materials)
+      try {
+        const tintRoot = getTintRoot(object);
+        if (tintRoot) {
+          const nextHex = objectTintColor.getHexValue();
+          if (!tintRoot.userData) tintRoot.userData = {};
+          if (tintRoot.userData.tintColor !== nextHex) {
+            tintRoot.userData.tintColor = nextHex;
+          }
+
+          tintRoot.traverse((child) => {
+            if (!child || child.isMesh !== true) return;
+            const material = child.material;
+            const applyToMaterial = (mat) => {
+              if (!mat) return;
+              if (mat.color && typeof mat.color.setHex === "function") {
+                mat.color.setHex(nextHex);
+                mat.needsUpdate = true;
+              }
+            };
+            if (Array.isArray(material)) {
+              material.forEach(applyToMaterial);
+            } else {
+              applyToMaterial(material);
+            }
+          });
+
+          if (editor.signals?.materialChanged) editor.signals.materialChanged.dispatch(tintRoot, 0);
+          if (editor.signals?.objectChanged) editor.signals.objectChanged.dispatch(tintRoot);
+        }
+      } catch (e) {
+        // ignore
+      }
+
       if (
         object.groundColor !== undefined &&
         object.groundColor.getHex() !== objectGroundColor.getHexValue()
@@ -964,6 +1017,14 @@ function SidebarObject(editor) {
     } catch (e) {
       objectMaterialColorRow.setDisplay("none");
     }
+
+    // tint color row is shown only when tintable flag exists
+    try {
+      const showTint = !!getTintRoot(object);
+      objectTintColorRow.setDisplay(showTint ? "" : "none");
+    } catch (e) {
+      objectTintColorRow.setDisplay("none");
+    }
   }
 
   function updateTransformRows(object) {
@@ -1060,6 +1121,18 @@ function SidebarObject(editor) {
       const material = object.material !== undefined ? editor.getObjectMaterial(object, 0) : null;
       if (material && material.color && material.color.getHexString) {
         objectMaterialColor.setHexValue(material.color.getHexString());
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // tint color (userData)
+    try {
+      const tintRoot = getTintRoot(object);
+      if (tintRoot) {
+        const hex = (tintRoot.userData.tintColor !== undefined ? tintRoot.userData.tintColor : 0x000000);
+        const hexStr = new THREE.Color(hex).getHexString();
+        objectTintColor.setHexValue(hexStr);
       }
     } catch (e) {
       // ignore
