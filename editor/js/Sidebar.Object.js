@@ -20,6 +20,7 @@ import { SetPositionCommand } from "./commands/SetPositionCommand.js";
 import { SetRotationCommand } from "./commands/SetRotationCommand.js";
 import { SetScaleCommand } from "./commands/SetScaleCommand.js";
 import { SetColorCommand } from "./commands/SetColorCommand.js";
+import { SetMaterialColorCommand } from "./commands/SetMaterialColorCommand.js";
 import { SetShadowValueCommand } from "./commands/SetShadowValueCommand.js";
 
 import { SidebarObjectAnimation } from "./Sidebar.Object.Animation.js";
@@ -322,6 +323,16 @@ function SidebarObject(editor) {
   objectColorRow.add(objectColor);
 
   container.add(objectColorRow);
+
+  // material color (for meshes)
+
+  const objectMaterialColorRow = new UIRow();
+  const objectMaterialColor = new UIColor().onInput(update);
+
+  objectMaterialColorRow.add(new UIText("재질 색상").setClass("Label"));
+  objectMaterialColorRow.add(objectMaterialColor);
+
+  container.add(objectMaterialColorRow);
 
   // ground color
 
@@ -702,6 +713,23 @@ function SidebarObject(editor) {
         );
       }
 
+      // material color (slot 0 only)
+      try {
+        if (object.material !== undefined) {
+          const material = editor.getObjectMaterial(object, 0);
+          if (material && material.color && material.color.getHex) {
+            const nextHex = objectMaterialColor.getHexValue();
+            if (material.color.getHex() !== nextHex) {
+              editor.execute(
+                new SetMaterialColorCommand(editor, object, "color", nextHex, 0),
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // ignore; some objects/materials don't support color
+      }
+
       if (
         object.groundColor !== undefined &&
         object.groundColor.getHex() !== objectGroundColor.getHexValue()
@@ -927,6 +955,15 @@ function SidebarObject(editor) {
     if (object.isAmbientLight || object.isHemisphereLight) {
       objectShadowRow.setDisplay("none");
     }
+
+    // material color row is shown only when selected object has material.color
+    try {
+      const material = object.material !== undefined ? editor.getObjectMaterial(object, 0) : null;
+      const showMaterialColor = !!(material && material.color && material.color.getHex);
+      objectMaterialColorRow.setDisplay(showMaterialColor ? "" : "none");
+    } catch (e) {
+      objectMaterialColorRow.setDisplay("none");
+    }
   }
 
   function updateTransformRows(object) {
@@ -1016,6 +1053,16 @@ function SidebarObject(editor) {
 
     if (object.color !== undefined) {
       objectColor.setHexValue(object.color.getHexString());
+    }
+
+    // material color (slot 0)
+    try {
+      const material = object.material !== undefined ? editor.getObjectMaterial(object, 0) : null;
+      if (material && material.color && material.color.getHexString) {
+        objectMaterialColor.setHexValue(material.color.getHexString());
+      }
+    } catch (e) {
+      // ignore
     }
 
     if (object.groundColor !== undefined) {

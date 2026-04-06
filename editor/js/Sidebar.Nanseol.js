@@ -20,38 +20,40 @@ const NANSEOL_LIGHT_PRESETS = [
     key: "R",
     name: "난설_조명_R",
     position: new THREE.Vector3(102.684, 157.002, 176.523),
-    intensity: 1,
+    // 키 라이트(흰색) — 대비를 위해 강하게
+    intensity: 2.4,
     color: 0xffffff,
-    distance: 0,
-    decay: 0,
+    distance: 520,
+    decay: 1.2,
   },
   // 난설 무대 파란 조명 3개 (스샷 값 그대로)
   {
     key: "B_R",
     name: "난설_조명_파랑_R",
     position: new THREE.Vector3(186.286, 116.551, -68.595),
-    intensity: 5.08,
-    color: 0x0000ff,
-    distance: 0,
-    decay: 0.46,
+    // 림/엣지 라이트(푸른색) — 명암 경계 만들기
+    intensity: 10.5,
+    color: 0x1d3bff,
+    distance: 520,
+    decay: 1.35,
   },
   {
     key: "B_C",
     name: "난설_조명_파랑_C",
     position: new THREE.Vector3(4.252, 148.069, -57.775),
-    intensity: 8.38,
-    color: 0x0000ff,
-    distance: 0,
-    decay: 0.46,
+    intensity: 14.0,
+    color: 0x1d3bff,
+    distance: 560,
+    decay: 1.35,
   },
   {
     key: "B_L",
     name: "난설_조명_파랑_L",
     position: new THREE.Vector3(-172.465, 111.718, -45.042),
-    intensity: 5.08,
-    color: 0x0000ff,
-    distance: 0,
-    decay: 0.46,
+    intensity: 10.5,
+    color: 0x1d3bff,
+    distance: 520,
+    decay: 1.35,
   },
   // {
   //   key: "F",
@@ -70,9 +72,10 @@ const NANSEOL_LIGHT_PRESETS = [
  * - 조명: 관객 쪽(뒤) / 타겟: 무대 앞~중앙 → 사람(1.fbx 등) 정면에 조명 들어감
  */
 const NANSEOL_FRONT_SPOT_PRESETS = [
-  { name: "난설_조명_앞_L", position: [-76.096, 66.489, 223.147], target: [0, 2, 30], intensity: 4.66, distance: 381.16, angle: 0.965, penumbra: 0.3 },
-  { name: "난설_조명_앞_C", position: [1.890, 56.744, 225.001], target: [0, 2, 30], intensity: -3.08, distance: 381.16, angle: 0.965, penumbra: 0.3 },
-  { name: "난설_조명_앞_R", position: [86.550, 65.051, 218.534], target: [0, 2, 30], intensity: 4.66, distance: 381.16, angle: 0.965, penumbra: 0.3 },
+  // 스폿은 각도를 줄이고(집중), penumbra를 낮춰 경계가 더 또렷하게 보이도록 설정
+  { name: "난설_조명_앞_L", position: [-76.096, 66.489, 223.147], target: [-35, 2, 30], intensity: 6.2, distance: 520, angle: 0.75, penumbra: 0.14 },
+  { name: "난설_조명_앞_C", position: [1.890, 56.744, 225.001], target: [0, 2, 30], intensity: 4.0, distance: 520, angle: 0.65, penumbra: 0.10, },
+  { name: "난설_조명_앞_R", position: [86.550, 65.051, 218.534], target: [35, 2, 30], intensity: 6.2, distance: 520, angle: 0.65, penumbra: 0.12 },
 ];
 
 /** 난설 클릭 시 오디오 타임라인에 추가할 음악 (addAudioFromAsset 형식) */
@@ -271,6 +274,37 @@ function SidebarNanseol(editor) {
       editor.execute(new RemoveObjectCommand(editor, removeList[i]));
     }
 
+    // ✅ 대비를 위해 기본 주변광(무대 _Light HemisphereLight)을 약하게 낮춤
+    // (난설 프리셋 조명 자체가 더 도드라지도록)
+    try {
+      const stage = editor.scene.getObjectByName("Stage");
+      const hemi = stage?.children?.find?.((c) => c?.name === "_Light" && c?.isHemisphereLight);
+      if (hemi) {
+        if (!hemi.userData) hemi.userData = {};
+        if (hemi.userData._nanseolPrevIntensity === undefined) {
+          hemi.userData._nanseolPrevIntensity = hemi.intensity;
+        }
+        hemi.intensity = Math.min(hemi.intensity, 0.25);
+      }
+    } catch (e) {
+      console.warn("[난설] 기본 주변광 조정 실패:", e);
+    }
+
+    // ✅ 렌더러 톤매핑/노출/그림자: 명암 대비를 더 선명하게
+    try {
+      if (editor.config && typeof editor.config.setKey === "function") {
+        editor.config.setKey(
+          "project/renderer/shadows", true,
+          "project/renderer/shadowType", 2, // PCF Soft
+          "project/renderer/toneMapping", 4, // ACESFilmic
+          "project/renderer/toneMappingExposure", 1.15
+        );
+        if (editor.signals?.rendererUpdated) editor.signals.rendererUpdated.dispatch();
+      }
+    } catch (e) {
+      console.warn("[난설] 렌더러 설정(톤매핑/그림자) 적용 실패:", e);
+    }
+
     const hideLightHelpers = () => {
       try {
         // helpers는 editor.sceneHelpers(별도 scene)에 존재
@@ -357,20 +391,25 @@ function SidebarNanseol(editor) {
       console.warn("[난설] Helper 숨김 실패:", err);
     }
 
-    for (const cfg of NANSEOL_LIGHT_PRESETS) {
-      const light = new THREE.PointLight(
-        cfg.color,
-        cfg.intensity,
-        cfg.distance,
-        cfg.decay
-      );
-      light.name = cfg.name;
-      light.position.copy(cfg.position);
-      light.visible = true;
-      light.userData.nanseolPreset = true;
-      light.userData.nanseolKey = cfg.key;
-      editor.execute(new AddObjectCommand(editor, light));
-    }
+    // for (const cfg of NANSEOL_LIGHT_PRESETS) {
+    //   const light = new THREE.PointLight(
+    //     cfg.color,
+    //     cfg.intensity,
+    //     cfg.distance,
+    //     cfg.decay
+    //   );
+    //   light.name = cfg.name;
+    //   light.position.copy(cfg.position);
+    //   light.visible = true;
+    //   light.userData.nanseolPreset = true;
+    //   light.userData.nanseolKey = cfg.key;
+
+    //   // 대비 강화: 그림자 활성화(프로젝트 설정에서 shadows가 켜져있을 때 효과)
+    //   light.castShadow = true;
+    //   light.shadow.mapSize.set(1024, 1024);
+    //   light.shadow.bias = -0.0002;
+    //   editor.execute(new AddObjectCommand(editor, light));
+    // }
     console.log("[난설] PointLight 3개 적용 완료");
 
     for (const cfg of NANSEOL_FRONT_SPOT_PRESETS) {
@@ -381,7 +420,7 @@ function SidebarNanseol(editor) {
       editor.execute(new AddObjectCommand(editor, target));
 
       const spot = new THREE.SpotLight(
-        0xffffff,
+        (cfg.color !== undefined ? cfg.color : 0xffffff),
         cfg.intensity,
         cfg.distance,
         cfg.angle,
@@ -393,6 +432,11 @@ function SidebarNanseol(editor) {
       spot.target = target;
       spot.visible = true;
       spot.userData.nanseolFrontSpot = true;
+
+      // 대비 강화: 스폿 그림자 + 약간 더 하드한 그림자 품질
+      spot.castShadow = true;
+      spot.shadow.mapSize.set(2048, 2048);
+      spot.shadow.bias = -0.00025;
       editor.execute(new AddObjectCommand(editor, spot));
     }
     console.log("[난설] 무대 앞쪽 SpotLight 3개 적용 완료");
