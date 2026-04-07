@@ -2,6 +2,7 @@ import { UIPanel, UIInput, UIButton, UIRow } from "./libs/ui.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { Timeline } from "./timeline/Timeline.js";
+import { NANSEOL_FRONT_SPOT_PRESETS } from "./Sidebar.Nanseol.js";
 
 function VideoEdit(editor) {
   console.log("VideoEdit");
@@ -363,10 +364,37 @@ function VideoEdit(editor) {
           );
 
           if (!existingLight) {
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x181818, 0.42);
             hemiLight.position.set(0, 1, 0);
             hemiLight.name = "_Light";
             this.stageGroup.add(hemiLight);
+
+            // 난설 프리셋 중 가운데(앞_C)만 — 동일 수치, 이름은 `_StageFrontSpot_C`
+            const cfg = NANSEOL_FRONT_SPOT_PRESETS.find(
+              (p) => p.name === "난설_조명_앞_C",
+            );
+            if (cfg) {
+              const target = new THREE.Object3D();
+              target.position.set(cfg.target[0], cfg.target[1], cfg.target[2]);
+              target.name = "_StageFrontSpotTarget_C";
+              this.stageGroup.add(target);
+
+              const spot = new THREE.SpotLight(
+                cfg.color !== undefined ? cfg.color : 0xffffff,
+                cfg.intensity,
+                cfg.distance,
+                cfg.angle,
+                cfg.penumbra,
+                0,
+              );
+              spot.name = "_StageFrontSpot_C";
+              spot.position.set(cfg.position[0], cfg.position[1], cfg.position[2]);
+              spot.target = target;
+              spot.castShadow = true;
+              spot.shadow.mapSize.set(2048, 2048);
+              spot.shadow.bias = -0.00025;
+              this.stageGroup.add(spot);
+            }
           } else {
             console.log("Light already exists");
           }

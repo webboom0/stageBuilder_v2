@@ -827,4 +827,4 @@ function SidebarNanseol(editor) {
   return container;
 }
 
-export { SidebarNanseol, NANSEOL_LIGHT_PRESETS };
+export { SidebarNanseol, NANSEOL_LIGHT_PRESETS, NANSEOL_FRONT_SPOT_PRESETS };
