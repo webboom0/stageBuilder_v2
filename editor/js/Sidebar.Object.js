@@ -1130,7 +1130,7 @@ function SidebarObject(editor) {
     try {
       const tintRoot = getTintRoot(object);
       if (tintRoot) {
-        const hex = (tintRoot.userData.tintColor !== undefined ? tintRoot.userData.tintColor : 0x000000);
+        const hex = (tintRoot.userData.tintColor !== undefined ? tintRoot.userData.tintColor : 0xff0000);
         const hexStr = new THREE.Color(hex).getHexString();
         objectTintColor.setHexValue(hexStr);
       }

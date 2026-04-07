@@ -50,7 +50,7 @@ function Loader(editor) {
     if (!object) return;
     if (!object.userData) object.userData = {};
     object.userData.tintable = true;
-    if (object.userData.tintColor === undefined) object.userData.tintColor = 0x000000; // red default
+    if (object.userData.tintColor === undefined) object.userData.tintColor = 0xff0000; // red default
     applyTintToObject(object, object.userData.tintColor);
   }
 

@@ -692,8 +692,8 @@ function SidebarNanseol(editor) {
         return captured;
       };
 
-      const target1 = await loadFbxAndCapture(NANSEOL_1_FBX_PATH, "1.fbx", "1");
-      const target2 = await loadFbxAndCapture(NANSEOL_2_FBX_PATH, "2.fbx", "2");
+      const target1 = await loadFbxAndCapture(NANSEOL_1_FBX_PATH, "Character1.fbx", "Character1");
+      const target2 = await loadFbxAndCapture(NANSEOL_2_FBX_PATH, "Character2.fbx", "Character2");
 
       if (!target1 || !target2) {
         const motionNames = [];
