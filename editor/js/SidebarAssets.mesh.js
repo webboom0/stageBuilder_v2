@@ -27,6 +27,7 @@ export function createMeshPanel(editor) {
     mesh.scale.set(20, 20, 20);
     const halfHeight = 10;
     mesh.position.y = DEFAULT_FLOOR_LEVEL + halfHeight;
+    mesh.userData.floorContactY = DEFAULT_FLOOR_LEVEL;
     mesh.userData.minYPosition = mesh.position.y;
     mesh.userData.source = 'mesh';
     editor.execute(new AddObjectCommand(editor, mesh));
@@ -53,6 +54,7 @@ export function createMeshPanel(editor) {
     mesh.scale.set(12, 12, 12);
     const halfHeight = 6;
     mesh.position.y = DEFAULT_FLOOR_LEVEL + halfHeight;
+    mesh.userData.floorContactY = DEFAULT_FLOOR_LEVEL;
     mesh.userData.minYPosition = mesh.position.y;
     mesh.userData.source = 'mesh';
     editor.execute(new AddObjectCommand(editor, mesh));

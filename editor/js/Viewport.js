@@ -16,6 +16,8 @@ import { SetPositionCommand } from "./commands/SetPositionCommand.js";
 import { SetRotationCommand } from "./commands/SetRotationCommand.js";
 import { SetScaleCommand } from "./commands/SetScaleCommand.js";
 
+import { getMeshWorldHalfHeightY } from "./utils/meshFloor.js";
+
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { ViewportPathtracer } from "./Viewport.Pathtracer.js";
 
@@ -158,15 +160,28 @@ function Viewport(editor) {
   transformControls.addEventListener("objectChange", function () {
     const object = transformControls.object;
 
-    // 🎯 객체별 개별 바닥 제한 (불러온 위치 기준)
-    if (object && object.userData && typeof object.userData.minYPosition === 'number') {
+    // 🎯 바닥 접촉면 고정(floorContactY): 스케일에 따라 허용 중심 Y가 달라짐(높이 줄이면 아래로 내려갈 수 있음)
+    if (
+      object &&
+      object.userData &&
+      typeof object.userData.floorContactY === "number" &&
+      object.isMesh
+    ) {
+      const halfH = getMeshWorldHalfHeightY(object);
+      const minCenterY = object.userData.floorContactY + halfH;
+      if (transformControls.getMode && transformControls.getMode() === "scale") {
+        object.position.y = minCenterY;
+      } else if (object.position.y < minCenterY) {
+        object.position.y = minCenterY;
+      }
+      object.userData.minYPosition = minCenterY;
+    } else if (object && object.userData && typeof object.userData.minYPosition === "number") {
       const minYPosition = object.userData.minYPosition;
       if (object.position.y < minYPosition) {
         object.position.y = minYPosition;
         console.log(`🎯 객체 "${object.name || 'Unknown'}"가 초기 위치(Y=${minYPosition.toFixed(2)}) 아래로 이동하는 것을 방지했습니다.`);
       }
     } else {
-      // userData.minYPosition이 없는 기존 객체들을 위한 기본 제한 (그리드 레벨)
       const defaultFloorLevel = -3.8;
       if (object && object.position.y < defaultFloorLevel) {
         object.position.y = defaultFloorLevel;

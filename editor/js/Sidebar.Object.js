@@ -25,6 +25,8 @@ import { SetShadowValueCommand } from "./commands/SetShadowValueCommand.js";
 
 import { SidebarObjectAnimation } from "./Sidebar.Object.Animation.js";
 
+import { getMeshWorldHalfHeightY } from "./utils/meshFloor.js";
+
 function SidebarObject(editor) {
   const strings = editor.strings;
 
@@ -623,6 +625,15 @@ function SidebarObject(editor) {
       );
       if (object.scale.distanceTo(newScale) >= 0.01) {
         editor.execute(new SetScaleCommand(editor, object, newScale));
+        if (typeof object.userData.floorContactY === "number" && object.isMesh) {
+          const halfH = getMeshWorldHalfHeightY(object);
+          const newY = object.userData.floorContactY + halfH;
+          const newPos = new THREE.Vector3(object.position.x, newY, object.position.z);
+          if (Math.abs(object.position.y - newY) > 0.001) {
+            editor.execute(new SetPositionCommand(editor, object, newPos));
+          }
+          object.userData.minYPosition = newY;
+        }
       }
 
       if (
