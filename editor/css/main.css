@@ -1652,6 +1652,7 @@ select:hover {
   overflow: hidden;
   flex-grow: 1;
   flex-shrink: 0;
+  min-height: 150px;
 }
 
 /* 씬 패널 높이 50px 고정 (초기 로드부터 적용) */
