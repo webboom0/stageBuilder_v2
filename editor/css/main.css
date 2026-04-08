@@ -1657,8 +1657,8 @@ select:hover {
 
 /* 씬 패널 높이 50px 고정 (초기 로드부터 적용) */
 #sidebar .floating-panel-scene-fixed {
-  height: 130px !important;
-  min-height: 130px !important;
+  height: 200px !important;
+  min-height: 200px !important;
   max-height: 130px !important;
   flex-grow: 0 !important;
 }
