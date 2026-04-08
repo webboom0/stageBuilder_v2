@@ -54,6 +54,21 @@ function Loader(editor) {
     applyTintToObject(object, object.userData.tintColor);
   }
 
+  /** FBX 등에 애니메이션이 있으면 첫 클립의 t=0 포즈를 본에 반영(바인드 포즈 대신 첫 키프레임 자세) */
+  function applyAnimationFirstFramePose(root) {
+    if (!root || !root.animations || root.animations.length === 0) return;
+
+    const mixer = new THREE.AnimationMixer(root);
+    const clip = root.animations[0];
+    const action = mixer.clipAction(clip);
+    action.reset();
+    action.time = 0;
+    action.setEffectiveWeight(1);
+    action.play();
+    mixer.update(0);
+    root.updateMatrixWorld(true);
+  }
+
   // 🎯 자동 크기 조정 함수 (개선된 버전)
   function autoScaleObject(object, targetSize = 30) {
     try {
@@ -435,6 +450,9 @@ function Loader(editor) {
             
             // 이름 설정
             object.name = getFileNameFromPath(file.name);
+
+            // 애니메이션 첫 프레임 포즈 적용 후 크기/바닥 정렬(바운딩이 보이는 자세와 일치)
+            applyAnimationFirstFramePose(object);
 
             // 🎯 자동 크기 조정 (기존 고정 스케일 0.1 대신)
             autoScaleObject(object, 30); // 목표 크기 30 단위 (더 작게)
@@ -1218,6 +1236,8 @@ function Loader(editor) {
 
           const loader = new FBXLoader(manager);
           const object = loader.parse(file.buffer);
+
+          applyAnimationFirstFramePose(object);
 
           // 🎨 ZIP 내 FBX(모션 객체)도 틴트 가능 + 기본 틴트(흰색) 적용
           ensureTintableMotionObject(object);
