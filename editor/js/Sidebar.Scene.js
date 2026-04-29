@@ -42,26 +42,21 @@ function SidebarScene(editor) {
 
     // opener
     if (nodeStates.has(object)) {
-      // fbx 객체는 opener 생성/삽입을 건너뜀
-      console.log("opener");
-      console.log(object.children.filter(child => child.isMesh));
-      if (object.children.filter(child => child.isMesh).length <= 0) {
-        const state = nodeStates.get(object);
+      const state = nodeStates.get(object);
 
-        const opener = document.createElement("span");
-        opener.classList.add("opener");
+      const opener = document.createElement("span");
+      opener.classList.add("opener");
 
-        if (object.children.length > 0) {
-          opener.classList.add(state ? "open" : "closed");
-        }
-
-        opener.addEventListener("click", function () {
-          nodeStates.set(object, nodeStates.get(object) === false); // toggle
-          refreshUI();
-        });
-
-        option.insertBefore(opener, option.firstChild);
+      if (object.children.length > 0) {
+        opener.classList.add(state ? "open" : "closed");
       }
+
+      opener.addEventListener("click", function () {
+        nodeStates.set(object, nodeStates.get(object) === false); // toggle
+        refreshUI();
+      });
+
+      option.insertBefore(opener, option.firstChild);
     }
     return option;
   }
@@ -288,8 +283,26 @@ function SidebarScene(editor) {
       for (let i = 0, l = objects.length; i < l; i++) {
         const object = objects[i];
 
-        // 라이트 및 라이트 그룹 제외
-        if (object.isLight || (object.isGroup && object.name.toLowerCase().includes('light'))) continue;
+        // 기본적으로 라이트는 Scene 패널에서 제외하지만,
+        // 무대 기본 스팟라이트(_StageFrontSpot_*)는 Scene 패널에서 직접 수정 가능하게 노출
+        const objectName = String(object.name || "");
+        const isEditableStageSpot =
+          objectName.startsWith("_StageFrontSpot_") ||
+          objectName.startsWith("_StageFrontSpotTarget_");
+        const isStageBackgroundObject =
+          objectName === "Background" ||
+          objectName === "_Background" ||
+          objectName === "_Floor";
+
+        // 배경/바닥은 Scene 패널에서 숨김
+        if (isStageBackgroundObject) continue;
+
+        if (
+          !isEditableStageSpot &&
+          (object.isLight ||
+            (object.isGroup && object.name.toLowerCase().includes("light")))
+        )
+          continue;
 
         if (nodeStates.has(object) === false) {
           nodeStates.set(object, false);

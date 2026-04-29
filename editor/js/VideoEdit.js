@@ -364,7 +364,8 @@ function VideoEdit(editor) {
           );
 
           if (!existingLight) {
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x181818, 0.42);
+            // 무대 전체조명
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x181818, 0.92);
             hemiLight.position.set(0, 1, 0);
             hemiLight.name = "_Light";
             this.stageGroup.add(hemiLight);
@@ -377,6 +378,10 @@ function VideoEdit(editor) {
               const target = new THREE.Object3D();
               target.position.set(cfg.target[0], cfg.target[1], cfg.target[2]);
               target.name = "_StageFrontSpotTarget_C";
+              target.userData.isBackground = false;
+              target.userData.notEditable = false;
+              target.userData.notSelectable = false;
+              target.userData.selectSelf = true;
               this.stageGroup.add(target);
 
               const spot = new THREE.SpotLight(
@@ -388,8 +393,20 @@ function VideoEdit(editor) {
                 0,
               );
               spot.name = "_StageFrontSpot_C";
-              spot.position.set(cfg.position[0], cfg.position[1], cfg.position[2]);
+              // _StageFrontSpot_C 초기값은 UI 기준값으로 고정
+              spot.position.set(1.89, 72.905, 225.001);
+              spot.intensity = 2.24;
+              spot.distance = 519.7;
+              spot.angle = 1.13;
+              spot.penumbra = 0.14;
+              spot.decay = 0.0;
+              spot.color.setHex(0xffffff);
+              spot.visible = true;
               spot.target = target;
+              spot.userData.isBackground = false;
+              spot.userData.notEditable = false;
+              spot.userData.notSelectable = false;
+              spot.userData.selectSelf = true;
               spot.castShadow = true;
               spot.shadow.mapSize.set(2048, 2048);
               spot.shadow.bias = -0.00025;
@@ -398,6 +415,18 @@ function VideoEdit(editor) {
           } else {
             console.log("Light already exists");
           }
+
+          // 기존 파일/재생성 케이스 포함: 무대 스팟라이트/타겟은 항상 선택·편집 가능 상태로 정규화
+          const editableStageSpotNames = ["_StageFrontSpot_C", "_StageFrontSpotTarget_C"];
+          editableStageSpotNames.forEach((name) => {
+            const obj = this.stageGroup.children.find((child) => child.name === name);
+            if (!obj) return;
+            if (!obj.userData) obj.userData = {};
+            obj.userData.isBackground = false;
+            obj.userData.notEditable = false;
+            obj.userData.notSelectable = false;
+            obj.userData.selectSelf = true;
+          });
 
           // Stage 그룹 전체에 대한 userData 설정
           this.stageGroup.userData.isBackground = true;
@@ -484,10 +513,21 @@ function VideoEdit(editor) {
       console.log("Floor created successfully for", currentStageType);
     },
     onObjectSelected: function (selected) {
-      if (
-        selected &&
-        (selected.name === "Background" || selected.userData.isBackground)
-      ) {
+      if (!selected) return;
+
+      const selectedName = String(selected.name || "");
+      const isEditableStageSpot =
+        selectedName.startsWith("_StageFrontSpot_") ||
+        selectedName.startsWith("_StageFrontSpotTarget_");
+
+      if (isEditableStageSpot) return;
+
+      const isBlockedBackgroundObject =
+        selectedName === "Background" ||
+        selectedName === "_Background" ||
+        selectedName === "_Floor";
+
+      if (isBlockedBackgroundObject) {
         editor.selected = null;
         editor.signals.objectSelected.dispatch(null);
       }
