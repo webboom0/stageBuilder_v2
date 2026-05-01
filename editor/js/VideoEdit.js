@@ -522,12 +522,9 @@ function VideoEdit(editor) {
 
       if (isEditableStageSpot) return;
 
-      const isBlockedBackgroundObject =
-        selectedName === "Background" ||
-        selectedName === "_Background" ||
-        selectedName === "_Floor";
-
-      if (isBlockedBackgroundObject) {
+      // 4/8 방식 유지: 무대(Stage) / 배경 그룹(isBackground)은 선택 즉시 해제
+      // 단, 무대 기본 스팟/타겟은 예외로 선택 가능
+      if (selectedName === "Stage" || selected.userData?.isBackground === true) {
         editor.selected = null;
         editor.signals.objectSelected.dispatch(null);
       }

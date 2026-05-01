@@ -122,8 +122,8 @@ function Editor() {
   this.scene.name = "Scene";
 
   this.sceneHelpers = new THREE.Scene();
-  // 전역 보조광을 소폭 상향해 전체 화면 밝기를 약간 올림
-  this.sceneHelpers.add(new THREE.HemisphereLight(0xffffff, 0x303030, 0.82));
+  // 전역 보조광은 약하게: 무대(Stage) 쪽 키 조명이 더 도드라지도록
+  this.sceneHelpers.add(new THREE.HemisphereLight(0xffffff, 0x303030, 0.72));
 
   this.object = {};
   this.geometries = {};

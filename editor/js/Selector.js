@@ -53,27 +53,17 @@ class Selector {
 
   select(object) {
     if (object !== null && object !== this.editor.scene) {
-      const objectName = String(object.name || "");
-      const shouldSelectSelf =
-        object.isLight === true ||
-        objectName.startsWith("_StageFrontSpotTarget_") ||
-        object.userData?.selectSelf === true;
-
-      // 기본은 최상위 부모 선택(기존 동작 유지), 단 라이트/특정 타겟은 자기 자신 선택
-      let selectedObject = object;
-      if (!shouldSelectSelf) {
-        let topParent = object;
-        while (topParent.parent && topParent.parent !== this.editor.scene) {
-          topParent = topParent.parent;
-        }
-        selectedObject = topParent;
+      // 최상위 부모 객체 찾기 (scene 바로 아래 객체까지만)
+      let topParent = object;
+      while (topParent.parent && topParent.parent !== this.editor.scene) {
+        topParent = topParent.parent;
       }
 
       // 이미 같은 객체가 선택되어 있다면 리턴
-      if (this.editor.selected === selectedObject) return;
+      if (this.editor.selected === topParent) return;
 
-      let uuid = selectedObject.uuid;
-      this.editor.selected = selectedObject;
+      let uuid = topParent.uuid;
+      this.editor.selected = topParent;
       this.editor.config.setKey("selected", uuid);
     } else {
       this.editor.selected = null;
