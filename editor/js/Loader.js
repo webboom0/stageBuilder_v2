@@ -75,8 +75,7 @@ function Loader(editor) {
       // 바운딩 박스 계산
       const box = new THREE.Box3().setFromObject(object);
       const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      
+
       // 가장 큰 차원을 기준으로 스케일 계산
       const maxDimension = Math.max(size.x, size.y, size.z);
       
@@ -102,10 +101,9 @@ function Loader(editor) {
         // 스케일 적용
         object.scale.setScalar(scale);
         
-        // 중심점을 원점으로 이동 (무대 바닥에 맞춤)
-        const scaledCenter = center.clone().multiplyScalar(scale);
-        object.position.set(0, -scaledCenter.y + (size.y * scale * 0.5), 0);
-        
+        // 루트를 원점에 둠 (요청: 첫 삽입 시 Y=0, XZ도 0)
+        object.position.set(0, 0, 0);
+
         // 객체 정보 저장 (나중에 참조할 수 있도록)
         object.userData.originalSize = {
           x: size.x,
@@ -115,9 +113,8 @@ function Loader(editor) {
         };
         object.userData.autoScale = scale;
         object.userData.adaptiveTargetSize = adaptiveTargetSize;
-        
-        // 🎯 현재 위치를 최소 Y 위치로 저장 (바닥 제한용)
-        object.userData.minYPosition = object.position.y;
+
+        object.userData.minYPosition = 0;
         
         console.log(`🎯 자동 크기 조정: ${object.name || 'Unknown'}`);
         console.log(`   원본 크기: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`);
@@ -125,9 +122,13 @@ function Loader(editor) {
         console.log(`   목표 크기: ${adaptiveTargetSize.toFixed(2)}`);
         console.log(`   적용된 스케일: ${scale.toFixed(3)}`);
         console.log(`   조정된 크기: ${(size.x * scale).toFixed(2)} x ${(size.y * scale).toFixed(2)} x ${(size.z * scale).toFixed(2)}`);
-        console.log(`   위치 조정: Y=${object.position.y.toFixed(2)} (바닥 맞춤)`);
+        console.log(`   위치: (0, 0, 0) 원점`);
+      } else {
+        object.position.set(0, 0, 0);
+        if (!object.userData) object.userData = {};
+        object.userData.minYPosition = 0;
       }
-      
+
       return object;
     } catch (error) {
       console.warn("🎯 자동 크기 조정 실패:", error);
@@ -1217,6 +1218,9 @@ function Loader(editor) {
         .setMaterials(materials)
         .parse(strFromU8(zip["model.obj"]));
 
+      object.position.set(0, 0, 0);
+      if (object.userData) object.userData.minYPosition = 0;
+
       editor.execute(new AddObjectCommand(editor, object));
       return;
     }
@@ -1242,6 +1246,9 @@ function Loader(editor) {
           // 🎨 ZIP 내 FBX(모션 객체)도 틴트 가능 + 기본 틴트(흰색) 적용
           ensureTintableMotionObject(object);
 
+          object.position.set(0, 0, 0);
+          if (object.userData) object.userData.minYPosition = 0;
+
           editor.execute(new AddObjectCommand(editor, object));
 
           break;
@@ -1252,6 +1259,9 @@ function Loader(editor) {
 
           loader.parse(file.buffer, "", function (result) {
             const scene = result.scene;
+
+            scene.position.set(0, 0, 0);
+            if (scene.userData) scene.userData.minYPosition = 0;
 
             scene.animations.push(...result.animations);
             editor.execute(new AddObjectCommand(editor, scene));
@@ -1268,6 +1278,9 @@ function Loader(editor) {
 
           loader.parse(strFromU8(file), "", function (result) {
             const scene = result.scene;
+
+            scene.position.set(0, 0, 0);
+            if (scene.userData) scene.userData.minYPosition = 0;
 
             scene.animations.push(...result.animations);
             editor.execute(new AddObjectCommand(editor, scene));
