@@ -2013,11 +2013,10 @@ export class MotionTimeline extends BaseTimeline {
             sprite.style.width = `${savedClipData.width}%`;
             sprite.dataset.initialLeft = savedClipData.initialLeft.toString();
 
-            const spriteName = object?.animations?.[0]?.name || displayName || "Animation";
             sprite.innerHTML = `
                 <div class="sprite-handle left"></div>
                 <div class="sprite-content">
-                    <span class="sprite-name">${spriteName}</span>
+                    <span class="sprite-name">${displayName}</span>
                     <div class="keyframe-layer"></div>
                 </div>
                 <div class="sprite-handle right"></div>
@@ -2044,7 +2043,7 @@ export class MotionTimeline extends BaseTimeline {
             sprite.innerHTML = `
                 <div class="sprite-handle left"></div>
                 <div class="sprite-content">
-                    <span class="sprite-name">${object.animations[0]?.name || "Animation"}</span>
+                    <span class="sprite-name">${displayName}</span>
                     <div class="keyframe-layer"></div>
                 </div>
                 <div class="sprite-handle right"></div>

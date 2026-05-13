@@ -553,10 +553,24 @@ transform: translateY(-50%); */
 }
 
 .sprite-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
   padding: 0 8px;
   line-height: 30px;
   color: white;
   font-size: 12px;
+}
+
+/* 클립 박스 안에서만 표시; 넘치면 말줄임표 (키프레임 레이어는 absolute라 별도 영역) */
+.animation-sprite .sprite-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .property-tracks {}
@@ -1081,20 +1095,6 @@ border-left: 3px solid #666;
 .animation-sprite[data-is-active="false"] {
   background: #6cf;
   border: 1px solid #39c;
-}
-
-/* 클립 진행률 표시 */
-.animation-sprite[data-is-active="true"]::after {
-  content: attr(data-relative-progress) "%";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  font-weight: bold;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
 }
 
 /* 현재 키프레임 스타일 */
