@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { UIButton } from "./libs/ui.js";
 import { AddObjectCommand } from "./commands/AddObjectCommand.js";
+import { getNextNumberedObjectName } from "./utils/uniqueNumberedName.js";
 
 // Viewport.js와 동일한 바닥 레벨 (바닥 아래로 이동 방지)
 const DEFAULT_FLOOR_LEVEL = -3.8;
@@ -23,7 +24,7 @@ export function createMeshPanel(editor) {
   boxBtn.onClick(() => {
     const geometry = new THREE.BoxGeometry(1, 1, 1, 1, 1, 1);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Box";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Box");
     mesh.scale.set(20, 20, 20);
     const halfHeight = 10;
     mesh.position.y = DEFAULT_FLOOR_LEVEL + halfHeight;
@@ -50,7 +51,7 @@ export function createMeshPanel(editor) {
       Math.PI * 2
     );
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Cylinder";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Cylinder");
     mesh.scale.set(12, 12, 12);
     const halfHeight = 6;
     mesh.position.y = DEFAULT_FLOOR_LEVEL + halfHeight;

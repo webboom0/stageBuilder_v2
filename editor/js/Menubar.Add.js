@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { UIPanel, UIRow } from "./libs/ui.js";
 
 import { AddObjectCommand } from "./commands/AddObjectCommand.js";
+import { getNextNumberedObjectName } from "./utils/uniqueNumberedName.js";
 
 function MenubarAdd(editor) {
   const strings = editor.strings;
@@ -26,7 +27,7 @@ function MenubarAdd(editor) {
   option.setTextContent(strings.getKey("menubar/add/group"));
   option.onClick(function () {
     const mesh = new THREE.Group();
-    mesh.name = "Group";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Group");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -65,7 +66,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.BoxGeometry(1, 1, 1, 1, 1, 1);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Box";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Box");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -80,7 +81,7 @@ function MenubarAdd(editor) {
     const geometry = new THREE.CapsuleGeometry(1, 1, 4, 8);
     const material = new THREE.MeshStandardMaterial();
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = "Capsule";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Capsule");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -94,7 +95,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.CircleGeometry(1, 32, 0, Math.PI * 2);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Circle";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Circle");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -117,7 +118,7 @@ function MenubarAdd(editor) {
       Math.PI * 2
     );
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Cylinder";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Cylinder");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -131,7 +132,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.DodecahedronGeometry(1, 0);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Dodecahedron";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Dodecahedron");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -145,7 +146,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.IcosahedronGeometry(1, 0);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Icosahedron";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Icosahedron");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -162,7 +163,7 @@ function MenubarAdd(editor) {
       geometry,
       new THREE.MeshStandardMaterial({ side: THREE.DoubleSide })
     );
-    mesh.name = "Lathe";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Lathe");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -176,7 +177,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.OctahedronGeometry(1, 0);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Octahedron";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Octahedron");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -191,7 +192,7 @@ function MenubarAdd(editor) {
     const geometry = new THREE.PlaneGeometry(1, 1, 1, 1);
     const material = new THREE.MeshStandardMaterial();
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = "Plane";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Plane");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -205,7 +206,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.RingGeometry(0.5, 1, 32, 1, 0, Math.PI * 2);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Ring";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Ring");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -227,7 +228,7 @@ function MenubarAdd(editor) {
       Math.PI
     );
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Sphere";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Sphere");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -240,7 +241,7 @@ function MenubarAdd(editor) {
   option.setTextContent(strings.getKey("menubar/add/mesh/sprite"));
   option.onClick(function () {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial());
-    sprite.name = "Sprite";
+    sprite.name = getNextNumberedObjectName(editor.scene, "Sprite");
 
     editor.execute(new AddObjectCommand(editor, sprite));
   });
@@ -254,7 +255,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.TetrahedronGeometry(1, 0);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Tetrahedron";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Tetrahedron");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -268,7 +269,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.TorusGeometry(1, 0.4, 12, 48, Math.PI * 2);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Torus";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Torus");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -282,7 +283,7 @@ function MenubarAdd(editor) {
   option.onClick(function () {
     const geometry = new THREE.TorusKnotGeometry(1, 0.4, 64, 8, 2, 3);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "TorusKnot";
+    mesh.name = getNextNumberedObjectName(editor.scene, "TorusKnot");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
@@ -303,7 +304,7 @@ function MenubarAdd(editor) {
 
     const geometry = new THREE.TubeGeometry(path, 64, 1, 8, false);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
-    mesh.name = "Tube";
+    mesh.name = getNextNumberedObjectName(editor.scene, "Tube");
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });
