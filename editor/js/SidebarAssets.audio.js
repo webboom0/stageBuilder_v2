@@ -77,6 +77,7 @@ export function createAudioPanel(editor) {
     // 불러오기 버튼
     const uploadBtn = new UIButton("");
     uploadBtn.setInnerHTML("<i class='fas fa-upload'></i>");
+    uploadBtn.dom.title = "오디오 업로드";
     uploadBtn.onClick(async(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -115,11 +116,13 @@ export function createAudioPanel(editor) {
 
     // 선택된 파일들 추가 버튼
     const selectsAddBtn = createSelectsAddBtn();
+    selectsAddBtn.dom.title = "선택 항목 트랙에 추가";
     soundFooter.appendChild(selectsAddBtn.dom);
 
     // 새로고침 버튼
     const refreshBtn = new UIButton("");
     refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
+    refreshBtn.dom.title = "목록 새로고침";
     refreshBtn.onClick(async() => {
         console.log("새로고침 버튼 클릭됨");
         try {
@@ -133,6 +136,7 @@ export function createAudioPanel(editor) {
 
     // 휴지통 버튼 추가
     const deleteBtn = createDeleteButton();
+    deleteBtn.dom.title = "선택 항목 삭제";
     soundFooter.appendChild(deleteBtn.dom);
 
     // 음악 파일 목록: 서버 미연결·빈 목록이면 로컬 기본 목록, 서버 목록 있으면 그 앞에 로컬 전용 항목 병합

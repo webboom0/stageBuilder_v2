@@ -7,6 +7,20 @@ const cors = require('cors');
 const app = express();
 const PORT = 3001;
 
+function getUniqueFileName(dirPath, originalName) {
+  const parsed = path.parse(originalName);
+  const safeBase = parsed.name;
+  const ext = parsed.ext;
+
+  let candidate = `${safeBase}${ext}`;
+  let n = 2;
+  while (fs.existsSync(path.join(dirPath, candidate))) {
+    candidate = `${safeBase}${n}${ext}`;
+    n += 1;
+  }
+  return candidate;
+}
+
 // CORS 설정 - 더 유연하게 설정
 app.use(cors({
   origin: function (origin, callback) {
@@ -79,12 +93,8 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // 원본 파일명 유지하되 중복 방지
-    const originalName = path.parse(file.originalname).name;
-    const extension = path.extname(file.originalname);
-    const timestamp = Date.now();
-    const filename = `${originalName}_${timestamp}${extension}`;
-
+    const uploadPath = path.join(__dirname, '../files/music');
+    const filename = getUniqueFileName(uploadPath, file.originalname);
     cb(null, filename);
   }
 });
@@ -217,7 +227,9 @@ const fbxStorage = multer.diskStorage({
     cb(null, fbxDir);
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname);
+    const fbxDir = path.join(__dirname, '../files/fbx');
+    const filename = getUniqueFileName(fbxDir, file.originalname);
+    cb(null, filename);
   }
 });
 
@@ -357,7 +369,9 @@ const videoStorage = multer.diskStorage({
     cb(null, videoDir);
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname);
+    const videoDir = path.join(__dirname, '../files/video');
+    const filename = getUniqueFileName(videoDir, file.originalname);
+    cb(null, filename);
   }
 });
 

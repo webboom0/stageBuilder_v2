@@ -54,6 +54,7 @@ export function createVideoPanel(editor) {
 
   const uploadBtn = new UIButton("");
   uploadBtn.setInnerHTML("<i class='fas fa-upload'></i>");
+  uploadBtn.dom.title = "비디오 업로드";
   uploadBtn.onClick(async (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -164,6 +165,7 @@ export function createVideoPanel(editor) {
   // 새로고침 버튼
   const refreshBtn = new UIButton("");
   refreshBtn.setInnerHTML("<i class='fas fa-retweet'></i>");
+  refreshBtn.dom.title = "목록 새로고침";
   refreshBtn.onClick(async () => {
     await loadVideoFilesFromFolder();
   });

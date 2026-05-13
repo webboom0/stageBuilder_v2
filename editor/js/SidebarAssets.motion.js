@@ -83,6 +83,7 @@ export function createMotionPanel(editor) {
     // 불러오기 버튼 (다중 파일 선택)
     const uploadBtn = new UIButton("");
     uploadBtn.setInnerHTML("<i class='fas fa-upload'></i> ");
+    uploadBtn.dom.title = "모션객체(FBX) 업로드";
     uploadBtn.onClick(async(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -204,15 +205,18 @@ export function createMotionPanel(editor) {
     motionFooter.appendChild(uploadBtn.dom);
     // 선택된 파일들을 씬에 추가하는 버튼
     const selectsAddBtn = createSelectsAddBtn();
+    selectsAddBtn.dom.title = "선택 항목 씬에 추가";
     motionFooter.appendChild(selectsAddBtn.dom);
     // 서버 연결 테스트 버튼
-    const testConnectionBtn = createTestConnectionButton();
-    motionFooter.appendChild(testConnectionBtn.dom);
+    // const testConnectionBtn = createTestConnectionButton();
+    // motionFooter.appendChild(testConnectionBtn.dom);
     // 새로고침 버튼
     const refreshBtn = createRefreshButton();
+    refreshBtn.dom.title = "목록 새로고침";
     motionFooter.appendChild(refreshBtn.dom);
     // 휴지통 버튼 
     const deleteBtn = createDeleteButton();
+    deleteBtn.dom.title = "선택 항목 삭제";
     motionFooter.appendChild(deleteBtn.dom);
 
 
