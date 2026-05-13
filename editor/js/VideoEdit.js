@@ -97,7 +97,7 @@ function VideoEdit(editor) {
       const selectedObject = editor.selected;
 
       if (!selectedObject) {
-        alert("Please select an FBX object in the scene first");
+        alert('씬에서 객체를 선택해 주세요. (FBX/OBJ 또는 메시)');
         return;
       }
 

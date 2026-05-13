@@ -1850,7 +1850,7 @@ export class MotionTimeline extends BaseTimeline {
         // 🔧 객체 유효성 검사 (FBX, OBJ만 허용)
         const object = this.editor.scene.getObjectByProperty('uuid', objectUuid);
         if (object && !this.isValidObjectForMotionTrack(object)) {
-            console.log(`⚠️ addTrack에서 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외:`, object);
+            console.log(`⚠️ addTrack에서 객체 ${object.name}은 모션 트랙 대상이 아님:`, object);
             return null; // 유효하지 않은 객체는 트랙 생성하지 않음
         }
 
@@ -5203,7 +5203,7 @@ export class MotionTimeline extends BaseTimeline {
 
                     // 🔧 FBX, OBJ 객체만 필터링
                     if (!this.isValidObjectForMotionTrack(object)) {
-                        console.log(`⚠️ 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외:`, object);
+                        console.log(`⚠️ 객체 ${object.name}은 모션 트랙 대상이 아님:`, object);
                         return; // 이 객체는 건너뛰기
                     }
 
@@ -5250,9 +5250,13 @@ export class MotionTimeline extends BaseTimeline {
         return findObject(this.editor.scene);
     }
 
-    // 🔧 FBX, OBJ 객체만 MotionTimeline에 추가할 수 있는지 확인
+    // 🔧 FBX/OBJ·모션 소스·에디터 Mesh 등 모션 트랙에 올릴 수 있는지 확인
     isValidObjectForMotionTrack(object) {
         if (!object) return false;
+
+        if (object.isScene === true || object.isCamera === true || object.isLight === true) {
+            return false;
+        }
 
         // 🔧 Loader.js에서 FBX/OBJ로 로드된 객체는 source로 구분됨
         // (FBX의 경우 object.name이 확장자 없이 설정되므로 이름 기반 판별이 실패할 수 있음)
@@ -5296,16 +5300,12 @@ export class MotionTimeline extends BaseTimeline {
             return true;
         }
 
-        // 🔧 기하학적 메시가 있는 객체 (OBJ일 가능성)
-        if (object.geometry && object.geometry.type === 'BufferGeometry') {
-            // 단순한 기하학적 객체는 제외하고 복잡한 메시만 포함
-            if (object.geometry.attributes.position && object.geometry.attributes.position.count > 100) {
-                console.log(`📐 복잡한 기하학적 메시가 있는 객체 발견: ${object.name}`, object.geometry);
-                return true;
-            }
+        // 에디터 기본 도형·일반 Mesh: 위치/회전/스케일 키프레임만 사용 (SkinnedMesh·InstancedMesh 포함)
+        if (object.isMesh === true && object.geometry) {
+            return true;
         }
 
-        console.log(`❌ 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외됨:`, {
+        console.log(`❌ 객체 ${object.name}은 모션 트랙에 추가할 수 없음:`, {
             name: object.name,
             type: object.type,
             userData: object.userData,
@@ -6206,7 +6206,7 @@ export class MotionTimeline extends BaseTimeline {
             if (object) {
                 // 🔧 FBX, OBJ 객체만 필터링
                 if (!this.isValidObjectForMotionTrack(object)) {
-                    console.log(`⚠️ UI 재생성 시 객체 ${object.name}은 FBX/OBJ가 아니므로 MotionTimeline에서 제외:`, object);
+                    console.log(`⚠️ UI 재생성 시 객체 ${object.name}은 모션 트랙 대상이 아님:`, object);
                     return; // 이 객체는 건너뛰기
                 }
 

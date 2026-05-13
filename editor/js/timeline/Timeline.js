@@ -652,7 +652,16 @@ class Timeline {
     const selectedObject = editor.selected;
 
     if (!selectedObject) {
-      alert("Please select an FBX object in the scene first");
+      alert('씬에서 객체를 선택해 주세요. (FBX/OBJ 또는 메시)');
+      return;
+    }
+
+    if (
+      this.timelines.motion &&
+      typeof this.timelines.motion.isValidObjectForMotionTrack === 'function' &&
+      !this.timelines.motion.isValidObjectForMotionTrack(selectedObject)
+    ) {
+      alert('모션 트랙에 추가할 수 없는 객체입니다. FBX/OBJ 또는 메시를 선택해 주세요.');
       return;
     }
 
