@@ -31,7 +31,7 @@ function prependLocalOnlyAudio(serverList) {
 function fetchAudioListWithTimeout(url, ms) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
-    return fetch(url, { signal: ctrl.signal, credentials: "omit" }).finally(() => clearTimeout(t));
+    return fetch(url, { signal: ctrl.signal, credentials: "include" }).finally(() => clearTimeout(t));
 }
 
 export function createAudioPanel(editor) {
@@ -92,7 +92,7 @@ export function createAudioPanel(editor) {
             const healthResponse = await fetch(healthUrl, {
                 method: 'GET',
                 mode: 'cors',
-                credentials: 'omit'
+                credentials: 'include'
             });
 
             console.log("🏥 서버 연결 상태:", healthResponse.status, healthResponse.statusText);
@@ -291,7 +291,7 @@ export function createAudioPanel(editor) {
                     const response = await fetch(deleteUrl, {
                         method: 'DELETE',
                         mode: 'cors',
-                        credentials: 'omit'
+                        credentials: 'include'
                     });
 
                     console.log(`📥 ${fileInfo.filename} 삭제 응답:`, response.status, response.statusText);
@@ -470,7 +470,7 @@ export function createAudioPanel(editor) {
                 method: 'POST',
                 body: formData,
                 mode: 'cors',
-                credentials: 'omit'
+                credentials: 'include'
             });
 
             console.log("📥 서버 응답:", response.status, response.statusText);

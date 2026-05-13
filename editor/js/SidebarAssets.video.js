@@ -66,7 +66,7 @@ export function createVideoPanel(editor) {
       const healthResponse = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
         method: 'GET',
         mode: 'cors',
-        credentials: 'omit'
+        credentials: 'include'
       });
 
       if (!healthResponse.ok) {
@@ -511,7 +511,7 @@ export function createVideoPanel(editor) {
         method: 'POST',
         body: formData,
         mode: 'cors',
-        credentials: 'omit'
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -574,7 +574,7 @@ export function createVideoPanel(editor) {
           const response = await fetch(getVideoApiUrl(VIDEO_UPLOAD_CONFIG.ENDPOINTS.DELETE_VIDEO, fileInfo.filename), {
             method: 'DELETE',
             mode: 'cors',
-            credentials: 'omit'
+            credentials: 'include'
           });
 
           if (response.ok) {

@@ -40,7 +40,7 @@ function prependLocalOnlyFbx(serverList) {
 function fetchFbxListWithTimeout(url, ms) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
-    return fetch(url, { signal: ctrl.signal, credentials: "omit" }).finally(() =>
+    return fetch(url, { signal: ctrl.signal, credentials: "include" }).finally(() =>
         clearTimeout(t)
     );
 }
@@ -95,7 +95,7 @@ export function createMotionPanel(editor) {
             const healthResponse = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
                 method: 'GET',
                 mode: 'cors',
-                credentials: 'omit'
+                credentials: 'include'
             });
 
             if (!healthResponse.ok) {
@@ -262,7 +262,7 @@ export function createMotionPanel(editor) {
                 const healthResponse = await fetch(getFbxApiUrl(FBX_UPLOAD_CONFIG.ENDPOINTS.HEALTH), {
                     method: 'GET',
                     mode: 'cors',
-                    credentials: 'omit'
+                    credentials: 'include'
                 });
 
                 if (healthResponse.ok) {
@@ -417,7 +417,7 @@ export function createMotionPanel(editor) {
                     const response = await fetch(getFbxApiUrl(`${FBX_UPLOAD_CONFIG.ENDPOINTS.DELETE_FILE}/${encodeURIComponent(fileInfo.filename)}`), {
                         method: 'DELETE',
                         mode: 'cors',
-                        credentials: 'omit'
+                        credentials: 'include'
                     });
 
                     if (response.ok) {
@@ -829,7 +829,7 @@ export function createMotionPanel(editor) {
                 method: 'POST',
                 body: formData,
                 mode: 'cors',
-                credentials: 'omit'
+                credentials: 'include'
             });
 
             console.log("📥 서버 응답:", response.status, response.statusText);
