@@ -7,7 +7,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 // 조명 타입별 속성 정의
 const LIGHT_PROPERTIES = {
   SpotLight: {
-    intensity: { type: 'number', range: [0, 10], default: 1 },
+    intensity: { type: 'number', range: [0, 100], default: 50 },
     color: { type: 'color', default: 0xffffff },
     position: { type: 'vector3', default: new THREE.Vector3() },
     distance: { type: 'number', range: [0, 1000], default: 200 },
@@ -16,7 +16,7 @@ const LIGHT_PROPERTIES = {
     decay: { type: 'number', range: [0, 10], default: 0 }
   },
   PointLight: {
-    intensity: { type: 'number', range: [0, 10], default: 1 },
+    intensity: { type: 'number', range: [0, 100], default: 10 },
     color: { type: 'color', default: 0xffffff },
     position: { type: 'vector3', default: new THREE.Vector3() },
     distance: { type: 'number', range: [0, 1000], default: 200 },
