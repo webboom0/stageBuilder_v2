@@ -2,12 +2,13 @@ import { UIButton } from "./libs/ui.js";
 import { createPanel } from './ui/floatPanel.js';
 import { getApiUrl, AUDIO_UPLOAD_CONFIG } from "./config/audio-upload-config.js";
 
-/** 서버 없음·연결 실패·목록 비어 있음 → 패널에 표시할 로컬 기본 음악 (files/music) */
-const DEFAULT_LOCAL_AUDIO_LIST = [
-    { path: "../files/music/nanseol.mp3", name: "nanseol", displayName: "nanseol", filename: "nanseol.mp3" },
-    { path: "../files/music/SUJESHUN.mp3", name: "SUJESHUN", displayName: "SUJESHUN", filename: "SUJESHUN.mp3" },
-    { path: "../files/music/DRAMA.mp3", name: "DRAMA", displayName: "DRAMA", filename: "DRAMA.mp3" },
-];
+/**
+ * 서버에서 받은 목록만 사용하므로 폴백은 비워둔다.
+ * (이전에는 nanseol/SUJESHUN/DRAMA 가 항상 보여 디스크 실제 상태와 어긋났음)
+ * 만약 로컬 데모용 곡을 패널에 띄우고 싶다면 실제 파일을 `html/stageBuilder/files/music/` 에 넣고
+ * 서버 목록 API 가 자동으로 응답하도록 두는 게 정답.
+ */
+const DEFAULT_LOCAL_AUDIO_LIST = [];
 
 function cloneDefaultLocalAudioList() {
     return DEFAULT_LOCAL_AUDIO_LIST.map((f) => ({ ...f }));
