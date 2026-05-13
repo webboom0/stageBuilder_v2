@@ -47,40 +47,49 @@ function Viewport(editor) {
   const GRID_COLORS_LIGHT = [0x999999, 0x777777];
   const GRID_COLORS_DARK = [0x555555, 0x888888];
 
+  // 그리드·가이드 공통 Y (바닥에 가깝게 두고, 아래 depth/render로 가시성 처리)
+  const STAGE_DECK_HELPER_Y = 1.5;
+
+  /**
+   * 무대 바닥과 겹칠 때: polygonOffset으로 z-fight 완화.
+   * depthTest 끄고 renderOrder를 높여 씬 이후에 그려 바닥에 묻히지 않게 함(캐릭터 위로 겹칠 수 있음).
+   */
+  function applyStageGridOverlay(mat) {
+    mat.depthTest = false;
+    mat.depthWrite = false;
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = -1;
+    mat.polygonOffsetUnits = -8;
+  }
+
   const grid = new THREE.Group();
 
   const grid1 = new THREE.GridHelper(200, 200);
   grid1.material.color.setHex(GRID_COLORS_LIGHT[0]);
   grid1.material.vertexColors = false;
-  // 🎯 정확한 깊이 렌더링을 위한 설정
-  grid1.material.depthTest = true;   // 깊이 테스트 활성화
-  grid1.material.depthWrite = false; // 깊이 쓰기는 비활성화 (투명도 때문에)
-  grid1.renderOrder = -999;  // 가장 뒤에 렌더링
-  // 투명도 조정 - 잘 보이도록
-  grid1.material.opacity = 0.8; // 투명도 낮춤 (더 진하게)
+  applyStageGridOverlay(grid1.material);
   grid1.material.transparent = true;
+  grid1.material.opacity = 0.8;
+  grid1.renderOrder = 1000;
   grid.add(grid1);
 
   const grid2 = new THREE.GridHelper(60, 12);
   grid2.material.color.setHex(GRID_COLORS_LIGHT[1]);
   grid2.material.vertexColors = false;
-  // 🎯 정확한 깊이 렌더링을 위한 설정
-  grid2.material.depthTest = true;   // 깊이 테스트 활성화
-  grid2.material.depthWrite = false; // 깊이 쓰기는 비활성화 (투명도 때문에)
-  grid2.renderOrder = -998;  // grid1보다 약간 앞에 렌더링
-  // 투명도 조정 - 잘 보이도록
-  grid2.material.opacity = 0.9; // 투명도 낮춤 (더 진하게)
+  applyStageGridOverlay(grid2.material);
   grid2.material.transparent = true;
+  grid2.material.opacity = 0.9;
+  grid2.renderOrder = 1001;
   grid.add(grid2);
 
-  // 초기 상태: 그리드 숨김, 프로시너엄 바닥 높이로 설정
+  // 초기 상태: 그리드 숨김
   grid.visible = false;
-  grid.position.y = 1.5; // 프로시너엄 바닥보다 높게 설정
+  grid.position.y = STAGE_DECK_HELPER_Y;
 
   // 가이드 라인 생성
   const guides = new THREE.Group();
 
-  // X축 가이드 (빨간색) - 항상 보이도록 설정
+  // X축 가이드 (빨간색)
   const xAxisGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-100, 0, 0),
     new THREE.Vector3(100, 0, 0)
@@ -89,15 +98,14 @@ function Viewport(editor) {
     color: 0xff0000,
     linewidth: 2,
     opacity: 0.8,
-    transparent: true,
-    depthTest: true,   // 🎯 깊이 테스트 활성화
-    depthWrite: false
+    transparent: true
   });
+  applyStageGridOverlay(xAxisMaterial);
   const xAxisLine = new THREE.Line(xAxisGeometry, xAxisMaterial);
-  xAxisLine.renderOrder = -995;
+  xAxisLine.renderOrder = 1002;
   guides.add(xAxisLine);
 
-  // Z축 가이드 (파란색) - 항상 보이도록 설정
+  // Z축 가이드 (파란색)
   const zAxisGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, -100),
     new THREE.Vector3(0, 0, 100)
@@ -106,33 +114,31 @@ function Viewport(editor) {
     color: 0x0000ff,
     linewidth: 2,
     opacity: 0.8,
-    transparent: true,
-    depthTest: true,   // 🎯 깊이 테스트 활성화
-    depthWrite: false
+    transparent: true
   });
+  applyStageGridOverlay(zAxisMaterial);
   const zAxisLine = new THREE.Line(zAxisGeometry, zAxisMaterial);
-  zAxisLine.renderOrder = -995;
+  zAxisLine.renderOrder = 1002;
   guides.add(zAxisLine);
 
-  // 중심점 마커 (노란색) - 항상 보이도록 설정
+  // 중심점 마커 (노란색)
   const centerGeometry = new THREE.RingGeometry(0.5, 1, 8);
   const centerMaterial = new THREE.MeshBasicMaterial({
     color: 0xffff00,
     side: THREE.DoubleSide,
     opacity: 0.9,
-    transparent: true,
-    depthTest: true,   // 🎯 깊이 테스트 활성화
-    depthWrite: false
+    transparent: true
   });
+  applyStageGridOverlay(centerMaterial);
   const centerMarker = new THREE.Mesh(centerGeometry, centerMaterial);
   centerMarker.rotation.x = -Math.PI / 2; // 바닥에 평행하게
   centerMarker.position.y = 2; // 그리드보다 살짝 더 위
-  centerMarker.renderOrder = -994;
+  centerMarker.renderOrder = 1003;
   guides.add(centerMarker);
 
-  // 초기 상태: 가이드 숨김, 프로시너엄 바닥 높이로 설정
+  // 초기 상태: 가이드 숨김
   guides.visible = false;
-  guides.position.y = 1.5; // 프로시너엄 바닥보다 높게 설정
+  guides.position.y = STAGE_DECK_HELPER_Y;
 
   // 가이드 그룹을 sceneHelpers에 추가
   sceneHelpers.add(guides);

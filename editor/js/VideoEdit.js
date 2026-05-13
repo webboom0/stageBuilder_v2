@@ -4,6 +4,27 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { Timeline } from "./timeline/Timeline.js";
 import { NANSEOL_FRONT_SPOT_PRESETS } from "./Sidebar.Nanseol.js";
 
+/**
+ * 무대 셸 FBX(_Background)가 레이에 먼저 맞으면 배우/소품 선택이 막힘.
+ * 지오메트리 노드만 레이캐스트 비활성화(조명·스팟은 _Background 밖에 두므로 영향 없음).
+ */
+function disableStageBackgroundRaycast(root) {
+  root.traverse((child) => {
+    if (
+      !child.isMesh &&
+      !child.isLine &&
+      !child.isLineSegments &&
+      !child.isLineLoop &&
+      !child.isPoints &&
+      !child.isSkinnedMesh
+    ) {
+      return;
+    }
+    if (child.userData && child.userData.allowStageRaycast) return;
+    child.raycast = function () {};
+  });
+}
+
 function VideoEdit(editor) {
   console.log("VideoEdit");
   const signals = editor.signals;
@@ -218,6 +239,8 @@ function VideoEdit(editor) {
 
           this.stageGroup.add(object);
 
+          disableStageBackgroundRaycast(object);
+
           // scene userData에 현재 무대 타입 저장
           editor.scene.userData.stageType = stageType;
 
@@ -339,6 +362,7 @@ function VideoEdit(editor) {
             // object.userData.notEditable = true;
 
             this.stageGroup.add(object);
+            disableStageBackgroundRaycast(object);
             // editor.scene.add(object);
 
             // scene userData에 현재 무대 타입 저장 (없으면 기본값)
