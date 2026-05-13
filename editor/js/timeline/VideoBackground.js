@@ -1,5 +1,10 @@
 // editor/js/timeline/VideoBackground.js
 import * as THREE from 'three';
+import {
+  arenaFloorLayoutFromBackground,
+  ARENA_VIDEO_Y_ABOVE_FLOOR,
+  ARENA_VIDEO_Y_LIFT,
+} from '../arenaStageLayout.js';
 
 export class VideoBackground {
   constructor(editor) {
@@ -51,12 +56,21 @@ export class VideoBackground {
       let geometry;
 
       if (stageType === 'arena') {
-        // 아레나: 원통형 스크린
-        console.log("🎬 아레나 원통형 스크린 생성");
+        // 아레나: 원통형 스크린 — 바닥 layout과 동일 중심·반지름
+        const bg = stageGroup?.children?.find((c) => c.name === '_Background');
+        const layout = arenaFloorLayoutFromBackground(bg);
+        const vp = {
+          x: layout.x,
+          y: layout.y + ARENA_VIDEO_Y_ABOVE_FLOOR + ARENA_VIDEO_Y_LIFT,
+          z: layout.z,
+        };
+        const r = layout.videoCylinderRadius;
+        const h = layout.videoCylinderHeight;
+        console.log("🎬 아레나 원통형 스크린 생성", { r, h, vp });
         geometry = new THREE.CylinderGeometry(
-          80,    // 상단 반지름
-          80,    // 하단 반지름
-          60,    // 높이
+          r,
+          r,
+          h,
           32,    // 세그먼트 (부드러운 원통)
           1,     // 높이 세그먼트
           true   // 열린 원통 (양쪽 뚫림)
@@ -64,7 +78,7 @@ export class VideoBackground {
 
         this.videoMesh = new THREE.Mesh(geometry, this.videoMaterial);
         this.videoMesh.name = '_VideoBackground';
-        this.videoMesh.position.set(0, 100, 0); // 중앙, 위로 올림
+        this.videoMesh.position.set(vp.x, vp.y, vp.z);
         this.videoMesh.rotation.set(0, Math.PI, 0); // 180도 회전하여 경계선을 뒤로
         this.videoMesh.scale.set(1, 1, 1);
 

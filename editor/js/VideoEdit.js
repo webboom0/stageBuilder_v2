@@ -3,6 +3,9 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { Timeline } from "./timeline/Timeline.js";
 import { NANSEOL_FRONT_SPOT_PRESETS } from "./Sidebar.Nanseol.js";
+import {
+  arenaFloorLayoutFromBackground,
+} from "./arenaStageLayout.js";
 
 /**
  * 무대 셸 FBX(_Background)가 레이에 먼저 맞으면 배우/소품 선택이 막힘.
@@ -222,9 +225,12 @@ function VideoEdit(editor) {
             }
           } else if (stageType === "arena") {
             // 아레나 무대의 위치/회전/스케일 (필요에 따라 조정)
-            object.position.set(-543.945, 260.784, 610.685);
+            // object.position.set(-543.945, 260.784, 610.685);
+            // object.rotation.set(-90 * Math.PI / 180, 0, 0);
+            // object.scale.set(0.094, 0.094, 0.180);
+            object.position.set(-752.465, 318.258, 830.285);
             object.rotation.set(-90 * Math.PI / 180, 0, 0);
-            object.scale.set(0.094, 0.094, 0.180);
+            object.scale.set(0.130, 0.130, 0.220);
 
             // 아레나 무대로 변경 시 카메라 위치 설정
             if (editor.camera) {
@@ -509,13 +515,15 @@ function VideoEdit(editor) {
       });
 
       if (currentStageType === "arena") {
-        // 아레나: 원형 바닥
-        console.log("Creating circular floor for arena");
-        floorGeometry = new THREE.CircleGeometry(80, 64); // 반지름 80, 세그먼트 64
+        // 아레나: 합성 바닥 — arenaStageLayout.js (에디터에서 맞춘 위치·XZ 스케일)
+        const bg = this.stageGroup.children.find((c) => c.name === "_Background");
+        const layout = arenaFloorLayoutFromBackground(bg);
+        console.log("Creating arena floor mesh", layout);
+        floorGeometry = new THREE.CircleGeometry(layout.geometryRadius, 96);
         floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.rotation.x = -Math.PI / 2; // 바닥이 수평이 되도록 회전
-        floor.position.set(0, 0.163, 0);
-        floor.scale.set(1, 1, 1);
+        floor.rotation.x = -Math.PI / 2; // XY 원판 → XZ 바닥
+        floor.position.set(layout.x, layout.y, layout.z);
+        floor.scale.set(layout.scaleX, layout.scaleY, layout.scaleZ);
       } else {
         // 프로시니엄: 사각형 바닥 (기본)
         console.log("Creating rectangular floor for proscenium");
