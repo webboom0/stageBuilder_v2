@@ -5,7 +5,7 @@ const fs = require('fs');
 const cors = require('cors');
 
 const app = express();
-const PORT = 3001;
+const PORT = Number.parseInt(process.env.PORT, 10) || 3001;
 
 // CORS 설정 - 더 유연하게 설정
 app.use(cors({
