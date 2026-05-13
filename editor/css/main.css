@@ -795,20 +795,34 @@ select:hover {
 } */
 
 .toolBar {
-  position: relative;
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9;
 }
 
 #toolbar {
-  position: relative;
-  width: 100%;
-  background: #444444;
-  z-index: 2;
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  width: auto;
+  background: rgba(44, 44, 44, 0.92);
+  backdrop-filter: blur(4px);
+  z-index: 8;
   display: flex;
   align-items: center;
-  gap: 2px;
-  border: solid 1px #000;
+  gap: 4px;
+  border: solid 1px rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
   box-sizing: border-box;
+  padding: 5px 6px;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
 }
 
 #toolbar button,
@@ -1727,7 +1741,7 @@ select:hover {
   gap: 2px;
 }
 #toolbar{
- padding: 4px 4px;
+ padding: 5px 6px;
 }
 .topWrapper .toolMenuBar button,
 #toolbar button,
@@ -1746,11 +1760,67 @@ select:hover {
   margin: 0;
   padding: 5px;
 }
+
+#toolbar .toolbar-svg-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+#toolbar button svg {
+  width: 20px;
+  height: 20px;
+  opacity: 0.9;
+}
 #toolbar input{
   position: absolute;
   top: 2px;
   right: 2px;
   cursor: pointer;
+}
+
+#toolbar input.toolbar-local-switch {
+  position: static;
+  top: auto;
+  right: auto;
+  width: 36px;
+  height: 20px;
+  margin-left: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: #505050;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+}
+
+#toolbar input.toolbar-local-switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 0.18s ease;
+}
+
+#toolbar input.toolbar-local-switch:checked {
+  background: #2e9bff;
+  border-color: #2e9bff;
+}
+
+#toolbar input.toolbar-local-switch:checked::before {
+  transform: translateX(16px);
 }
 .topWrapper .toolMenuBar button:hover,
 #toolbar button:hover {
