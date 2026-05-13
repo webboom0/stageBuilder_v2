@@ -1,4 +1,9 @@
 import { UIHorizontalRule, UIPanel, UIRow } from './libs/ui.js';
+import {
+	applyCameraPreset,
+	setCeilingTransparencyForTopView,
+	STAGE_CAMERA_PRESETS
+} from './stageCameraView.js';
 
 function MenubarView(editor) {
 
@@ -116,105 +121,57 @@ function MenubarView(editor) {
 	});
 	container.add(cameraSubmenu);
 
-	// 객석시점
-	option = new UIRow().addClass('option').setTextContent('객석시점').onClick(function () {
-		const camera = editor.camera;
-		if (camera) {
-			camera.position.set(-0.103, 46.167, -70.978);
-			camera.rotation.set(
-				THREE.MathUtils.degToRad(-172.04),
-				THREE.MathUtils.degToRad(0.94),
-				THREE.MathUtils.degToRad(179.87)
-			);
-			camera.scale.set(1.000, 1.000, 1.000);
-			if (camera.fov !== undefined) {
-				camera.fov = 50.00;
-				camera.updateProjectionMatrix();
-			}
-			if (camera.near !== undefined) camera.near = 0.01;
-			if (camera.far !== undefined) camera.far = 1000.00;
-			camera.updateMatrix();
-			camera.updateMatrixWorld();
-			signals.cameraChanged.dispatch();
-		}
+	// 원근 시점
+	option = new UIRow().addClass('option').setTextContent('원근 시점').onClick(function () {
+
+		setCeilingTransparencyForTopView(editor, false);
+		applyCameraPreset(editor, STAGE_CAMERA_PRESETS.perspective);
+
 	});
 	cameraSubmenu.add(option);
 
-	// Perspective
-	option = new UIRow().addClass('option').setTextContent('Perspective').onClick(function () {
-		const camera = editor.camera;
-		if (camera) {
-			camera.position.set(0.000, 126.461, 252.922);
-			camera.rotation.set(-26.57 * Math.PI / 180, 0, 0);
-			camera.lookAt(0, 0, 0);
-			if (camera.fov !== undefined) {
-				camera.fov = 50.00;
-				camera.updateProjectionMatrix();
-			}
-			if (camera.near !== undefined) camera.near = 0.01;
-			if (camera.far !== undefined) camera.far = 1000.00;
-			camera.updateMatrix();
-			camera.updateMatrixWorld();
-			signals.cameraChanged.dispatch();
-		}
+	// 객석 시점
+	option = new UIRow().addClass('option').setTextContent('객석 시점').onClick(function () {
+
+		setCeilingTransparencyForTopView(editor, false);
+		applyCameraPreset(editor, STAGE_CAMERA_PRESETS.audience);
+
 	});
 	cameraSubmenu.add(option);
 
-	// Front
-	option = new UIRow().addClass('option').setTextContent('Front').onClick(function () {
-		const camera = editor.camera;
-		if (camera) {
-			camera.position.set(0.000, 11.660, 284.553);
-			camera.rotation.set(0, 0, 0);
-			if (camera.fov !== undefined) {
-				camera.fov = 50.00;
-				camera.updateProjectionMatrix();
-			}
-			if (camera.near !== undefined) camera.near = 0.01;
-			if (camera.far !== undefined) camera.far = 1000.00;
-			camera.updateMatrix();
-			camera.updateMatrixWorld();
-			signals.cameraChanged.dispatch();
-		}
+	// 정면 시점
+	option = new UIRow().addClass('option').setTextContent('정면 시점').onClick(function () {
+
+		setCeilingTransparencyForTopView(editor, false);
+		applyCameraPreset(editor, STAGE_CAMERA_PRESETS.front);
+
 	});
 	cameraSubmenu.add(option);
 
-	// Side
-	option = new UIRow().addClass('option').setTextContent('Side').onClick(function () {
-		const camera = editor.camera;
-		if (camera) {
-			camera.position.set(151.409, 11.793, -1.179);
-			camera.rotation.set(0, 90 * Math.PI / 180, 0);
-			if (camera.fov !== undefined) {
-				camera.fov = 50.00;
-				camera.updateProjectionMatrix();
-			}
-			if (camera.near !== undefined) camera.near = 0.01;
-			if (camera.far !== undefined) camera.far = 1000.00;
-			camera.updateMatrix();
-			camera.updateMatrixWorld();
-			signals.cameraChanged.dispatch();
-		}
+	// 우측 시점
+	option = new UIRow().addClass('option').setTextContent('우측 시점').onClick(function () {
+
+		setCeilingTransparencyForTopView(editor, false);
+		applyCameraPreset(editor, STAGE_CAMERA_PRESETS.right);
+
 	});
 	cameraSubmenu.add(option);
 
-	// Top
-	option = new UIRow().addClass('option').setTextContent('Top').onClick(function () {
-		const camera = editor.camera;
-		if (camera) {
-			camera.position.set(0.000, 125.282, 0.012);
-			camera.rotation.set(-Math.PI / 2, 0, 0);
-			camera.lookAt(0, 0, 0);
-			if (camera.fov !== undefined) {
-				camera.fov = 50.00;
-				camera.updateProjectionMatrix();
-			}
-			if (camera.near !== undefined) camera.near = 0.01;
-			if (camera.far !== undefined) camera.far = 1000.00;
-			camera.updateMatrix();
-			camera.updateMatrixWorld();
-			signals.cameraChanged.dispatch();
-		}
+	// 좌측 시점
+	option = new UIRow().addClass('option').setTextContent('좌측 시점').onClick(function () {
+
+		setCeilingTransparencyForTopView(editor, false);
+		applyCameraPreset(editor, STAGE_CAMERA_PRESETS.left);
+
+	});
+	cameraSubmenu.add(option);
+
+	// 상단 시점
+	option = new UIRow().addClass('option').setTextContent('상단 시점').onClick(function () {
+
+		setCeilingTransparencyForTopView(editor, true);
+		applyCameraPreset(editor, STAGE_CAMERA_PRESETS.top);
+
 	});
 	cameraSubmenu.add(option);
 

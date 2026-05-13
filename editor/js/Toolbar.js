@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import { UIPanel, UIButton, UICheckbox } from './libs/ui.js';
+import {
+	applyCameraPreset,
+	setCeilingTransparencyForTopView,
+	STAGE_CAMERA_PRESETS
+} from './stageCameraView.js';
 
 function Toolbar( editor ) {
 
@@ -15,123 +20,6 @@ function Toolbar( editor ) {
 		span.innerHTML = svg;
 		span.title = title;
 		return span;
-	}
-
-	function applyCameraPreset( preset ) {
-		const camera = editor.camera;
-		if ( ! camera ) return;
-
-		camera.position.set( preset.position[ 0 ], preset.position[ 1 ], preset.position[ 2 ] );
-		camera.rotation.set( preset.rotation[ 0 ], preset.rotation[ 1 ], preset.rotation[ 2 ] );
-
-		if ( preset.lookAt ) camera.lookAt( preset.lookAt[ 0 ], preset.lookAt[ 1 ], preset.lookAt[ 2 ] );
-
-		if ( camera.fov !== undefined ) {
-			camera.fov = 50.00;
-			camera.updateProjectionMatrix();
-		}
-
-		if ( camera.near !== undefined ) camera.near = 0.01;
-		if ( camera.far !== undefined ) camera.far = 1000.00;
-
-		camera.updateMatrix();
-		camera.updateMatrixWorld();
-		signals.cameraChanged.dispatch();
-	}
-
-	function setCeilingTransparencyForTopView( enabled ) {
-		const stage = editor.scene?.getObjectByName( 'Stage' );
-		if ( ! stage ) return;
-
-		const lightLikeNameRe = /(light|spot|조명|라이트)/i;
-
-		const applyToMaterial = ( material ) => {
-			if ( ! material ) return;
-
-			if ( enabled ) {
-				if ( ! material.userData ) material.userData = {};
-				if ( ! material.userData.__topViewOriginal ) {
-					material.userData.__topViewOriginal = {
-						transparent: material.transparent,
-						opacity: material.opacity,
-						depthWrite: material.depthWrite,
-						needsUpdate: material.needsUpdate
-					};
-				}
-				material.transparent = true;
-				material.opacity = 0.14;
-				material.depthWrite = false;
-				material.needsUpdate = true;
-				return;
-			}
-
-			const original = material.userData && material.userData.__topViewOriginal;
-			if ( ! original ) return;
-
-			material.transparent = original.transparent;
-			material.opacity = original.opacity;
-			material.depthWrite = original.depthWrite;
-			material.needsUpdate = true;
-			delete material.userData.__topViewOriginal;
-		};
-
-		stage.traverse( ( child ) => {
-			if ( child.isMesh !== true ) return;
-			const name = String( child.name || '' );
-			if ( name === '_Floor' ) return; // 바닥은 유지
-
-			if ( Array.isArray( child.material ) ) {
-				child.material.forEach( applyToMaterial );
-			} else {
-				applyToMaterial( child.material );
-			}
-		} );
-
-		const setHiddenForTopView = ( child ) => {
-			if ( enabled ) {
-				if ( child.userData.__topViewVisible === undefined ) {
-					child.userData.__topViewVisible = child.visible;
-				}
-				child.visible = false;
-			} else if ( child.userData.__topViewVisible !== undefined ) {
-				child.visible = child.userData.__topViewVisible;
-				delete child.userData.__topViewVisible;
-			}
-		};
-
-		const isHideableLightVisual = ( child ) => {
-			const name = String( child.name || '' );
-			const type = String( child.type || '' );
-			const isActualLight = type.endsWith( 'Light' );
-			if ( isActualLight ) return false; // 라이트 본체는 유지
-
-			const isHelper = type.endsWith( 'Helper' ) || type.includes( 'LightHelper' );
-			const isLightSpriteLike =
-				( child.isSprite === true || child.isPoints === true || child.isLine === true ) &&
-				lightLikeNameRe.test( name );
-			const isNamedLightLike =
-				lightLikeNameRe.test( name ) &&
-				( child.isMesh === true || child.isObject3D === true );
-
-			return isHelper || isLightSpriteLike || isNamedLightLike;
-		};
-
-		// 사용자가 추가한 조명 아이콘/헬퍼: helper 트리
-		const sceneHelpers = editor.sceneHelpers;
-		if ( sceneHelpers ) {
-			sceneHelpers.traverse( ( child ) => {
-				if ( ! isHideableLightVisual( child ) ) return;
-				setHiddenForTopView( child );
-			} );
-		}
-
-		// 사용자가 씬에 직접 추가한 조명 아이콘/헬퍼
-		editor.scene?.traverse( ( child ) => {
-			if ( ! isHideableLightVisual( child ) ) return;
-			setHiddenForTopView( child );
-		} );
-
-		// 실제 라이트 본체는 숨기지 않음(검정화면 방지)
 	}
 
 	// translate / rotate / scale
@@ -188,13 +76,9 @@ function Toolbar( editor ) {
 	persp.dom.appendChild( perspIcon );
 	persp.dom.title = '원근 시점';
 	persp.onClick( function () {
-		setCeilingTransparencyForTopView( false );
 
-		applyCameraPreset( {
-			position: [ 0.000, 126.461, 252.922 ],
-			rotation: [ -26.57 * Math.PI / 180, 0, 0 ],
-			lookAt: [ 0, 0, 0 ]
-		} );
+		setCeilingTransparencyForTopView( editor, false );
+		applyCameraPreset( editor, STAGE_CAMERA_PRESETS.perspective );
 
 	} );
 	container.add( persp );
@@ -209,12 +93,9 @@ function Toolbar( editor ) {
 	audience.dom.appendChild( audienceIcon );
 	audience.dom.title = '객석 시점';
 	audience.onClick( function () {
-		setCeilingTransparencyForTopView( false );
 
-		applyCameraPreset( {
-			position: [ 0.000, 46.380, 288.37 ],
-			rotation: [ 0, 0, 0 ]
-		} );
+		setCeilingTransparencyForTopView( editor, false );
+		applyCameraPreset( editor, STAGE_CAMERA_PRESETS.audience );
 
 	} );
 	container.add( audience );
@@ -229,12 +110,9 @@ function Toolbar( editor ) {
 	front.dom.appendChild( frontIcon );
 	front.dom.title = '정면 시점';
 	front.onClick( function () {
-		setCeilingTransparencyForTopView( false );
 
-		applyCameraPreset( {
-			position: [ 0.000, 11.660, 284.553 ],
-			rotation: [ 0, 0, 0 ]
-		} );
+		setCeilingTransparencyForTopView( editor, false );
+		applyCameraPreset( editor, STAGE_CAMERA_PRESETS.front );
 
 	} );
 	container.add( front );
@@ -249,12 +127,9 @@ function Toolbar( editor ) {
 	side.dom.appendChild( rightIcon );
 	side.dom.title = '우측 시점';
 	side.onClick( function () {
-		setCeilingTransparencyForTopView( false );
 
-		applyCameraPreset( {
-			position: [ 151.409, 11.793, -1.179 ],
-			rotation: [ 0, 90 * Math.PI / 180, 0 ]
-		} );
+		setCeilingTransparencyForTopView( editor, false );
+		applyCameraPreset( editor, STAGE_CAMERA_PRESETS.right );
 
 	} );
 	container.add( side );
@@ -269,12 +144,9 @@ function Toolbar( editor ) {
 	left.dom.appendChild( leftIcon );
 	left.dom.title = '좌측 시점';
 	left.onClick( function () {
-		setCeilingTransparencyForTopView( false );
 
-		applyCameraPreset( {
-			position: [ -151.409, 11.793, -1.179 ],
-			rotation: [ 0, -90 * Math.PI / 180, 0 ]
-		} );
+		setCeilingTransparencyForTopView( editor, false );
+		applyCameraPreset( editor, STAGE_CAMERA_PRESETS.left );
 
 	} );
 	container.add( left );
@@ -289,13 +161,9 @@ function Toolbar( editor ) {
 	top.dom.appendChild( topIcon );
 	top.dom.title = '상단 시점';
 	top.onClick( function () {
-		setCeilingTransparencyForTopView( true );
 
-		applyCameraPreset( {
-			position: [ 0.000, 125.282, 0.012 ],
-			rotation: [ -Math.PI / 2, 0, 0 ],
-			lookAt: [ 0, 0, 0 ]
-		} );
+		setCeilingTransparencyForTopView( editor, true );
+		applyCameraPreset( editor, STAGE_CAMERA_PRESETS.top );
 
 	} );
 	container.add( top );
