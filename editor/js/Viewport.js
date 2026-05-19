@@ -20,6 +20,7 @@ import { getMeshWorldHalfHeightY } from "./utils/meshFloor.js";
 
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { ViewportPathtracer } from "./Viewport.Pathtracer.js";
+import { ViewportObjectDimensions } from "./Viewport.ObjectDimensions.js";
 
 function Viewport(editor) {
   const selector = editor.selector;
@@ -144,6 +145,8 @@ function Viewport(editor) {
   sceneHelpers.add(guides);
 
   const viewHelper = new ViewHelper(camera, container);
+  const objectDimensions = new ViewportObjectDimensions(container.dom, editor);
+  sceneHelpers.add(objectDimensions.group);
 
   //
 
@@ -616,6 +619,10 @@ function Viewport(editor) {
 
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(container.dom.offsetWidth, container.dom.offsetHeight);
+    objectDimensions.setSize(
+      container.dom.offsetWidth,
+      container.dom.offsetHeight,
+    );
 
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
@@ -654,6 +661,9 @@ function Viewport(editor) {
       }
 
       transformControls.attach(object);
+      objectDimensions.setObject(object);
+    } else {
+      objectDimensions.setObject(null);
     }
 
     render();
@@ -667,7 +677,6 @@ function Viewport(editor) {
     if (object !== undefined) {
       box.setFromObject(object, true);
     }
-
     initPT();
     render();
   });
@@ -675,6 +684,7 @@ function Viewport(editor) {
   signals.objectChanged.add(function (object) {
     if (editor.selected === object) {
       box.setFromObject(object, true);
+      objectDimensions.update();
     }
 
     if (object.isPerspectiveCamera) {
@@ -898,6 +908,10 @@ function Viewport(editor) {
 
     renderer.setSize(container.dom.offsetWidth, container.dom.offsetHeight);
     pathtracer.setSize(container.dom.offsetWidth, container.dom.offsetHeight);
+    objectDimensions.setSize(
+      container.dom.offsetWidth,
+      container.dom.offsetHeight,
+    );
 
     render();
   });
@@ -1032,6 +1046,7 @@ function Viewport(editor) {
       renderer.autoClear = false;
       if (grid.visible === true) renderer.render(grid, camera);
       if (sceneHelpers.visible === true) renderer.render(sceneHelpers, camera);
+      objectDimensions.render(camera);
       if (renderer.xr.isPresenting !== true) viewHelper.render(renderer);
       renderer.autoClear = true;
     }

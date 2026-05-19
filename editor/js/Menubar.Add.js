@@ -67,6 +67,7 @@ function MenubarAdd(editor) {
     const geometry = new THREE.BoxGeometry(1, 1, 1, 1, 1, 1);
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
     mesh.name = getNextNumberedObjectName(editor.scene, "Box");
+    mesh.userData.source = "mesh";
 
     editor.execute(new AddObjectCommand(editor, mesh));
   });

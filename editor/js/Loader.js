@@ -5,6 +5,7 @@ import { TGALoader } from "three/addons/loaders/TGALoader.js";
 import { AddObjectCommand } from "./commands/AddObjectCommand.js";
 
 import { LoaderUtils } from "./LoaderUtils.js";
+import { captureMotionWorldReferenceHeight } from "./utils/motionDisplayUnits.js";
 
 import { unzipSync, strFromU8 } from "three/addons/libs/fflate.module.js";
 
@@ -454,15 +455,11 @@ function Loader(editor) {
 
             // 애니메이션 첫 프레임 포즈 적용 후 크기/바닥 정렬(바운딩이 보이는 자세와 일치)
             applyAnimationFirstFramePose(object);
-
-            // 🎯 자동 크기 조정 (기존 고정 스케일 0.1 대신)
-            autoScaleObject(object, 30); // 목표 크기 30 단위 (더 작게)
-
-            // 객체 처리
             processObject(object);
-
-            // 왼쪽 Scene 패널에서 Motion 패널로 구분 표시
-            object.userData.source = 'motion';
+            object.userData.source = "motion";
+            autoScaleObject(object, 30);
+            object.updateMatrixWorld(true);
+            captureMotionWorldReferenceHeight(object, editor);
 
             // 🎨 모션 객체는 모두 틴트 가능 + 기본 틴트(흰색) 적용
             ensureTintableMotionObject(object);
@@ -765,14 +762,11 @@ function Loader(editor) {
             const object = new OBJLoader().parse(contents);
             object.name = filename;
 
-            // 🎯 자동 크기 조정
-            autoScaleObject(object, 30); // 목표 크기 30 단위 (더 작게)
-
-            // 객체 처리
             processObject(object);
-
-            // 왼쪽 Scene 패널에서 Motion 패널로 구분 표시
-            object.userData.source = 'motion';
+            object.userData.source = "motion";
+            autoScaleObject(object, 30);
+            object.updateMatrixWorld(true);
+            captureMotionWorldReferenceHeight(object, editor);
 
             // 🎨 모션 객체는 모두 틴트 가능 + 기본 틴트(흰색) 적용
             ensureTintableMotionObject(object);

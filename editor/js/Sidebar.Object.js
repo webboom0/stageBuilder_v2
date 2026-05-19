@@ -26,6 +26,14 @@ import { SetShadowValueCommand } from "./commands/SetShadowValueCommand.js";
 import { SidebarObjectAnimation } from "./Sidebar.Object.Animation.js";
 
 import { getMeshWorldHalfHeightY } from "./utils/meshFloor.js";
+import {
+  getObjectWorldSize,
+  computeScaleForWorldSize,
+} from "./utils/objectWorldSize.js";
+import {
+  worldSizeToMotionDisplay,
+  motionDisplayToWorldSize,
+} from "./utils/motionDisplayUnits.js";
 
 function SidebarObject(editor) {
   const strings = editor.strings;
@@ -226,6 +234,38 @@ function SidebarObject(editor) {
   objectScaleRow.add(objectScaleX, objectScaleY, objectScaleZ);
 
   container.add(objectScaleRow);
+
+  // world size (meters)
+
+  const objectSizeRow = new UIRow();
+  const objectSizeX = new UINumber(0)
+    .setPrecision(2)
+    .setStep(0.1)
+    .setNudge(0.1)
+    .setUnit("m")
+    .setWidth("50px")
+    .onChange(updateFromWorldSize);
+  const objectSizeY = new UINumber(0)
+    .setPrecision(2)
+    .setStep(0.1)
+    .setNudge(0.1)
+    .setUnit("m")
+    .setWidth("50px")
+    .onChange(updateFromWorldSize);
+  const objectSizeZ = new UINumber(0)
+    .setPrecision(2)
+    .setStep(0.1)
+    .setNudge(0.1)
+    .setUnit("m")
+    .setWidth("50px")
+    .onChange(updateFromWorldSize);
+
+  objectSizeRow.add(
+    new UIText(strings.getKey("sidebar/object/size")).setClass("Label"),
+  );
+  objectSizeRow.add(objectSizeX, objectSizeY, objectSizeZ);
+
+  container.add(objectSizeRow);
 
   // fov
 
@@ -592,6 +632,65 @@ function SidebarObject(editor) {
 
   //
 
+  function applyFloorContactAfterScale(object) {
+    if (
+      typeof object.userData.floorContactY === "number" &&
+      object.isMesh
+    ) {
+      const halfH = getMeshWorldHalfHeightY(object);
+      const newY = object.userData.floorContactY + halfH;
+      const newPos = new THREE.Vector3(
+        object.position.x,
+        newY,
+        object.position.z,
+      );
+      if (Math.abs(object.position.y - newY) > 0.001) {
+        editor.execute(new SetPositionCommand(editor, object, newPos));
+      }
+      object.userData.minYPosition = newY;
+    }
+  }
+
+  function updateFromWorldSize() {
+    const object = editor.selected;
+    if (object === null) return;
+
+    const targetDisplaySize = new THREE.Vector3(
+      objectSizeX.getValue(),
+      objectSizeY.getValue(),
+      objectSizeZ.getValue(),
+    );
+    const targetSize = motionDisplayToWorldSize(
+      targetDisplaySize,
+      object,
+      editor,
+    );
+    const currentDisplaySize = worldSizeToMotionDisplay(
+      getObjectWorldSize(object),
+      object,
+      editor,
+    );
+
+    if (currentDisplaySize.distanceTo(targetDisplaySize) < 0.001) return;
+
+    const newScale = computeScaleForWorldSize(object, targetSize);
+    if (object.scale.distanceTo(newScale) >= 0.001) {
+      editor.execute(new SetScaleCommand(editor, object, newScale));
+      applyFloorContactAfterScale(object);
+    }
+  }
+
+  function updateSizeFields(object) {
+    const size = worldSizeToMotionDisplay(
+      getObjectWorldSize(object),
+      object,
+      editor,
+    );
+    objectSizeX.setValue(size.x);
+    objectSizeY.setValue(size.y);
+    objectSizeZ.setValue(size.z);
+  }
+
   function update() {
     const object = editor.selected;
 
@@ -625,15 +724,7 @@ function SidebarObject(editor) {
       );
       if (object.scale.distanceTo(newScale) >= 0.01) {
         editor.execute(new SetScaleCommand(editor, object, newScale));
-        if (typeof object.userData.floorContactY === "number" && object.isMesh) {
-          const halfH = getMeshWorldHalfHeightY(object);
-          const newY = object.userData.floorContactY + halfH;
-          const newPos = new THREE.Vector3(object.position.x, newY, object.position.z);
-          if (Math.abs(object.position.y - newY) > 0.001) {
-            editor.execute(new SetPositionCommand(editor, object, newPos));
-          }
-          object.userData.minYPosition = newY;
-        }
+        applyFloorContactAfterScale(object);
       }
 
       if (
@@ -1042,9 +1133,11 @@ function SidebarObject(editor) {
     if (object.isLight) {
       objectRotationRow.setDisplay("none");
       objectScaleRow.setDisplay("none");
+      objectSizeRow.setDisplay("none");
     } else {
       objectRotationRow.setDisplay("");
       objectScaleRow.setDisplay("");
+      objectSizeRow.setDisplay("");
     }
   }
 
@@ -1090,6 +1183,8 @@ function SidebarObject(editor) {
     objectScaleX.setValue(object.scale.x);
     objectScaleY.setValue(object.scale.y);
     objectScaleZ.setValue(object.scale.z);
+
+    updateSizeFields(object);
 
     if (object.fov !== undefined) {
       objectFov.setValue(object.fov);
