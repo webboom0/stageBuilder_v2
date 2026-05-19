@@ -1,157 +1,157 @@
 import { UIPanel, UISelect, UIText } from './libs/ui.js';
 
 import {
-    GRID_MODE_ADAPTIVE,
-    GRID_MODE_FIXED,
+	GRID_MODE_ADAPTIVE,
+	GRID_MODE_FIXED,
 } from './utils/stageGridAdaptive.js';
 
-function ViewportControls(editor) {
+function ViewportControls( editor ) {
 
-    const signals = editor.signals;
-    const strings = editor.strings;
+	const signals = editor.signals;
+	const strings = editor.strings;
 
-    const container = new UIPanel();
-    container.setId('viewport-controls');
-    container.setPosition('absolute');
-    container.setRight('10px');
-    container.setTop('40px');
-    container.setColor('#ffffff');
-    container.setStyle('z-index', ['5']);
-    container.setStyle('display', ['flex']);
-    container.setStyle('flex-direction', ['row']);
-    container.setStyle('align-items', ['center']);
-    container.setStyle('align-items', ['flex-end']);
-    container.setStyle('gap', ['6px']);
-    container.setStyle('padding', ['8px 10px']);
-    container.setStyle('background', ['rgba(0,0,0,0.55)']);
-    container.setStyle('border-radius', ['6px']);
-    container.setStyle('pointer-events', ['auto']);
+	const container = new UIPanel();
+	container.setId( 'viewport-controls' );
+	container.setPosition( 'absolute' );
+	container.setRight( '10px' );
+	container.setTop( '40px' );
+	container.setColor( '#ffffff' );
+	container.setStyle( 'z-index', [ '5' ] );
+	container.setStyle( 'display', [ 'flex' ] );
+	container.setStyle( 'flex-direction', [ 'row' ] );
+	container.setStyle( 'align-items', [ 'center' ] );
+	container.setStyle( 'gap', [ '6px' ] );
+	container.setStyle( 'padding', [ '8px 10px' ] );
+	container.setStyle( 'background', [ 'rgba(0,0,0,0.55)' ] );
+	container.setStyle( 'border-radius', [ '6px' ] );
+	container.setStyle( 'pointer-events', [ 'auto' ] );
 
-    // camera
+	// camera
 
-    const cameraSelect = new UISelect();
-    cameraSelect.onChange(function() {
+	const cameraSelect = new UISelect();
 
-        editor.setViewportCamera(this.getValue());
+	cameraSelect.onChange( function () {
 
-    });
-    container.add(cameraSelect);
+		editor.setViewportCamera( this.getValue() );
 
-    signals.cameraAdded.add(update);
-    signals.cameraRemoved.add(update);
-    signals.objectChanged.add(function(object) {
+	} );
+	container.add( cameraSelect );
 
-        if (object.isCamera) {
+	signals.cameraAdded.add( update );
+	signals.cameraRemoved.add( update );
+	signals.objectChanged.add( function ( object ) {
 
-            update();
+		if ( object.isCamera ) {
 
-        }
+			update();
 
-    });
+		}
 
-    // shading
+	} );
 
-    const shadingSelect = new UISelect();
-    shadingSelect.setOptions({ 'realistic': 'realistic', 'solid': 'solid', 'normals': 'normals', 'wireframe': 'wireframe' });
-    shadingSelect.setValue('solid');
-    shadingSelect.onChange(function() {
+	// shading
 
-        editor.setViewportShading(this.getValue());
+	const shadingSelect = new UISelect();
+	shadingSelect.setOptions( { 'realistic': 'realistic', 'solid': 'solid', 'normals': 'normals', 'wireframe': 'wireframe' } );
+	shadingSelect.setValue( 'solid' );
+	shadingSelect.onChange( function () {
 
-    });
-    container.add(shadingSelect);
+		editor.setViewportShading( this.getValue() );
 
-    // grid mode (adaptive / fixed 1m display)
+	} );
+	container.add( shadingSelect );
 
-    const gridModeSelect = new UISelect();
-    gridModeSelect.setStyle('width', ['168px']);
-    gridModeSelect.setOptions({
-        [GRID_MODE_ADAPTIVE]: strings.getKey('viewport/controls/gridAdaptive'),
-        [GRID_MODE_FIXED]: strings.getKey('viewport/controls/gridFixed'),
-    });
-    gridModeSelect.setValue(
-        editor.config.getKey('viewport/gridMode') ? ? GRID_MODE_FIXED,
-    );
-    gridModeSelect.onChange(function() {
+	// grid mode (adaptive / fixed 1m display)
 
-        if (typeof container.setGridMode === 'function') {
+	const gridModeSelect = new UISelect();
+	gridModeSelect.setStyle( 'width', [ '168px' ] );
+	gridModeSelect.setOptions( {
+		[ GRID_MODE_ADAPTIVE ]: strings.getKey( 'viewport/controls/gridAdaptive' ),
+		[ GRID_MODE_FIXED ]: strings.getKey( 'viewport/controls/gridFixed' ),
+	} );
+	gridModeSelect.setValue(
+		editor.config.getKey( 'viewport/gridMode' ) ?? GRID_MODE_FIXED,
+	);
+	gridModeSelect.onChange( function () {
 
-            container.setGridMode(this.getValue());
+		if ( typeof container.setGridMode === 'function' ) {
 
-        }
+			container.setGridMode( this.getValue() );
 
-    });
-    container.add(gridModeSelect);
+		}
 
-    container.syncGridModeSelect = function(mode) {
+	} );
+	container.add( gridModeSelect );
 
-        gridModeSelect.setValue(mode);
+	container.syncGridModeSelect = function ( mode ) {
 
-    };
+		gridModeSelect.setValue( mode );
 
-    const gridScaleText = new UIText('');
-    gridScaleText.setFontSize('11px');
-    gridScaleText.setOpacity(0.88);
-    container.add(gridScaleText);
+	};
 
-    signals.sceneRendered.add(function() {
+	const gridScaleText = new UIText( '' );
+	gridScaleText.setFontSize( '11px' );
+	gridScaleText.setOpacity( 0.88 );
+	container.add( gridScaleText );
 
-        const scale = editor.viewportGridScale;
+	signals.sceneRendered.add( function () {
 
-        if (scale) {
+		const scale = editor.viewportGridScale;
 
-            gridScaleText.setValue(
-                `${ strings.getKey( 'viewport/info/gridScale' ) }: ${ scale.label }`,
-            );
+		if ( scale ) {
 
-        } else {
+			gridScaleText.setValue(
+				`${ strings.getKey( 'viewport/info/gridScale' ) }: ${ scale.label }`,
+			);
 
-            gridScaleText.setValue('');
+		} else {
 
-        }
+			gridScaleText.setValue( '' );
 
-    });
+		}
 
-    signals.editorCleared.add(function() {
+	} );
 
-        editor.setViewportCamera(editor.camera.uuid);
+	signals.editorCleared.add( function () {
 
-        shadingSelect.setValue('solid');
-        editor.setViewportShading(shadingSelect.getValue());
+		editor.setViewportCamera( editor.camera.uuid );
 
-    });
+		shadingSelect.setValue( 'solid' );
+		editor.setViewportShading( shadingSelect.getValue() );
 
-    signals.cameraResetted.add(update);
+	} );
 
-    update();
+	signals.cameraResetted.add( update );
 
-    //
+	update();
 
-    function update() {
+	//
 
-        const options = {};
+	function update() {
 
-        const cameras = editor.cameras;
+		const options = {};
 
-        for (const key in cameras) {
+		const cameras = editor.cameras;
 
-            const camera = cameras[key];
-            options[camera.uuid] = camera.name;
+		for ( const key in cameras ) {
 
-        }
+			const camera = cameras[ key ];
+			options[ camera.uuid ] = camera.name;
 
-        cameraSelect.setOptions(options);
+		}
 
-        const selectedCamera = (editor.viewportCamera.uuid in options) ?
-            editor.viewportCamera :
-            editor.camera;
+		cameraSelect.setOptions( options );
 
-        cameraSelect.setValue(selectedCamera.uuid);
-        editor.setViewportCamera(selectedCamera.uuid);
+		const selectedCamera = ( editor.viewportCamera.uuid in options )
+			? editor.viewportCamera
+			: editor.camera;
 
-    }
+		cameraSelect.setValue( selectedCamera.uuid );
+		editor.setViewportCamera( selectedCamera.uuid );
 
-    return container;
+	}
+
+	return container;
 
 }
 
