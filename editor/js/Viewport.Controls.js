@@ -1,14 +1,30 @@
-import { UIPanel, UISelect } from './libs/ui.js';
+import { UIPanel, UISelect, UIText } from './libs/ui.js';
+
+import {
+	GRID_MODE_ADAPTIVE,
+	GRID_MODE_FIXED,
+} from './utils/stageGridAdaptive.js';
 
 function ViewportControls( editor ) {
 
 	const signals = editor.signals;
+	const strings = editor.strings;
 
 	const container = new UIPanel();
+	container.setId( 'viewport-controls' );
 	container.setPosition( 'absolute' );
 	container.setRight( '10px' );
 	container.setTop( '10px' );
 	container.setColor( '#ffffff' );
+	container.setStyle( 'z-index', [ '5' ] );
+	container.setStyle( 'display', [ 'flex' ] );
+	container.setStyle( 'flex-direction', [ 'column' ] );
+	container.setStyle( 'align-items', [ 'flex-end' ] );
+	container.setStyle( 'gap', [ '6px' ] );
+	container.setStyle( 'padding', [ '8px 10px' ] );
+	container.setStyle( 'background', [ 'rgba(0,0,0,0.55)' ] );
+	container.setStyle( 'border-radius', [ '6px' ] );
+	container.setStyle( 'pointer-events', [ 'auto' ] );
 
 	// camera
 
@@ -45,6 +61,57 @@ function ViewportControls( editor ) {
 
 	} );
 	container.add( shadingSelect );
+
+	// grid mode (adaptive / fixed 1m display)
+
+	const gridModeSelect = new UISelect();
+	gridModeSelect.setStyle( 'width', [ '168px' ] );
+	gridModeSelect.setOptions( {
+		[ GRID_MODE_ADAPTIVE ]: strings.getKey( 'viewport/controls/gridAdaptive' ),
+		[ GRID_MODE_FIXED ]: strings.getKey( 'viewport/controls/gridFixed' ),
+	} );
+	gridModeSelect.setValue(
+		editor.config.getKey( 'viewport/gridMode' ) ?? GRID_MODE_FIXED,
+	);
+	gridModeSelect.onChange( function () {
+
+		if ( typeof container.setGridMode === 'function' ) {
+
+			container.setGridMode( this.getValue() );
+
+		}
+
+	} );
+	container.add( gridModeSelect );
+
+	container.syncGridModeSelect = function ( mode ) {
+
+		gridModeSelect.setValue( mode );
+
+	};
+
+	const gridScaleText = new UIText( '' );
+	gridScaleText.setFontSize( '11px' );
+	gridScaleText.setOpacity( 0.88 );
+	container.add( gridScaleText );
+
+	signals.sceneRendered.add( function () {
+
+		const scale = editor.viewportGridScale;
+
+		if ( scale ) {
+
+			gridScaleText.setValue(
+				`${ strings.getKey( 'viewport/info/gridScale' ) }: ${ scale.label }`,
+			);
+
+		} else {
+
+			gridScaleText.setValue( '' );
+
+		}
+
+	} );
 
 	signals.editorCleared.add( function () {
 

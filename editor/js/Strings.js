@@ -97,6 +97,8 @@ function Strings(config) {
 			'menubar/view': 'View',
 			'menubar/view/fullscreen': 'Fullscreen',
 			'menubar/view/gridHelper': 'Grid Helper',
+			'menubar/view/gridAdaptive': 'Grid unit: Auto',
+			'menubar/view/gridFixed': 'Grid unit: Fixed 1m',
 			'menubar/view/cameraHelpers': 'Camera Helpers',
 			'menubar/view/lightHelpers': 'Light Helpers',
 			'menubar/view/skeletonHelpers': 'Skeleton Helpers',
@@ -390,7 +392,10 @@ function Strings(config) {
 
 			'viewport/controls/grid': 'Grid',
 			'viewport/controls/helpers': 'Helpers',
+			'viewport/controls/gridAdaptive': 'Grid: Auto',
+			'viewport/controls/gridFixed': 'Grid: Fixed 1m',
 
+			'viewport/info/gridScale': 'Grid',
 			'viewport/info/object': 'Object',
 			'viewport/info/objects': 'Objects',
 			'viewport/info/vertex': 'Vertex',
@@ -500,6 +505,8 @@ function Strings(config) {
 			'menubar/view': 'View',
 			'menubar/view/fullscreen': 'Fullscreen',
 			'menubar/view/gridHelper': 'Assistant de grille',
+			'menubar/view/gridAdaptive': 'Grille : auto',
+			'menubar/view/gridFixed': 'Grille : 1 m fixe',
 			'menubar/view/cameraHelpers': 'Aides à la caméra',
 			'menubar/view/lightHelpers': 'Aides Lumière',
 			'menubar/view/skeletonHelpers': 'Aides squelettes',
@@ -793,7 +800,10 @@ function Strings(config) {
 
 			'viewport/controls/grid': 'Grille',
 			'viewport/controls/helpers': 'Helpers',
+			'viewport/controls/gridAdaptive': 'Grille : auto',
+			'viewport/controls/gridFixed': 'Grille : 1 m fixe',
 
+			'viewport/info/gridScale': 'Grille',
 			'viewport/info/object': 'Objet',
 			'viewport/info/objects': 'Objets',
 			'viewport/info/vertex': 'Sommet',
@@ -903,6 +913,8 @@ function Strings(config) {
 			'menubar/view': '视图',
 			'menubar/view/fullscreen': '全屏',
 			'menubar/view/gridHelper': '网格助手',
+			'menubar/view/gridAdaptive': '网格单位：自动',
+			'menubar/view/gridFixed': '网格单位：固定 1m',
 			'menubar/view/cameraHelpers': '相机助手',
 			'menubar/view/lightHelpers': '光助手',
 			'menubar/view/skeletonHelpers': '骷髅助手',
@@ -1196,7 +1208,10 @@ function Strings(config) {
 
 			'viewport/controls/grid': '网格',
 			'viewport/controls/helpers': '辅助',
+			'viewport/controls/gridAdaptive': '网格：自动',
+			'viewport/controls/gridFixed': '网格：固定 1m',
 
+			'viewport/info/gridScale': '网格',
 			'viewport/info/object': '物体',
 			'viewport/info/objects': '物体',
 			'viewport/info/vertex': '顶点',
@@ -1306,6 +1321,8 @@ function Strings(config) {
 			'menubar/view': '表示',
 			'menubar/view/fullscreen': 'フルスクリーン',
 			'menubar/view/gridHelper': 'グリッドヘルパー',
+			'menubar/view/gridAdaptive': 'グリッド：自動',
+			'menubar/view/gridFixed': 'グリッド：1m固定',
 			'menubar/view/cameraHelpers': 'カメラヘルパー',
 			'menubar/view/lightHelpers': 'ライトヘルパー',
 			'menubar/view/skeletonHelpers': 'スケルトンヘルパー',
@@ -1599,7 +1616,10 @@ function Strings(config) {
 
 			'viewport/controls/grid': 'グリッド',
 			'viewport/controls/helpers': 'オーバーレイ表示',
+			'viewport/controls/gridAdaptive': 'グリッド：自動',
+			'viewport/controls/gridFixed': 'グリッド：1m固定',
 
+			'viewport/info/gridScale': 'グリッド',
 			'viewport/info/object': 'オブジェクト',
 			'viewport/info/objects': 'オブジェクト',
 			'viewport/info/vertex': '頂点',
@@ -1708,6 +1728,8 @@ function Strings(config) {
 			'menubar/view': '보기',
 			'menubar/view/fullscreen': '전체 화면',
 			'menubar/view/gridHelper': '그리드 도우미',
+			'menubar/view/gridAdaptive': '격자 단위: 자동',
+			'menubar/view/gridFixed': '격자 단위: 1m 고정',
 			'menubar/view/cameraHelpers': '카메라 도우미',
 			'menubar/view/lightHelpers': '조명 도우미',
 			'menubar/view/skeletonHelpers': '골격 도우미',
@@ -2001,7 +2023,10 @@ function Strings(config) {
 
 			'viewport/controls/grid': '그리드',
 			'viewport/controls/helpers': '도우미 보기',
+			'viewport/controls/gridAdaptive': '격자: 자동',
+			'viewport/controls/gridFixed': '격자: 1m 고정',
 
+			'viewport/info/gridScale': '격자',
 			'viewport/info/object': '객체',
 			'viewport/info/objects': '객체',
 			'viewport/info/vertex': '버텍스',

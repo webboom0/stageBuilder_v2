@@ -21,21 +21,43 @@ function getUniqueFileName(dirPath, originalName) {
   return candidate;
 }
 
-// CORS 설정 - 더 유연하게 설정
-app.use(cors({
-  origin: function (origin, callback) {
-    // 개발 환경에서는 모든 origin 허용
-    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+// CORS — 에디터(127.0.0.1:3000) ↔ API(localhost:3001) 등 교차 origin 허용
+const CORS_ORIGINS = new Set([
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+]);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || CORS_ORIGINS.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      if (
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')
+      ) {
+        callback(null, true);
+        return;
+      }
       callback(null, true);
-    } else {
-      // 프로덕션 환경에서는 특정 도메인만 허용
-      callback(null, true); // 임시로 모든 origin 허용
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+    ],
+    optionsSuccessStatus: 204,
+  }),
+);
+
+app.options('*', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

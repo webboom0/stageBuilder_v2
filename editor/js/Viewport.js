@@ -21,6 +21,12 @@ import { getMeshWorldHalfHeightY } from "./utils/meshFloor.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { ViewportPathtracer } from "./Viewport.Pathtracer.js";
 import { ViewportObjectDimensions } from "./Viewport.ObjectDimensions.js";
+import { ViewportStageGrid } from "./ViewportStageGrid.js";
+import {
+  GRID_MODE_ADAPTIVE,
+  GRID_MODE_FIXED,
+  computeStageGridSizes,
+} from "./utils/stageGridAdaptive.js";
 
 function Viewport(editor) {
   const selector = editor.selector;
@@ -30,8 +36,24 @@ function Viewport(editor) {
   container.setId("viewport");
   container.setPosition("absolute");
 
-  container.add(new ViewportControls(editor));
+  const viewportControls = new ViewportControls(editor);
+  container.add(viewportControls);
   container.add(new ViewportInfo(editor));
+
+  viewportControls.setGridMode = function (mode) {
+    gridMode = mode;
+    editor.config.setKey("viewport/gridMode", mode);
+    if (typeof viewportControls.syncGridModeSelect === "function") {
+      viewportControls.syncGridModeSelect(mode);
+    }
+    render();
+  };
+  viewportControls.getGridMode = function () {
+    return gridMode;
+  };
+
+  editor.setViewportGridMode = viewportControls.setGridMode;
+  editor.getViewportGridMode = viewportControls.getGridMode;
 
   //
 
@@ -65,23 +87,17 @@ function Viewport(editor) {
 
   const grid = new THREE.Group();
 
-  const grid1 = new THREE.GridHelper(200, 200);
-  grid1.material.color.setHex(GRID_COLORS_LIGHT[0]);
-  grid1.material.vertexColors = false;
-  applyStageGridOverlay(grid1.material);
-  grid1.material.transparent = true;
-  grid1.material.opacity = 0.8;
-  grid1.renderOrder = 1000;
-  grid.add(grid1);
+  const stageGrid = new ViewportStageGrid({
+    minorColor: GRID_COLORS_LIGHT[0],
+    majorColor: GRID_COLORS_LIGHT[1],
+    opacity: 0.9,
+  });
+  stageGrid.applyOverlaySettings();
+  grid.add(stageGrid);
 
-  const grid2 = new THREE.GridHelper(60, 12);
-  grid2.material.color.setHex(GRID_COLORS_LIGHT[1]);
-  grid2.material.vertexColors = false;
-  applyStageGridOverlay(grid2.material);
-  grid2.material.transparent = true;
-  grid2.material.opacity = 0.9;
-  grid2.renderOrder = 1001;
-  grid.add(grid2);
+  let gridMode =
+    editor.config.getKey("viewport/gridMode") ?? GRID_MODE_FIXED;
+  editor.viewportGridScale = null;
 
   // 초기 상태: 그리드 숨김
   grid.visible = false;
@@ -601,8 +617,7 @@ function Viewport(editor) {
       mediaQuery.addEventListener("change", function (event) {
         renderer.setClearColor(event.matches ? 0x333333 : 0xaaaaaa);
         updateGridColors(
-          grid1,
-          grid2,
+          stageGrid,
           event.matches ? GRID_COLORS_DARK : GRID_COLORS_LIGHT
         );
 
@@ -611,8 +626,7 @@ function Viewport(editor) {
 
       renderer.setClearColor(mediaQuery.matches ? 0x333333 : 0xaaaaaa);
       updateGridColors(
-        grid1,
-        grid2,
+        stageGrid,
         mediaQuery.matches ? GRID_COLORS_DARK : GRID_COLORS_LIGHT
       );
     }
@@ -1044,7 +1058,21 @@ function Viewport(editor) {
 
     if (camera === editor.viewportCamera) {
       renderer.autoClear = false;
-      if (grid.visible === true) renderer.render(grid, camera);
+      if (grid.visible === true) {
+        const gridSizes = computeStageGridSizes(
+          editor,
+          camera,
+          controls.center,
+          container.dom.offsetHeight,
+          gridMode,
+        );
+        stageGrid.setCellSizes(gridSizes.minorWorld, gridSizes.majorWorld);
+        stageGrid.followCenter(controls.center, STAGE_DECK_HELPER_Y);
+        editor.viewportGridScale = gridSizes;
+        renderer.render(grid, camera);
+      } else {
+        editor.viewportGridScale = null;
+      }
       if (sceneHelpers.visible === true) renderer.render(sceneHelpers, camera);
       objectDimensions.render(camera);
       if (renderer.xr.isPresenting !== true) viewHelper.render(renderer);
@@ -1058,9 +1086,8 @@ function Viewport(editor) {
   return container;
 }
 
-function updateGridColors(grid1, grid2, colors) {
-  grid1.material.color.setHex(colors[0]);
-  grid2.material.color.setHex(colors[1]);
+function updateGridColors(stageGrid, colors) {
+  stageGrid.setColors(colors[0], colors[1]);
 }
 
 export { Viewport };

@@ -4,6 +4,10 @@ import {
 	setCeilingTransparencyForTopView,
 	STAGE_CAMERA_PRESETS
 } from './stageCameraView.js';
+import {
+	GRID_MODE_ADAPTIVE,
+	GRID_MODE_FIXED,
+} from './utils/stageGridAdaptive.js';
 
 function MenubarView(editor) {
 
@@ -69,6 +73,39 @@ function MenubarView(editor) {
 		signals.showHelpersChanged.dispatch(states);
 	}).toggleClass('toggle-on', states.gridHelper);
 	helperSubmenu.add(option);
+
+	let viewportGridMode =
+		editor.config.getKey('viewport/gridMode') ?? GRID_MODE_FIXED;
+
+	function applyViewportGridMode(mode) {
+		viewportGridMode = mode;
+		editor.config.setKey('viewport/gridMode', mode);
+		if (typeof editor.setViewportGridMode === 'function') {
+			editor.setViewportGridMode(mode);
+		}
+		gridModeAdaptiveRow.toggleClass('toggle-on', mode === GRID_MODE_ADAPTIVE);
+		gridModeFixedRow.toggleClass('toggle-on', mode === GRID_MODE_FIXED);
+	}
+
+	const gridModeAdaptiveRow = new UIRow()
+		.addClass('option')
+		.addClass('toggle')
+		.setTextContent(strings.getKey('menubar/view/gridAdaptive'))
+		.onClick(function () {
+			applyViewportGridMode(GRID_MODE_ADAPTIVE);
+		})
+		.toggleClass('toggle-on', viewportGridMode === GRID_MODE_ADAPTIVE);
+	helperSubmenu.add(gridModeAdaptiveRow);
+
+	const gridModeFixedRow = new UIRow()
+		.addClass('option')
+		.addClass('toggle')
+		.setTextContent(strings.getKey('menubar/view/gridFixed'))
+		.onClick(function () {
+			applyViewportGridMode(GRID_MODE_FIXED);
+		})
+		.toggleClass('toggle-on', viewportGridMode === GRID_MODE_FIXED);
+	helperSubmenu.add(gridModeFixedRow);
 
 	// Guide Helper
 	option = new UIRow().addClass('option').addClass('toggle').setTextContent('가이드 도우미').onClick(function () {

@@ -8,6 +8,14 @@ import * as THREE from "three";
 export const MOTION_DISPLAY_REFERENCE_HEIGHT = 1.7;
 export const MOTION_WORLD_REFERENCE_HEIGHT_DEFAULT = 27;
 
+/**
+ * 속성창 크기(m)와 같은 표시 m 기준 격자 칸 너비.
+ * 굵은 칸 = 1m 사각형 (1m 박스가 바닥에서 굵은 칸 1×1).
+ */
+export const STAGE_DISPLAY_GRID_MAJOR_CELL_M = 1;
+/** 얇은 칸 (같은 1m 안을 나누지 않음 — 굵은 칸과 동일 간격, 선만 옅게) */
+export const STAGE_DISPLAY_GRID_CELL_M = 1;
+
 const STAGE_INFRA_NAMES = new Set([
   "Stage",
   "_Background",
@@ -137,6 +145,37 @@ function getSceneMotionDisplayFactor(editor, object = null) {
 /** @deprecated alias */
 const getMotionDisplayFactor = getSceneMotionDisplayFactor;
 
+/**
+ * 격자 ↔ 속성창 크기(m) 동일 환산.
+ * 모션 import 후 씬 factor 우선, 없으면 mesh/motion 표기와 같은 factor 사용.
+ */
+function getStageGridDisplayFactor(editor) {
+  const sceneFactor = editor?.scene?.userData?.motionDisplayFactor;
+  if (typeof sceneFactor === "number" && sceneFactor > 1e-9) {
+    return sceneFactor;
+  }
+
+  if (editor?.scene) {
+    for (let i = 0; i < editor.scene.children.length; i++) {
+      const child = editor.scene.children[i];
+      if (getMotionRoot(child) || getMeshRoot(child)) {
+        return getSceneMotionDisplayFactor(editor, child);
+      }
+    }
+  }
+
+  return 1;
+}
+
+/** 표시 m → 월드 격자 칸 (모션 환산 씬에서 1m 표시 = 굵은 칸 1개) */
+function getStageGridWorldCellSize(editor) {
+  return STAGE_DISPLAY_GRID_CELL_M / getStageGridDisplayFactor(editor);
+}
+
+function getStageGridWorldMajorCellSize(editor) {
+  return STAGE_DISPLAY_GRID_MAJOR_CELL_M / getStageGridDisplayFactor(editor);
+}
+
 function worldSizeToMotionDisplay(worldSize, object, editor) {
   if (!usesStageDisplayUnits(object, editor)) return worldSize.clone();
 
@@ -189,6 +228,9 @@ export {
   usesMotionDisplayUnits,
   getSceneMotionDisplayFactor,
   getMotionDisplayFactor,
+  getStageGridDisplayFactor,
+  getStageGridWorldCellSize,
+  getStageGridWorldMajorCellSize,
   worldSizeToMotionDisplay,
   motionDisplayToWorldSize,
   captureMotionWorldReferenceHeight,

@@ -4,7 +4,8 @@ const _box = new THREE.Box3();
 const _size = new THREE.Vector3();
 
 /**
- * 월드 축 정렬 바운딩 박스 크기 (그리드와 동일하게 1 unit = 1m).
+ * 월드 축 정렬 바운딩 박스 크기.
+ * 표시 m는 motionDisplayUnits로 환산. 그리드 굵은 칸 = 표시 1m.
  * @param {THREE.Object3D} object
  * @returns {THREE.Vector3}
  */
